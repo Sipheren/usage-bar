@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
     cat <<'USAGE'
-Usage: scripts/qa/capture.sh <output.png> [--window | --menu | --rect X,Y,W,H] [--help]
+Usage: macos/scripts/qa/capture.sh <output.png> [--window | --menu | --rect X,Y,W,H] [--help]
 
 Takes a real screenshot of the main display and keeps only the part you ask for. The full-screen
 capture is deleted straight away (it shows everything on screen).
@@ -33,11 +33,11 @@ while [[ $# -gt 0 ]]; do
     shift
 done
 
-ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-HELPER="$ROOT/build/qa/window-bounds"
-if [[ ! -x "$HELPER" || "$ROOT/scripts/qa/window-bounds.swift" -nt "$HELPER" ]]; then
-    mkdir -p "$ROOT/build/qa"
-    xcrun swiftc -O "$ROOT/scripts/qa/window-bounds.swift" -o "$HELPER"
+MAC_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"   # macos/
+HELPER="$MAC_ROOT/build/qa/window-bounds"
+if [[ ! -x "$HELPER" || "$MAC_ROOT/scripts/qa/window-bounds.swift" -nt "$HELPER" ]]; then
+    mkdir -p "$MAC_ROOT/build/qa"
+    xcrun swiftc -O "$MAC_ROOT/scripts/qa/window-bounds.swift" -o "$HELPER"
 fi
 
 if [[ "$MODE" == "rect" ]]; then

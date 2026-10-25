@@ -15,7 +15,8 @@ Scans files for secrets and personal data, and exits 1 if it finds any.
   --help     show this help
 
 Looks for: Anthropic keys and tokens, JWTs, sessionKey cookie values, access/refresh token values,
-PEM private keys, AWS and GitHub tokens, email addresses, home-folder paths under /Users, UUIDs, and
+PEM private keys, AWS and GitHub tokens, email addresses, home-folder paths (under /Users/ on
+macOS or C:\Users\ on Windows), UUIDs, and
 any extra patterns in SECRET_SCAN_PRIVATE_PATTERNS from config/local.env (names, employer, hostname...).
 Allowed: example.com/.org/.net addresses, plus the exact emails and UUIDs listed in
 scripts/secret-scan-allow.txt (the maintainer's published address, synthetic test ids).
@@ -74,7 +75,8 @@ list_files() {
             { git ls-files; git ls-files --others --exclude-standard; } | sort -u
         fi
     else
-        find . \( -path ./.git -o -path ./.build -o -path ./build -o -path ./.swiftpm -o -path ./screens \) -prune \
+        find . \( -path ./.git -o -path ./macos/.build -o -path ./macos/build -o -path ./macos/.swiftpm \
+            -o -path ./screens \) -prune \
             -o -type f -print | sed 's|^\./||' | sort | while IFS= read -r f; do
             is_ignored "$f" || printf '%s\n' "$f"
         done
@@ -85,6 +87,13 @@ FILES=()
 while IFS= read -r f; do
     [[ -n "$f" && -f "$f" ]] && FILES+=("$f")
 done < <(list_files)
+
+# Nothing to scan (e.g. a commit that only deletes files). Bash 3.2 treats "${FILES[@]}" on an empty
+# array as unbound under set -u, so stop here.
+if [[ ${#FILES[@]} -eq 0 ]]; then
+    [[ $LIST_ONLY -eq 1 ]] || echo "check-secrets: no files to scan."
+    exit 0
+fi
 
 if [[ $LIST_ONLY -eq 1 ]]; then
     printf '%s\n' "${FILES[@]}"
@@ -102,7 +111,7 @@ is_allowed() {
             # Retina asset names such as Icon@2x.png are not addresses.
             [[ "$lower" =~ @[0-9]x\.(png|jpe?g|gif|pdf|tiff?)$ ]] && return 0 ;;
         home-path)
-            [[ "$m" == "/Users/Shared"* ]] && return 0 ;;
+            [[ "$m" == "/Users/Shared"* || "$lower" =~ users\\+public$ ]] && return 0 ;;
         uuid)
             [[ -f "$ALLOW_FILE" ]] && $GREP -qixF -- "$m" "$ALLOW_FILE" && return 0 ;;
     esac
@@ -120,6 +129,7 @@ CHECKS=(
     "github-token|(gh[pousr]_[A-Za-z0-9]{36,}|github_pat_[A-Za-z0-9_]{22,})"
     "email|[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}"
     "home-path|/Users/[A-Za-z0-9._-]+"
+    "home-path|[A-Za-z]:\\\\+Users\\\\+[A-Za-z0-9._-]+"
     "uuid|[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}"
 )
 [[ -n "$PRIVATE_PATTERNS" ]] && CHECKS+=("private-word|$PRIVATE_PATTERNS")

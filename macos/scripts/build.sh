@@ -1,14 +1,14 @@
 #!/bin/bash
-# Builds Usage Bar into build/Usage Bar.app, signs it, and (by default) installs it to /Applications.
+# Builds Usage Bar into macos/build/Usage Bar.app, signs it, and (by default) installs it to /Applications.
 set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/build.sh [--no-install | --replace] [--help]
+Usage: macos/scripts/build.sh [--no-install | --replace] [--help]
 
-Builds "Usage Bar.app" in build/, signs it, installs it to /Applications and opens it.
+Builds "Usage Bar.app" in macos/build/, signs it, installs it to /Applications and opens it.
 
-  --no-install   Build and sign build/Usage Bar.app only. Never touches /Applications or a running copy.
+  --no-install   Build and sign macos/build/Usage Bar.app only. Never touches /Applications or a running copy.
   --replace      Quit the running copy first (waits up to 10 s), then install and open.
   --help         Show this help.
 
@@ -19,7 +19,7 @@ Signing identity, first match wins:
   2. USAGEBAR_SIGN_IDENTITY in config/local.env (not tracked; copy config/local.env.example)
   3. ad-hoc signing, with a warning: Keychain and Full Disk Access grants won't survive rebuilds
 
-Version: VERSION holds the marketing version. In a git checkout the build number is the commit
+Version: macos/VERSION holds the marketing version. In a git checkout the build number is the commit
 count and the short commit hash is shown in About; elsewhere the build number is a timestamp.
 EOF
 }
@@ -35,28 +35,30 @@ for arg in "$@"; do
     esac
 done
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+# MAC_ROOT is macos/ (the Swift package); REPO_ROOT holds config/, design/ and .git.
+MAC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+REPO_ROOT="$(cd "$MAC_ROOT/.." && pwd)"
 APP_NAME="Usage Bar"
-BUNDLE="$ROOT/build/$APP_NAME.app"
+BUNDLE="$MAC_ROOT/build/$APP_NAME.app"
 INSTALLED="/Applications/$APP_NAME.app"
 EXEC="UsageBar"
 BUNDLE_ID="com.sipheren.usagebar"
-ICON_DOC="$ROOT/design/icon/AppIcon.icon"
+ICON_DOC="$REPO_ROOT/design/icon/AppIcon.icon"
 
-[[ -f "$ROOT/VERSION" ]] || { echo "error: VERSION file missing" >&2; exit 1; }
-VERSION="$(tr -d '[:space:]' < "$ROOT/VERSION")"
+[[ -f "$MAC_ROOT/VERSION" ]] || { echo "error: macos/VERSION file missing" >&2; exit 1; }
+VERSION="$(tr -d '[:space:]' < "$MAC_ROOT/VERSION")"
 BUILD_DATE="$(date '+%d %b %Y %H:%M')"
 GIT_COMMIT=""
-if [[ -d "$ROOT/.git" ]] && command -v git >/dev/null 2>&1; then
-    BUILD_NUMBER="$(git -C "$ROOT" rev-list --count HEAD 2>/dev/null || true)"
-    GIT_COMMIT="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || true)"
+if [[ -e "$REPO_ROOT/.git" ]] && command -v git >/dev/null 2>&1; then
+    BUILD_NUMBER="$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null || true)"
+    GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse --short HEAD 2>/dev/null || true)"
 fi
 [[ -n "${BUILD_NUMBER:-}" ]] || BUILD_NUMBER="$(date +%Y%m%d%H%M)"
 
 # Signing identity: environment first, then config/local.env, else ad-hoc.
-if [[ -z "${USAGEBAR_SIGN_IDENTITY:-}" && -f "$ROOT/config/local.env" ]]; then
+if [[ -z "${USAGEBAR_SIGN_IDENTITY:-}" && -f "$REPO_ROOT/config/local.env" ]]; then
     # shellcheck disable=SC1091
-    set -a; . "$ROOT/config/local.env"; set +a
+    set -a; . "$REPO_ROOT/config/local.env"; set +a
 fi
 IDENTITY="${USAGEBAR_SIGN_IDENTITY:-}"
 if [[ -z "$IDENTITY" ]]; then
@@ -85,7 +87,7 @@ if [[ $NO_INSTALL -eq 0 && $REPLACE -eq 0 ]] && is_running; then
 fi
 
 echo "==> swift build -c release (version $VERSION, build $BUILD_NUMBER${GIT_COMMIT:+, $GIT_COMMIT})"
-cd "$ROOT"
+cd "$MAC_ROOT"
 swift build -c release
 BIN="$(swift build -c release --show-bin-path)/$EXEC"
 [[ -x "$BIN" ]] || { echo "error: built binary not found at $BIN" >&2; exit 1; }
@@ -100,7 +102,7 @@ cp "$BIN" "$BUNDLE/Contents/MacOS/$EXEC"
 ICON_PLIST=""
 if [[ -d "$ICON_DOC" ]]; then
     echo "==> Compiling the app icon with actool"
-    ICON_TMP="$ROOT/build/icon-compile"
+    ICON_TMP="$MAC_ROOT/build/icon-compile"
     rm -rf "$ICON_TMP"; mkdir -p "$ICON_TMP"
     xcrun actool "$ICON_DOC" --compile "$ICON_TMP" --app-icon AppIcon --platform macosx \
         --minimum-deployment-target 26.0 --target-device mac \
@@ -153,7 +155,7 @@ $ICON_PLIST
     <key>UBGitCommit</key>
     <string>$GIT_COMMIT</string>
     <key>UBProjectPath</key>
-    <string>$ROOT</string>
+    <string>$REPO_ROOT</string>
 </dict>
 </plist>
 PLIST

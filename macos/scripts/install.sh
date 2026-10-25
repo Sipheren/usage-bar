@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/install.sh [--skip-tests] [--help]
+Usage: macos/scripts/install.sh [--skip-tests] [--help]
 
 Checks the Mac, runs the test suite, then builds, signs and installs "/Applications/Usage Bar.app",
 replacing a running copy. Safe to run again: it is also how you update.
@@ -26,8 +26,8 @@ for arg in "$@"; do
     esac
 done
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-cd "$ROOT"
+MAC_ROOT="$(cd "$(dirname "$0")/.." && pwd)"   # macos/, the Swift package
+cd "$MAC_ROOT"
 
 fail() { echo "error: $*" >&2; exit 1; }
 ok() { echo "  ok   $*"; }
@@ -58,7 +58,7 @@ if [[ $SKIP_TESTS -eq 0 ]]; then
 fi
 
 echo "==> Building and installing"
-"$ROOT/scripts/build.sh" --replace
+"$MAC_ROOT/scripts/build.sh" --replace
 
 cat <<'EOF'
 
@@ -73,5 +73,5 @@ First run:
        then quit and reopen Usage Bar (macOS applies the grant on the next launch).
   3. Optional: Settings… > General > Launch at login.
 
-Details: README.md, "First-run setup".
+Details: macos/README.md, "First-run setup".
 EOF

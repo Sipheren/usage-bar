@@ -2,15 +2,15 @@
 
 > Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).
 
+Usage Bar shows your Claude plan limits for two accounts at once, right in the menu bar: the 5-hour
+session, the weekly limit and any model-scoped weekly limit, each with a pace marker. It also
+estimates what your Claude Code usage would cost at API prices.
+
+It reads sign-ins you already have (Claude Code, the Claude desktop app, or a browser session). It has
+no sign-in flow of its own, never writes to another app's files and never stores a token.
+
 MIT licensed (see [LICENSE](LICENSE)). Usage Bar is an independent project, not made or endorsed by
 Anthropic.
-
-Usage Bar is a macOS menu bar app that shows your Claude plan limits for two accounts at once:
-the 5-hour session, the weekly limit and any model-scoped weekly limit. It also estimates what your
-Claude Code usage would cost at API prices.
-
-It reads sign-ins you already have (Claude Code, the Claude app, or Safari). It has no sign-in flow
-of its own, never writes to another app's files and never stores a token.
 
 ![Menu bar](docs/images/menubar.png)
 
@@ -22,192 +22,82 @@ of its own, never writes to another app's files and never stores a token.
 |---|---|---|
 | ![General settings](docs/images/settings-general.png) | ![Account settings](docs/images/settings-accounts.png) | ![About](docs/images/settings-about.png) |
 
-The screenshots use demo mode, so every number and name in them is made up.
+The screenshots come from the macOS app in demo mode, so every number and name in them is made up.
+
+## Platforms
+
+| Platform | Status | Folder | Details |
+|---|---|---|---|
+| macOS 26 or later, Apple silicon | Available (0.2.0) | `macos/` | [macos/README.md](macos/README.md) |
+| Windows | Planned | `windows/` (not started) | [docs/PORTING.md](docs/PORTING.md) |
+
+The macOS app is the reference implementation. Every platform follows the same data contract
+([docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)) and product spec ([docs/SPEC.md](docs/SPEC.md)).
 
 ## Features
 
 - Two (or three) accounts side by side, each with its own colour and tag.
-- Menu bar styles: Bars (default), Percentages (`P 20% / 60%`), Compact (`P 20·60`) or Icon only. The
-  label is always monochrome; usage never changes its colour.
-- Dropdown with each limit's percentage, reset time, a pace marker and a pace sentence such as
+- A monochrome menu bar label: Bars (default), Percentages (`P 20% / 60%`), Compact (`P 20·60`) or
+  Icon only. Usage never changes its colour.
+- A dropdown with each limit's percentage, reset time, a pace marker and a pace sentence such as
   "7% under pace · lasts until reset" or "12% over pace · runs out around Wed 7 pm".
-- Cost estimate from this Mac's Claude Code logs: today, last 30 days, tokens, a 30-day chart and the
-  top model, at current API prices, in the currency you pick (AUD by default; USD, EUR, GBP, NZD,
-  CAD, JPY, or your own locale's currency).
+- A cost estimate from the Claude Code logs on that computer: today, last 30 days, tokens, a 30-day
+  chart and the top model, at current API prices, in the currency you pick (AUD by default; USD, EUR,
+  GBP, NZD, CAD, JPY, or your own locale's currency).
 - Extra usage (pay-as-you-go credits) when the plan has it.
 - Rate-limit friendly: a 429 pauses one account and keeps its last numbers on screen.
-- Launch at login (off by default).
 
-## Requirements
+## Quick start
 
-- macOS 26 or later on Apple silicon.
-- Xcode 26 or later (Swift 6.2 or later). The project builds with Xcode 27.1 and Swift 6.4.
-- For the Claude Code source: Claude Code signed in on this Mac.
-- For the Claude app source: the Claude desktop app signed in.
-- For the Safari source: claude.ai signed in in Safari, and Full Disk Access for Usage Bar.
+### macOS
+
+```bash
+git clone <this repository's URL> usage-bar
+cd usage-bar
+scripts/setup-dev.sh          # git hooks and config/local.env
+macos/scripts/install.sh      # checks, tests, build, sign, install, open
+```
+
+Then open the menu bar item, choose **Settings… > Accounts** and pick a sign-in source for each
+account. Requirements, signing, permissions, uninstalling and troubleshooting:
+[macos/README.md](macos/README.md).
+
+### Windows
+
+Not available yet. The port will live in `windows/`; start from [docs/PORTING.md](docs/PORTING.md).
 
 ## Using it with friends
 
-Anyone with a Mac that meets the requirements can build and run their own copy.
-
 - Each person needs their own Claude account (a Pro or Max plan shows the most limits). Usage Bar
-  shows the accounts signed in on that Mac; it can't see anyone else's.
-- In **Settings… > Accounts**, each account picks its sign-in source: the Claude Code login, the
-  Claude app login, or a claude.ai session in Safari. Set up whichever ones that person uses.
-- No data leaves their Mac except the requests listed under "Privacy and security": calls to
-  Anthropic for usage and profile, and one daily exchange-rate request when costs show in a currency
-  other than US dollars.
-- Builds work without a code-signing identity (ad-hoc), but macOS then forgets the Keychain and Full
-  Disk Access permissions after each rebuild. A free Apple developer account or a self-signed
-  code-signing certificate fixes that; see "Install".
+  shows the accounts signed in on that computer; it can't see anyone else's.
+- Each account picks its own sign-in source: the Claude Code login, the Claude desktop app login, or
+  a claude.ai browser session (Safari on macOS).
+- No data leaves the computer except requests to Anthropic for usage and profile, and one daily
+  exchange-rate request when costs show in a currency other than US dollars. The full list is in
+  [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
-## Install
-
-```bash
-scripts/install.sh
-```
-
-The script checks the Mac, runs the tests, builds, signs, installs `/Applications/Usage Bar.app`
-(quitting a running copy first) and opens it. Add `--skip-tests` to skip the tests.
-
-Signing: macOS remembers permission grants (Keychain, Full Disk Access, Login Items) per signing
-identity. Put a stable code-signing identity in `config/local.env` so the grants survive rebuilds:
-
-```bash
-cp config/local.env.example config/local.env
-security find-identity -v -p codesigning     # pick a name from this list
-# then set USAGEBAR_SIGN_IDENTITY="<that name>" in config/local.env
-```
-
-Without one, `build.sh` signs ad-hoc and warns you that every rebuild resets those grants.
-
-## First-run setup
-
-Open the menu bar item, then **Settings… > Accounts**. Each account has a **Sign-in source**:
-
-| Source | What it reads | Permission | What you do |
-|---|---|---|---|
-| Claude Code login | Claude Code's own Keychain item, through `/usr/bin/security` | None | Sign in to Claude Code once (`claude`). |
-| Claude app login | The Claude desktop app's saved sign-in, decrypted with its "Claude Safe Storage" key | Keychain access to "Claude Safe Storage" | Click **Connect…**, then **Always Allow** in the macOS prompt. |
-| Safari session | Safari's claude.ai cookies | Full Disk Access | Click **Open Privacy Settings…**, turn on Usage Bar, then quit and reopen Usage Bar. |
-
-macOS applies a new Full Disk Access grant only to apps launched after you grant it, so the reopen
-step matters. The status row turns green with the account's email or organization when a source
-works, and names the exact problem when it doesn't.
-
-## Using it
-
-- Click the menu bar item for the dropdown. **Refresh Now** (⌘R) fetches immediately.
-- **Settings… > General** sets the menu bar style, which limits it shows, the dropdown layout, the
-  refresh interval (1, 2, 5 or 10 minutes), Launch at login and the cost currency. Extra-usage amounts
-  always stay in the currency your Claude plan bills in.
-- **Settings… > Accounts** renames accounts, sets their tag and colour, and picks each sign-in source.
-- The pace marker on each bar shows where usage would be if you spread it evenly over the window.
-
-## Updating
-
-```bash
-git pull && scripts/install.sh
-```
-
-## Uninstalling
-
-```bash
-scripts/uninstall.sh --dry-run   # see what it would remove
-scripts/uninstall.sh             # asks before removing anything
-```
-
-The script removes the login item, the app, its data folder and its preferences. Two grants need
-removing by hand, and the script prints the steps: the Full Disk Access entry, and the Keychain
-"Always Allow" on Claude Safe Storage.
-
-## Where data lives
-
-| What | Where |
-|---|---|
-| Settings, exchange rate, account emails | Preferences, domain `com.sipheren.usagebar` |
-| Last usage numbers and fetch times per account | `~/Library/Application Support/UsageBar/state.json` |
-| Claude Code cost cache (token counts only) | `~/Library/Application Support/UsageBar/cost-cache.json` |
-| Logs | Unified log, subsystem `com.sipheren.usagebar` |
-
-Read the logs with the full path (in zsh, plain `log` is a shell builtin). macOS keeps info lines
-(successful fetches, cost scans) in memory only, so only `stream` shows them; notice and error lines
-(429s, failures, demo mode starting) stay on disk for `show`:
-
-```bash
-/usr/bin/log stream --predicate 'subsystem == "com.sipheren.usagebar"' --level info
-/usr/bin/log show --last 1h --predicate 'subsystem == "com.sipheren.usagebar"' --info
-```
-
-## Privacy and security
-
-- Read-only. Usage Bar never refreshes, writes or deletes another app's tokens, cookies, files or
-  Keychain items.
-- No stored secrets. Tokens and cookies live in memory for one request and nowhere else. Logs hold
-  statuses, HTTP codes and counts, never tokens, cookies, emails or organization names.
-- The cost cache holds token counts per day and model, never message content.
-- Every network request it makes:
-
-| Endpoint | Why | Sends |
-|---|---|---|
-| `GET https://api.anthropic.com/api/oauth/usage` | Plan limits | The account's OAuth access token |
-| `GET https://api.anthropic.com/api/oauth/profile` | Account email and organization | Same token |
-| `GET https://claude.ai/api/organizations` | Organizations for a cookie sign-in | The claude.ai session cookie |
-| `GET https://claude.ai/api/organizations/{id}/usage` | Plan limits for a cookie sign-in | Same cookie |
-| `GET https://open.er-api.com/v6/latest/USD` | Exchange rates, at most once a day, only when costs show in a currency other than USD | Nothing about you |
-
-Details: [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
-
-## Troubleshooting
-
-**"Paused by rate limit · retrying 6:40 am".** Anthropic answered 429. Usage Bar keeps the last numbers,
-waits for the Retry-After time (5 minutes if none) and tries again. Repeated relaunches and Refresh Now
-clicks cause most 429s; a launch skips any account fetched within the refresh interval.
-
-**Safari source still says "Give Usage Bar Full Disk Access" after you granted it.** Quit Usage Bar
-from its menu and open it again. macOS applies the grant on the next launch.
-
-**"No claude.ai sign-in found in Safari".** Sign in at claude.ai in Safari, then click Refresh Now.
-
-**Keychain prompt for "Claude Safe Storage".** That's the Claude app source asking once. Choose
-**Always Allow**. If you clicked Deny, click **Connect…** in Accounts to ask again.
-
-**Costs show in US$ although you picked another currency.** Usage Bar shows US dollars until it has
-that currency's rate; it fetches the rate as soon as you pick one. Check the Exchange rate row in
-General.
-
-**The app icon has a grey frame, or Finder shows an old icon.** Rebuild with `scripts/install.sh`
-(the icon comes from `design/icon/AppIcon.icon`). If Finder still shows the old one, macOS is using a
-cached copy:
-
-```bash
-touch "/Applications/Usage Bar.app" && killall Dock
-```
-
-**Anything else.** Check the logs (above), then [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
-
-## Project layout
+## Repository layout
 
 ```
-Sources/UsageBarCore/   Logic with no UI: decoding, pace, formatting, pricing, cost scanner, credentials
-Sources/UsageBar/       The app: menu bar item, dropdown, Settings window, debug commands, demo data
-Tests/UsageBarTests/    XCTest suite (synthetic data only)
-design/icon/            App icon source (Icon Composer document and the script that draws it)
-design/spark/           The menu bar spark: the tracing script and an SVG preview of the vector
-mockup/                 The original HTML design mockups
-scripts/                build, install, uninstall, check-secrets, setup-dev, qa/capture
-config/                 local.env.example (copy to local.env, which git ignores)
-docs/                   Architecture, data sources, development, decisions, porting, spec, devlog
+macos/             The macOS app: Swift package (Sources/, Tests/), VERSION, scripts/, README.md
+docs/              Shared docs: data sources (the cross-platform contract), spec, decisions, porting,
+                   devlog, screenshots; docs/macos/ holds the macOS architecture and development notes
+design/            Shared design assets: icon/ (app icon), spark/ (the tray/menu bar spark as SVG),
+                   mockup/ (the original HTML mockups)
+scripts/           Repository-wide scripts: setup-dev.sh, check-secrets.sh and its allow list
+config/            local.env.example (copy to local.env, which git ignores)
+.githooks/         pre-commit: runs scripts/check-secrets.sh on staged files
 ```
 
 ## Documentation
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): modules, data flow, polling, cost scanner, rendering.
-- [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md): each sign-in source, endpoints, response shapes, prices.
-- [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md): build, test, debug commands, screenshot QA, rules.
-- [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are.
-- [docs/PORTING.md](docs/PORTING.md): what carries over to Windows and Linux.
+- [AGENTS.md](AGENTS.md): working rules for coding agents on any platform. Read it first.
+- [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md): sign-in sources, endpoints, response shapes, log
+  format, prices.
 - [docs/SPEC.md](docs/SPEC.md): the product spec.
+- [docs/PORTING.md](docs/PORTING.md): starting brief for the Windows port.
+- [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are.
+- [docs/macos/ARCHITECTURE.md](docs/macos/ARCHITECTURE.md) and
+  [docs/macos/DEVELOPMENT.md](docs/macos/DEVELOPMENT.md): the macOS app's internals and workflow.
 - [docs/DEVLOG.md](docs/DEVLOG.md) and [CHANGELOG.md](CHANGELOG.md): history.
-- [AGENTS.md](AGENTS.md): working rules for coding agents.
 - [LICENSE](LICENSE): MIT.

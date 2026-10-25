@@ -1,9 +1,16 @@
-# Build output
-.build/
-build/
-.swiftpm/
+# macOS build output (SwiftPM and the app bundle)
+macos/.build/
+macos/build/
+macos/.swiftpm/
 xcuserdata/
 *.xcuserstate
+
+# Windows build output (.NET, C++, Rust), so a Windows port starts clean
+bin/
+obj/
+target/
+.vs/
+*.user
 
 # Real screenshots and local QA captures: they contain real account data
 screens/
@@ -11,5 +18,6 @@ screens/
 # Machine-specific settings (signing identity, private scan words)
 config/local.env
 
-# macOS
+# OS clutter
 .DS_Store
+Thumbs.db

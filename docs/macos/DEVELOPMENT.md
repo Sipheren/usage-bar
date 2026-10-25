@@ -1,19 +1,21 @@
-# Development
+# macOS development
+
+Commands run from the repository root. Rules for every platform are in [AGENTS.md](../../AGENTS.md).
 
 ## Setup
 
 ```bash
-scripts/setup-dev.sh        # once per clone: git hooks, config/local.env
-scripts/install.sh          # tests, build, sign, install, open
+scripts/setup-dev.sh             # once per clone: git hooks, config/local.env
+macos/scripts/install.sh         # tests, build, sign, install, open
 ```
 
 ## Build and test
 
 ```bash
-swift build -c release
-swift test
-scripts/build.sh --no-install   # build and sign build/Usage Bar.app only
-scripts/build.sh --replace      # also quit the running copy, install and open
+(cd macos && swift build -c release)
+(cd macos && swift test)
+macos/scripts/build.sh --no-install   # build and sign macos/build/Usage Bar.app only
+macos/scripts/build.sh --replace      # also quit the running copy, install and open
 ```
 
 The test suite uses synthetic data only. It never reads a real Keychain item, token cache, cookie
@@ -21,8 +23,8 @@ store or log.
 
 ## The menu bar spark
 
-`Sources/UsageBar/ClaudeSparkPath.swift` is generated. To regenerate it (needs numpy and Pillow, and
-a Claude app install to trace from):
+`macos/Sources/UsageBar/ClaudeSparkPath.swift` is generated. To regenerate it (needs numpy and
+Pillow, and a Claude app install to trace from):
 
 ```bash
 python3 design/spark/trace_spark.py
@@ -33,10 +35,12 @@ at 16 pt on the real menu bar before you commit it.
 
 ## Versioning
 
-- `VERSION` holds the version (SemVer). `build.sh` writes it to `CFBundleShortVersionString`.
-- In a git checkout the build number is the commit count and About shows the short hash:
-  "Version 0.1.0 (build 42 · abc1234)". Outside git the build number is a timestamp.
-- Record every change in `CHANGELOG.md` (Keep a Changelog format) and bump `VERSION` when you release.
+- `macos/VERSION` holds the macOS app's version (SemVer). `build.sh` writes it to
+  `CFBundleShortVersionString`. Releases are tagged `macos-vX.Y.Z`.
+- In a git checkout the build number is the repository's commit count and About shows the short hash:
+  "Version 0.2.0 (build 42 · abc1234)". Outside git the build number is a timestamp.
+- Record every change in `CHANGELOG.md` (Keep a Changelog format, each entry naming its platform) and
+  bump `macos/VERSION` when you release.
 
 ## Debug commands
 
@@ -56,7 +60,7 @@ Run them on the installed app, for example
 | `--close-settings` | Closes Settings. |
 | `--set-layout both\|one` | Switches the dropdown layout. |
 | `--connect-work` | Same as clicking Connect… for the Claude app source (Keychain prompt). |
-| `--unregister-login-item` | Removes the app from Login Items (used by `scripts/uninstall.sh`). |
+| `--unregister-login-item` | Removes the app from Login Items (used by `macos/scripts/uninstall.sh`). |
 
 The `--open-*`, `--close-settings`, `--set-layout` and `--connect-work` commands send a distributed
 notification to the running app and return at once. While the menu is open, macOS holds distributed
@@ -84,21 +88,22 @@ native controls.
 U="/Applications/Usage Bar.app/Contents/MacOS/UsageBar"
 "$U" --open-settings accounts
 open -a "/Applications/Usage Bar.app"         # brings it forward so it renders as the active window
-scripts/qa/capture.sh screens/accounts.png --window
+macos/scripts/qa/capture.sh screens/accounts.png --window
 "$U" --close-settings
 
 "$U" --open-menu 20
-scripts/qa/capture.sh screens/dropdown.png --menu
+macos/scripts/qa/capture.sh screens/dropdown.png --menu
 "$U" --close-menu
 ```
 
-- `scripts/qa/capture.sh` captures the main display, crops to the app's window or menu (or to
+- `macos/scripts/qa/capture.sh` captures the main display, crops to the app's window or menu (or to
   `--rect X,Y,W,H` in points, for the menu bar item) and deletes the full-screen capture.
 - The terminal app running it needs Screen Recording permission.
 - A debug hook opens the window inactive (macOS doesn't let a background app take focus); the
   `open -a` line makes it active.
-- `screens/` is not tracked: real captures show real account data. For images you commit, run the app
-  with `--demo` (quit the normal copy first so only one menu bar item shows).
+- `screens/` is not tracked: real captures show real account data. For images you commit (they go in
+  `docs/images/`), run the app with `--demo` (quit the normal copy first so only one menu bar item
+  shows).
 - Look at every capture before you keep it.
 
 ## Rules
@@ -109,8 +114,8 @@ scripts/qa/capture.sh screens/dropdown.png --menu
 - **No personal data in tracked files.** `scripts/check-secrets.sh` runs as the pre-commit hook. Put
   your own name, employer, hostname and account id prefixes in `SECRET_SCAN_PRIVATE_PATTERNS` in
   `config/local.env` so the hook catches them without the list itself being committed.
-- **Install with `scripts/build.sh --replace`** (or `scripts/install.sh`) after a change, then check
-  the real UI.
+- **Install with `macos/scripts/build.sh --replace`** (or `macos/scripts/install.sh`) after a change,
+  then check the real UI.
 - **Avoid rapid relaunches.** Each usage request spends the account's rate-limit budget. Launches skip
   accounts fetched within the refresh interval, but `--fetch-personal`, `--render-menubar`, Refresh Now
   and a fresh install's first launch all make requests.

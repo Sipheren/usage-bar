@@ -40,3 +40,6 @@
 - Made `--close-menu` work while the menu is open (a Darwin notification polled during menu tracking).
 - Version 0.2.0, for friends: MIT licence, the authorship note above (also in the README and the
   About tab), a currency setting, and the menu bar spark as a vector trace instead of shipped PNGs.
+- Reorganised the repository for a Windows port: the macOS app moved to `macos/`, shared docs and
+  design assets stay at the root, `docs/PORTING.md` became the Windows starting brief and `AGENTS.md`
+  the brief for agents on any platform. Per-platform versions and `macos-v` / `windows-v` tags.

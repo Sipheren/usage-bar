@@ -4,7 +4,18 @@ All notable changes to this project are recorded here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+**Platforms.** The entries so far are the macOS app. From now on each entry names its platform, for
+example `## [macOS 0.3.0] - 2026-11-02` or `## [Windows 0.1.0] - …`. Each platform keeps its own
+version (`macos/VERSION`, later `windows/VERSION`), and tags are `macos-vX.Y.Z` and `windows-vX.Y.Z`.
+The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
+
 ## [Unreleased]
+
+### Changed
+- Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
+  sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
+  and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
+  root.
 
 ## [0.2.0] - 2026-10-26
 

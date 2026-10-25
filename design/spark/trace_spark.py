@@ -3,7 +3,7 @@
 
 Input:  the tray icon template from an installed Claude app (TrayIconTemplate@3x.png, 72 x 72,
         anti-aliased). It is read at build-design time only; the app ships the traced vector.
-Output: Sources/UsageBar/ClaudeSparkPath.swift (a CGPath in code) and design/spark/ClaudeSpark.svg.
+Output: macos/Sources/UsageBar/ClaudeSparkPath.swift (a CGPath in code) and design/spark/ClaudeSpark.svg.
 
 Method: marching squares at alpha 0.5 gives a sub-pixel outline. A light smoothing pass removes the
 pixel staircase, Douglas-Peucker drops redundant points, and a centripetal Catmull-Rom spline through
@@ -21,7 +21,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 SRC = sys.argv[1] if len(sys.argv) > 1 else "/Applications/Claude.app/Contents/Resources/TrayIconTemplate@3x.png"
-SWIFT_OUT = os.path.join(ROOT, "Sources", "UsageBar", "ClaudeSparkPath.swift")
+SWIFT_OUT = os.path.join(ROOT, "macos", "Sources", "UsageBar", "ClaudeSparkPath.swift")
 SVG_OUT = os.path.join(HERE, "ClaudeSpark.svg")
 ISO = 0.5
 

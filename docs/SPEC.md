@@ -1,10 +1,11 @@
 # Usage Bar: product spec
 
-A native macOS menu bar app (macOS 26+, Apple silicon) that shows Claude plan limits for two accounts
-at once, with a cost estimate from Claude Code logs. It is Claude-only and multi-account, built for
-one person's Mac.
+A menu bar app that shows Claude plan limits for two accounts at once, with a cost estimate from
+Claude Code logs. It is Claude-only and multi-account. This spec describes the macOS app (macOS 26+,
+Apple silicon), the reference implementation; a Windows port keeps the same behaviour with Windows
+equivalents of the macOS parts (see [PORTING.md](PORTING.md)).
 
-Visual reference: the design mockups in `../mockup/` (`Main.dc.html` for menu bar styles,
+Visual reference: the design mockups in `design/mockup/` (`Main.dc.html` for menu bar styles,
 `DropdownA.dc.html` and `DropdownB.dc.html` for the two dropdown layouts). Look: system font, a light
 popover-style card, clay `#D97757` bars for the first account and blue `#3E7CC4` for the second, badge
 colours `#B4532F` and `#2563A8`, and a pace marker on every bar.
@@ -90,25 +91,28 @@ title follows the tab; position remembered.
 - **Accounts.** One section per account: name, tag, colour, sign-in source, status (green check with
   the email or organization, or the problem with its action button), show in menu bar, Remove
   Account… with confirmation. Add Account at the bottom.
-- **About.** Icon, name, version ("Version 0.1.0 (build N · hash)"), build date, signing identity,
-  data sources, project folder with Show in Finder.
+- **About.** Icon, name, version ("Version 0.2.0 (build N · hash)"), build date, signing identity,
+  data sources, project folder (the repository root) with Show in Finder, and the authorship and
+  licence lines.
 
 ## Cost scanner
 
 Incremental per file, a `"usage"` pre-filter, de-duplication by `message.id:requestId` keeping the
 largest record, buckets per local day and model, USD prices from `Pricing.swift`, runs off the main
 thread at launch and every 5 minutes, cache file with counts only. See
-[ARCHITECTURE.md](ARCHITECTURE.md).
+[DATA-SOURCES.md](DATA-SOURCES.md) and [macos/ARCHITECTURE.md](macos/ARCHITECTURE.md).
 
 ## Build and install
 
-`scripts/install.sh` (checks, tests, build, sign, install). `scripts/build.sh` builds the bundle with
-bundle id `com.sipheren.usagebar`, `LSUIElement`, minimum macOS 26.0, the version from `VERSION`, and
-signs it with the configured identity (ad-hoc with a warning if none).
+macOS: `macos/scripts/install.sh` (checks, tests, build, sign, install). `macos/scripts/build.sh`
+builds the bundle with bundle id `com.sipheren.usagebar`, `LSUIElement`, minimum macOS 26.0, the
+version from `macos/VERSION`, and signs it with the configured identity (ad-hoc with a warning if
+none).
 
 ## Not in this version
 
-Other providers, notifications, widgets, a history of limits, Windows and Linux.
+Other providers, notifications, widgets, a history of limits, Linux. Windows is planned (see
+[PORTING.md](PORTING.md)).
 
 ## Security
 

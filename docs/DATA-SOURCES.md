@@ -1,5 +1,10 @@
 # Data sources
 
+This is the cross-platform contract: every Usage Bar build, on any platform, reads the same data in
+the same way. The endpoints, response handling, log rules and prices below apply everywhere. The
+sign-in sources describe how the macOS app (the reference implementation) finds each credential;
+[PORTING.md](PORTING.md) maps them to Windows.
+
 Every source is read-only. Usage Bar never refreshes a token, never writes a cookie, never changes
 another app's files or Keychain items, and keeps tokens and cookies in memory for one request only.
 
@@ -146,6 +151,32 @@ Free, no key. Usage Bar asks for it only when costs show in a currency other tha
 day, and straight away when you pick a currency it has no rate for. It keeps every rate in the
 response (`rates`) and `time_last_update_unix`, and sends nothing about you. Until the first fetch it
 has a built-in AUD rate (1.423) and shows other currencies in US dollars.
+
+## Claude Code logs (cost estimate)
+
+Claude Code writes one JSON object per line to `<config dir>/projects/**/*.jsonl` (`~/.claude/projects`
+by default), including subagent logs in subfolders. Usage Bar reads them read-only and keeps no
+message content.
+
+- **Lines it uses:** `type == "assistant"` with `message.usage`. Before decoding JSON it skips any
+  line that doesn't contain both `"usage"` and `"assistant"`. Lines without a parseable `timestamp`
+  are skipped.
+- **Fields:** `message.id`, `requestId` (or `request_id`), `sessionId`, `timestamp`, `message.model`,
+  `message.stop_reason`, and in `message.usage`: `input_tokens`, `output_tokens`,
+  `cache_read_input_tokens`, `cache_creation_input_tokens`, and `cache_creation` with
+  `ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`.
+- **Cache writes:** use the `cache_creation` 5-minute/1-hour split when either field is present;
+  otherwise count `cache_creation_input_tokens` as 5-minute writes.
+- **De-duplication key:** `message.id:requestId`; without a request id, `sessionId:message.id`;
+  without a session, `message.id`. Claude Code writes several lines per message while streaming and
+  copies history into resumed sessions, so the same key appears more than once, across files too.
+- **Which line wins:** an "incomplete" line (no `stop_reason`, input > 0, output 0, no cache fields)
+  never replaces a complete one, and a complete line always replaces an incomplete one. Otherwise the
+  larger token total wins and ties go to the later line. Lines with a zero total are ignored.
+- **Days:** each record goes into the local calendar day of its `timestamp`, then by model. Files
+  untouched for 31 days are skipped.
+
+The test cases in `macos/Tests/UsageBarTests/CostScannerTests.swift` pin each rule down.
 
 ## Prices
 

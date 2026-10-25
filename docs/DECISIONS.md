@@ -54,8 +54,8 @@ Use the 5-minute/1-hour cache-write split when present and count the aggregate o
 **Context.** macOS 26 puts icons that don't fill its shape into a grey frame. The first icon had
 transparent margins and edge pixels just under full opacity.
 **Decision.** `design/icon/AppIcon.icon` holds full-canvas layers (slate gradient fill, orange spark,
-orange and blue bars). `build.sh` compiles it with `actool` into `Assets.car` plus an `.icns`, and sets
-`CFBundleIconName`. `design/icon/make_icon.py` redraws the layers.
+orange and blue bars). `macos/scripts/build.sh` compiles it with `actool` into `Assets.car` plus an
+`.icns`, and sets `CFBundleIconName`. `design/icon/make_icon.py` redraws the layers.
 **Consequence.** The system applies the shape and lighting. Icon Composer's file format has no
 published schema; the keys follow a working third-party tool and `ictool` renders the result.
 
@@ -91,8 +91,9 @@ launching the app never pops a Keychain prompt unasked.
 **Context.** Earlier builds shipped the Claude app's tray icon PNGs in the repository.
 **Decision.** `design/spark/trace_spark.py` traced the Claude app's `TrayIconTemplate@3x.png` once into
 a vector (marching squares, smoothing, Catmull-Rom Beziers) and wrote it to
-`Sources/UsageBar/ClaudeSparkPath.swift`. The app draws that path; it ships no PNG and reads nothing
-from the Claude app at runtime.
+`macos/Sources/UsageBar/ClaudeSparkPath.swift` and `design/spark/ClaudeSpark.svg`. The app draws that
+path; it ships no PNG and reads nothing from the Claude app at runtime. Other platforms draw the same
+shape from the SVG.
 **Consequence.** The spark is crisp at every scale and matches the original at 16 pt: compared side by
 side on a 2× menu bar, and in 1×, 2× and 3× renders, where the differences sit on anti-aliased edges.
 The shape is still the Claude spark; Usage Bar uses it to say "Claude usage" and is not made or

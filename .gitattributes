@@ -1,0 +1,4 @@
+# Shell scripts and git hooks must keep LF endings, or Git Bash on Windows fails with $'\r' errors.
+*.sh text eol=lf
+.githooks/* text eol=lf
+config/local.env.example text eol=lf

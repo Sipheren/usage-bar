@@ -4,7 +4,7 @@ set -euo pipefail
 
 usage() {
     cat <<'EOF'
-Usage: scripts/uninstall.sh [--dry-run] [--yes] [--help]
+Usage: macos/scripts/uninstall.sh [--dry-run] [--yes] [--help]
 
 Removes Usage Bar from this Mac:
   - its Login Items entry

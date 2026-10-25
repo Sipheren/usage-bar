@@ -13,7 +13,7 @@ enum DebugCommands {
       --open-menu [secs]     Ask the running app to open its menu, closing it after secs (default 6)
       --connect-work         Ask the running app to connect the Claude app account (Keychain prompt)
       --demo                 Start the app with built-in sample data (no network, no credentials, nothing saved)
-      --unregister-login-item  Remove Usage Bar from Login Items (used by scripts/uninstall.sh)
+      --unregister-login-item  Remove Usage Bar from Login Items (used by macos/scripts/uninstall.sh)
       --close-menu           Ask the running app to close its menu
       --open-settings TAB    Ask the running app to open Settings on general|accounts|about
       --close-settings       Ask the running app to close Settings

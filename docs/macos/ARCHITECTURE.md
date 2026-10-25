@@ -1,6 +1,9 @@
-# Architecture
+# macOS architecture
 
-Usage Bar is one SwiftPM package with three targets:
+How the macOS app (the reference implementation) is built. The rules every platform shares, such as
+endpoints, the log format, de-duplication and prices, are in [DATA-SOURCES.md](../DATA-SOURCES.md).
+
+The app is one SwiftPM package in `macos/` with three targets:
 
 | Target | Kind | Holds |
 |---|---|---|
@@ -8,10 +11,10 @@ Usage Bar is one SwiftPM package with three targets:
 | `UsageBar` | executable | The app shell: status item, dropdown, Settings window, demo data, debug commands. |
 | `UsageBarTests` | tests | XCTest suite against `UsageBarCore`, synthetic data only. |
 
-`scripts/build.sh` wraps the executable into `Usage Bar.app`, adds the glyph and icon resources,
-writes `Info.plist` and signs it.
+`macos/scripts/build.sh` wraps the executable into `Usage Bar.app`, compiles the app icon from
+`design/icon/AppIcon.icon`, writes `Info.plist` and signs it.
 
-## Core modules (`Sources/UsageBarCore`)
+## Core modules (`macos/Sources/UsageBarCore`)
 
 | File | Role |
 |---|---|
@@ -26,14 +29,14 @@ writes `Info.plist` and signs it.
 | `SafariCookieReader.swift` | `Cookies.binarycookies` parser and the Safari file sweep. |
 | `FetchPolicy.swift` | When an account may fetch; how a 429 is presented; the persisted per-account state. |
 | `Pace.swift`, `LimitDisplay.swift` | Pace maths and the text for each limit row. |
-| `Formatters.swift` | Reset times, money, token counts, clock times, the currency line. |
+| `Formatters.swift` | Reset times, money, token counts, clock times. |
 | `MenuBarModel.swift` | What the menu bar label shows, as data (rendering lives in the app). |
 | `Pricing.swift` | API prices per model and the cost calculation. |
 | `CostScanner.swift` | Incremental scanner over Claude Code's JSONL logs. |
 | `Currency.swift` | Display currency: conversion from US dollars, symbols, decimals, the rate line. |
 | `Log.swift` | `os.Logger` categories: fetch, cost, ui, auth. |
 
-## App modules (`Sources/UsageBar`)
+## App modules (`macos/Sources/UsageBar`)
 
 | File | Role |
 |---|---|
@@ -104,18 +107,20 @@ an outlined tag and either text or stacked bars.
 
 The image is always a template image, so macOS tints it for light and dark menu bars. The status item
 redraws only when the label's content changes; it doesn't observe its own appearance (that caused a
-redraw loop). Data older than
-15 minutes draws at 50% opacity; an account with no data shows its tag and "–".
+redraw loop). Data older than 15 minutes draws at 50% opacity; an account with no data shows its tag
+and "–".
 
 ## Settings storage
 
 `AppSettings` is saved as JSON in the preferences under `settings.v1`. Decoding treats every field as
-optional, so older saved settings keep working. The cost currency defaults to AUD. `applyMigrations()` runs once on settings saved before
-the current defaults: it switches the style to Bars and moves a never-connected Claude app account to
-the Safari source. The exchange rate and account emails have their own keys. No secret ever goes into
+optional, so older saved settings keep working. The cost currency defaults to AUD.
+`applyMigrations()` runs once on settings saved before the current defaults: it switches the style to
+Bars and moves a never-connected Claude app account to the Safari source. The exchange rates and
+account emails have their own keys. No secret ever goes into
 preferences.
 
 ## Demo mode
 
 `--demo` or `USAGEBAR_DEMO=1` starts the store with built-in sample data. It makes no network
-requests, reads no credentials or logs, and saves nothing. The README screenshots come from it.
+requests, reads no credentials or logs, and saves nothing. The screenshots in `docs/images/` come from
+it.

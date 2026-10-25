@@ -1,5 +1,5 @@
 // Prints "x y w h scale" (points, plus the main display's backing scale) for the first on-screen
-// window owned by an app. Used by scripts/qa/capture.sh. Layer 0 = normal window, 101 = open menu.
+// window owned by an app. Used by macos/scripts/qa/capture.sh. Layer 0 = normal window, 101 = open menu.
 import AppKit
 
 let args = CommandLine.arguments
