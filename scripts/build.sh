@@ -94,11 +94,6 @@ echo "==> Assembling $BUNDLE"
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources"
 cp "$BIN" "$BUNDLE/Contents/MacOS/$EXEC"
-# Claude menu bar glyph (the tray icon template from the Claude app).
-for f in ClaudeSpark.png ClaudeSpark@2x.png ClaudeSpark@3x.png; do
-    [[ -f "$ROOT/Resources/$f" ]] || { echo "error: missing Resources/$f" >&2; exit 1; }
-    cp "$ROOT/Resources/$f" "$BUNDLE/Contents/Resources/$f"
-done
 
 # App icon: compile the Icon Composer document with actool into Assets.car (+ an .icns fallback).
 # macOS 26 applies the icon shape itself; a pre-shaped PNG/.icns gets a grey frame instead.

@@ -91,28 +91,27 @@ public struct UsageClient: Sendable {
 
 // MARK: - Exchange rate
 
-public struct ExchangeRate: Codable, Equatable, Sendable {
-    public var currency: String
-    public var rate: Double
+/// US-dollar exchange rates from open.er-api.com (units of each currency per US$1).
+public struct ExchangeRates: Codable, Equatable, Sendable {
+    public var rates: [String: Double]
     public var asOf: Date
     public var fetchedAt: Date
 
-    public init(currency: String, rate: Double, asOf: Date, fetchedAt: Date) {
-        self.currency = currency
-        self.rate = rate
+    public init(rates: [String: Double], asOf: Date, fetchedAt: Date) {
+        self.rates = rates
         self.asOf = asOf
         self.fetchedAt = fetchedAt
     }
 
-    /// Used until the first successful fetch (main session's reading on 2026-10-25).
-    public static let fallback = ExchangeRate(currency: "AUD", rate: 1.423,
-                                              asOf: ISODate.parse("2026-10-25T00:00:00Z")!, fetchedAt: .distantPast)
+    /// Used until the first fetch: AUD only (the original default currency), rate of 2026-10-25.
+    public static let fallback = ExchangeRates(rates: ["USD": 1, "AUD": 1.423],
+                                               asOf: ISODate.parse("2026-10-25T00:00:00Z")!, fetchedAt: .distantPast)
 
     public var isFallback: Bool { fetchedAt == .distantPast }
 
     public func needsRefresh(now: Date) -> Bool { now.timeIntervalSince(fetchedAt) > 24 * 3600 }
 
-    /// One shared session, reused across daily refreshes instead of a new session each time.
+    /// One shared session, reused across daily refreshes.
     private static let session: URLSession = {
         let c = URLSessionConfiguration.ephemeral
         c.urlCache = nil
@@ -120,17 +119,21 @@ public struct ExchangeRate: Codable, Equatable, Sendable {
         return URLSession(configuration: c)
     }()
 
-    public static func fetch(currency: String = "AUD") async throws -> ExchangeRate {
+    public static func fetch() async throws -> ExchangeRates {
         let url = URL(string: "https://open.er-api.com/v6/latest/USD")!
         var r = URLRequest(url: url)
         r.timeoutInterval = 20
         let (data, response) = try await session.data(for: r)
         guard (response as? HTTPURLResponse)?.statusCode == 200,
               let obj = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let rates = obj["rates"] as? [String: Any],
-              let rate = (rates[currency] as? NSNumber)?.doubleValue, rate > 0
-        else { throw URLError(.cannotParseResponse) }
+              let raw = obj["rates"] as? [String: Any] else { throw URLError(.cannotParseResponse) }
+        var rates: [String: Double] = [:]
+        for (code, value) in raw {
+            if let n = value as? NSNumber, n.doubleValue > 0 { rates[code.uppercased()] = n.doubleValue }
+        }
+        guard !rates.isEmpty else { throw URLError(.cannotParseResponse) }
+        rates["USD"] = 1
         let asOf = (obj["time_last_update_unix"] as? NSNumber).map { Date(timeIntervalSince1970: $0.doubleValue) } ?? Date()
-        return ExchangeRate(currency: currency, rate: rate, asOf: asOf, fetchedAt: Date())
+        return ExchangeRates(rates: rates, asOf: asOf, fetchedAt: Date())
     }
 }

@@ -1,5 +1,4 @@
 import AppKit
-import ImageIO
 import UsageBarCore
 
 /// Draws the status item label from a `MenuBarModel`. Always monochrome: a template image for the live
@@ -71,25 +70,6 @@ enum MenuBarRenderer {
         return x
     }
 
-    /// Fallback only, used if the bundled Claude glyph is missing: 8-ray asterisk, 15 pt.
-    fileprivate static func drawFallbackSpark(at x: CGFloat, color: NSColor) {
-        let s: CGFloat = 15 / 16
-        let oy = (height - 15) / 2
-        let path = NSBezierPath()
-        func line(_ x1: CGFloat, _ y1: CGFloat, _ x2: CGFloat, _ y2: CGFloat) {
-            path.move(to: NSPoint(x: x + x1 * s, y: oy + y1 * s))
-            path.line(to: NSPoint(x: x + x2 * s, y: oy + y2 * s))
-        }
-        line(8, 1.6, 8, 14.4)
-        line(1.6, 8, 14.4, 8)
-        line(3.5, 3.5, 12.5, 12.5)
-        line(12.5, 3.5, 3.5, 12.5)
-        path.lineWidth = 1.9 * s
-        path.lineCapStyle = .round
-        color.setStroke()
-        path.stroke()
-    }
-
     private static func attributes(_ font: NSFont, _ color: NSColor) -> [NSAttributedString.Key: Any] {
         [.font: font, .foregroundColor: color]
     }
@@ -150,43 +130,20 @@ extension NSColor {
     }
 }
 
-/// The real Claude menu bar glyph: Claude.app's TrayIconTemplate (24/48/72 px, black on transparent),
-/// bundled as ClaudeSpark.png / @2x / @3x. Transparent padding is trimmed and the glyph drawn
-/// `glyphHeight` tall, tinted like a template image.
+/// The Claude spark, drawn from its vector trace (ClaudeSparkPath) at 16 pt, centred on the bar.
+/// Being a vector it is crisp at every scale, and filled with the template or explicit colour.
 enum ClaudeSpark {
-    static let glyphHeight: CGFloat = 16
+    static let glyphSize: CGFloat = 16
 
-    /// Trimmed glyph at the best resolution available, or nil if the resources are missing.
-    static let glyph: (image: NSImage, size: NSSize)? = {
-        for name in ["ClaudeSpark@3x", "ClaudeSpark@2x", "ClaudeSpark"] {
-            guard let url = Bundle.main.url(forResource: name, withExtension: "png"),
-                  let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  let cg = CGImageSourceCreateImageAtIndex(src, 0, nil),
-                  let trimmed = GlyphTrim.cropped(cg) else { continue }
-            let size = NSSize(width: glyphHeight * CGFloat(trimmed.width) / CGFloat(trimmed.height), height: glyphHeight)
-            return (NSImage(cgImage: trimmed, size: size), size)
-        }
-        Log.ui.error("ClaudeSpark resources missing; drawing the fallback spark")
-        return nil
-    }()
-
-    /// Draws the glyph vertically centred in a bar of `barHeight`, filled with `color`. Returns its width.
+    /// Draws the spark at `x`, vertically centred in a bar of `barHeight`. Returns its width.
     static func draw(at x: CGFloat, barHeight: CGFloat, color: NSColor, draw: Bool) -> CGFloat {
-        guard let g = glyph else {
-            if draw { MenuBarRenderer.drawFallbackSpark(at: x, color: color) }
-            return 15
-        }
-        guard draw, let ctx = NSGraphicsContext.current?.cgContext else { return g.size.width }
-        let rect = NSRect(x: x, y: (barHeight - g.size.height) / 2, width: g.size.width, height: g.size.height)
+        guard draw, let ctx = NSGraphicsContext.current?.cgContext else { return glyphSize }
+        let rect = CGRect(x: x, y: (barHeight - glyphSize) / 2, width: glyphSize, height: glyphSize)
         ctx.saveGState()
-        ctx.beginTransparencyLayer(in: rect, auxiliaryInfo: nil)
-        NSGraphicsContext.current?.imageInterpolation = .high
-        g.image.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1, respectFlipped: true, hints: nil)
-        // Keep the glyph's alpha, replace its colour: template black, or the explicit bar/warn colour.
-        color.setFill()
-        rect.fill(using: .sourceIn)
-        ctx.endTransparencyLayer()
+        ctx.addPath(ClaudeSparkPath.path(in: rect))   // the image context is flipped: y down, as the path
+        ctx.setFillColor(color.cgColor)
+        ctx.fillPath()
         ctx.restoreGState()
-        return g.size.width
+        return glyphSize
     }
 }

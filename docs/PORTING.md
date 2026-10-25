@@ -19,7 +19,9 @@ These rules and formats don't depend on macOS. Reuse them as they are, in Swift 
 
 `UsageBarCore` uses Foundation everywhere. A few files import Apple-only modules and need
 replacements: `Credentials.swift` (Security, SQLite3), `ChromiumCrypto.swift` (CommonCrypto,
-CryptoKit), `GlyphTrim.swift` (CoreGraphics), `Log.swift` (os).
+CryptoKit), `Log.swift` (os). `Currency.swift` (conversion, symbols, decimals) is plain Foundation.
+The menu bar spark is a list of cubic Beziers in `ClaudeSparkPath.swift` (and
+`design/spark/ClaudeSpark.svg`), so any platform's vector API can draw it.
 
 ## macOS-only
 

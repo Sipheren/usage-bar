@@ -6,6 +6,18 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-26
+
+### Added
+- Currency setting for cost figures: AUD (default), USD, EUR, GBP, NZD, CAD, JPY, plus your locale's
+  currency when the rate list has it. USD needs no exchange rate and makes no rate request.
+- MIT licence.
+- Authorship note in the README and the About tab.
+
+### Changed
+- Menu bar icon: vector trace of the Claude spark, drawn from a path in code. The app no longer ships
+  the Claude app's tray icon PNGs.
+
 ### Fixed
 - Memory held after switching Settings tabs. Each switch left SwiftUI observation-tracking registrations
   behind (about 130 KB), and nothing released them until the app quit. The Settings window is now torn down

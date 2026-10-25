@@ -19,6 +19,18 @@ scripts/build.sh --replace      # also quit the running copy, install and open
 The test suite uses synthetic data only. It never reads a real Keychain item, token cache, cookie
 store or log.
 
+## The menu bar spark
+
+`Sources/UsageBar/ClaudeSparkPath.swift` is generated. To regenerate it (needs numpy and Pillow, and
+a Claude app install to trace from):
+
+```bash
+python3 design/spark/trace_spark.py
+```
+
+It writes the Swift path and `design/spark/ClaudeSpark.svg`. Compare the result with the original
+at 16 pt on the real menu bar before you commit it.
+
 ## Versioning
 
 - `VERSION` holds the version (SemVer). `build.sh` writes it to `CFBundleShortVersionString`.

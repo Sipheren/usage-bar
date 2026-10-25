@@ -142,8 +142,10 @@ stepped in.
 
 ### `GET https://open.er-api.com/v6/latest/USD`
 
-Free, no key. Usage Bar reads `rates.AUD` and `time_last_update_unix` once a day. It sends nothing
-about you. Until the first fetch it uses a built-in rate of 1.423.
+Free, no key. Usage Bar asks for it only when costs show in a currency other than US dollars: once a
+day, and straight away when you pick a currency it has no rate for. It keeps every rate in the
+response (`rates`) and `time_last_update_unix`, and sends nothing about you. Until the first fetch it
+has a built-in AUD rate (1.423) and shows other currencies in US dollars.
 
 ## Prices
 

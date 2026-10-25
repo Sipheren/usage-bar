@@ -215,7 +215,14 @@ struct GeneralTab: View {
                 if let launchError {
                     Text(launchError).font(.callout).foregroundStyle(.red)
                 }
-                LabeledContent("Currency", value: store.currencyLine)
+                Picker("Currency", selection: $store.settings.currency) {
+                    ForEach(store.currencyOptions, id: \.self) { code in
+                        Text(currencyName(code)).tag(code)
+                    }
+                }
+                if let line = store.rateLine {
+                    LabeledContent("Exchange rate", value: line)
+                }
             }
         }
         .formStyle(.grouped)
@@ -223,6 +230,12 @@ struct GeneralTab: View {
         .frame(width: SettingsWindowController.width)
         .fixedSize(horizontal: false, vertical: true)
         .onAppear { launchOn = store.launchAtLogin }
+    }
+
+    /// "Australian Dollar (AUD)".
+    private func currencyName(_ code: String) -> String {
+        let name = Locale(identifier: "en_US").localizedString(forCurrencyCode: code) ?? code
+        return "\(name) (\(code))"
     }
 }
 
@@ -387,7 +400,7 @@ struct AboutTab: View {
                         Text("Anthropic API — usage and profile")
                         Text("claude.ai — usage via your existing sign-in")
                         Text("Claude Code logs on this Mac — cost")
-                        Text("open.er-api.com — USD to AUD rate")
+                        Text("open.er-api.com — exchange rate (none for USD)")
                     }
                     .multilineTextAlignment(.leading)
                     .foregroundStyle(.secondary)
@@ -426,12 +439,16 @@ struct AboutTab: View {
                 .padding(.top, 4)
                 .padding(.bottom, 14)
             } footer: {
-                Text("Usage Bar is independent. It reads your existing sign-ins, and all usage data comes from Anthropic.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: .infinity)
-                    .padding(.top, 6)
+                VStack(spacing: 4) {
+                    Text("Usage Bar is independent. It reads your existing sign-ins, and all usage data comes from Anthropic.")
+                    Text("Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).")
+                    Text("MIT License.")
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 6)
             }
         }
         .formStyle(.grouped)

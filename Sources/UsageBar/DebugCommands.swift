@@ -164,7 +164,6 @@ enum DebugCommands {
             print("Render failed: \(error.localizedDescription)")
             return 1
         }
-        print("Glyph: \(ClaudeSpark.glyph == nil ? "MISSING (fallback drawn)" : "bundled ClaudeSpark, \(ClaudeSpark.glyph!.size.width) x \(ClaudeSpark.glyph!.size.height) pt")")
         print("Live label: \(live.plainText)")
         print("Wrote menubar-light.png, menubar-dark.png, menubar-samples-light.png, menubar-samples-dark.png to \(dir.path)")
         return 0
@@ -179,7 +178,7 @@ enum DebugCommands {
         let scanner = CostScanner(root: root)
         let stats = scanner.scan(now: Date())
         let s = scanner.summary(now: Date())
-        let rate = ExchangeRate.fallback.rate
+        let rate = ExchangeRates.fallback.rates["AUD"] ?? 1
         func money(_ usd: Double) -> String { String(format: "US$%.2f (A$%.2f at %.3f)", usd, usd * rate, rate) }
         print("Root: ~/.claude/projects (no cache, nothing written)")
         print("JSONL files found: \(stats.filesFound); modified in last 31 days: \(stats.filesInWindow); read: \(stats.filesRead)")

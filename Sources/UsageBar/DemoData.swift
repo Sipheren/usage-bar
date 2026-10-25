@@ -6,7 +6,8 @@ import UsageBarCore
 enum DemoData {
     static let personalEmail = "personal@example.com"
     static let workOrganization = "Example Co"
-    static let rate = ExchangeRate(currency: "AUD", rate: 1.42, asOf: Date(), fetchedAt: Date())
+    static let rates = ExchangeRates(rates: ["USD": 1, "AUD": 1.42, "EUR": 0.92, "GBP": 0.79, "NZD": 1.66,
+                                             "CAD": 1.37, "JPY": 151.3], asOf: Date(), fetchedAt: Date())
 
     /// A limit `used` percent through a window, `expected` percent of the way through it.
     private static func limit(_ kind: LimitKind, used: Double, expected: Double, now: Date) -> UsageLimit {
@@ -33,7 +34,7 @@ enum DemoData {
     }
 
     /// Mockup figures in AUD (A$6.20 today, A$214 over 30 days), stored as USD like real summaries.
-    static func personalCost(rate: Double) -> CostSummary {
+    static func personalCost(audPerUSD rate: Double) -> CostSummary {
         let shape: [Double] = [0.10, 0, 0.22, 0.35, 0.15, 0, 0.05, 0.48, 0.62, 0.30, 0.12, 0, 0, 0.27, 0.55,
                                0.71, 0.40, 0.18, 0.09, 0, 0.33, 0.95, 0.58, 0.21, 0.14, 0, 0.36, 0.44, 0.26, 0.30]
         let thirtyDayAUD = 214.0, todayAUD = 6.20

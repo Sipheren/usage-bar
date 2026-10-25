@@ -175,6 +175,8 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var desktopTokenChoice: [String: String]
     /// One-time migration marker (miniBars default + Work → Safari). False in old saved JSON.
     public var didMigrateMiniBars: Bool
+    /// ISO code of the currency cost figures are shown in. USD means no conversion and no rate fetch.
+    public var currency: String
 
     public static let refreshOptions = [1, 2, 5, 10]
 
@@ -189,6 +191,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         desktopKeychainApproved = false
         desktopTokenChoice = [:]
         didMigrateMiniBars = true
+        currency = "AUD"
     }
 
     public var metrics: MetricSelection {
@@ -197,7 +200,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     enum CodingKeys: String, CodingKey {
         case accounts, menuBarStyle, showSession, showWeekly, showScoped,
-             dropdownLayout, refreshMinutes, desktopKeychainApproved, desktopTokenChoice, didMigrateMiniBars
+             dropdownLayout, refreshMinutes, desktopKeychainApproved, desktopTokenChoice, didMigrateMiniBars, currency
     }
 
     // Every field optional on decode so older saved settings never reset everything.
@@ -215,6 +218,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         if let v = try? c.decode([String: String].self, forKey: .desktopTokenChoice) { desktopTokenChoice = v }
         // Absent in old JSON → false → migrations run once.
         didMigrateMiniBars = (try? c.decode(Bool.self, forKey: .didMigrateMiniBars)) ?? false
+        if let v = try? c.decode(String.self, forKey: .currency), !v.isEmpty { currency = v.uppercased() }
     }
 
     /// One-time moves for settings saved before these defaults changed. Returns true if anything changed.

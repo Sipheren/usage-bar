@@ -27,8 +27,9 @@ Read this before changing anything in this repository. Background: [README.md](R
   scripts or your own commands. Tests use synthetic data. Debug output shows shapes, statuses and
   counts.
 - Never commit personal data: names, emails, organization names, account or org ids, home-folder
-  paths, hostnames, real usage or cost figures, screenshots with real data. `scripts/check-secrets.sh`
-  must pass; the pre-commit hook runs it.
+  paths, hostnames, real usage or cost figures, screenshots with real data. The only exceptions are
+  the author's handle (Sipheren), the address sipheren@gmail.com and the bundle id.
+  `scripts/check-secrets.sh` must pass; the pre-commit hook runs it.
 - Images for the docs come from demo mode (`--demo`). `screens/` stays untracked.
 - Keep every source read-only: never refresh, write or delete another app's credentials or files.
 

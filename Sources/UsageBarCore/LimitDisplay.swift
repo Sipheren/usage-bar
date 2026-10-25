@@ -35,17 +35,3 @@ public struct LimitDisplay {
         }
     }
 }
-
-extension Formatters {
-    /// "AUD · US$1 = A$1.42 · updated 26 Oct", or "… · built-in rate" before the first fetch.
-    public static func currencyLine(_ rate: ExchangeRate, timeZone: TimeZone = .current) -> String {
-        let symbol = currencySymbol(rate.currency)
-        let base = "\(rate.currency) · US$1 = \(symbol)\(String(format: "%.2f", rate.rate))"
-        if rate.isFallback { return base + " · built-in rate" }
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.timeZone = timeZone
-        f.dateFormat = "d MMM"
-        return base + " · updated " + f.string(from: rate.asOf)
-    }
-}

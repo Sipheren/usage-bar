@@ -245,7 +245,7 @@ struct AccountSectionA: View {
                 case .counting?:
                     Text("Counting…").font(.system(size: 12)).foregroundStyle(Palette.secondary)
                 case .ready(let s)?:
-                    Text("Today \(Formatters.money(store.local(s.todayUSD)))")
+                    Text("Today \(store.money(s.todayUSD))")
                         .font(.system(size: 12)).foregroundStyle(Palette.secondary).monospacedDigit()
                 case nil:
                     EmptyView()
@@ -267,7 +267,7 @@ struct AccountSectionA: View {
                 Text("Loading…").font(.system(size: 12)).foregroundStyle(Palette.secondary)
             }
             if case .ready(let s)? = store.cost(for: account) {
-                Text("30 days \(Formatters.money(store.local(s.last30USD))) · \(Formatters.tokens(s.last30Tokens)) tokens")
+                Text("30 days \(store.money(s.last30USD)) · \(Formatters.tokens(s.last30Tokens)) tokens")
                     .font(.system(size: 12)).foregroundStyle(Palette.secondary).monospacedDigit()
             }
         }
@@ -380,21 +380,21 @@ struct CostBlockB: View {
         Rectangle().fill(Palette.separator).frame(height: 1)
         Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 12) {
             GridRow {
-                stat("Today", Formatters.money(store.local(summary.todayUSD)))
-                stat("30 days", Formatters.money(store.local(summary.last30USD)))
+                stat("Today", store.money(summary.todayUSD))
+                stat("30 days", store.money(summary.last30USD))
             }
             GridRow {
                 stat("Today tokens", Formatters.tokens(summary.todayTokens))
                 stat("30-day tokens", Formatters.tokens(summary.last30Tokens))
             }
         }
-        let daily = summary.dailyUSD.map(store.local)
+        let daily = summary.dailyUSD   // bar heights are relative, so US dollars are fine here
         let maxDay = daily.max() ?? 0
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Text("Cost per day, last 30 days")
                 Spacer()
-                Text("max A$\(Int(maxDay.rounded()))").monospacedDigit()
+                Text("max \(store.moneyWhole(maxDay))").monospacedDigit()
             }
             .font(.system(size: 12)).foregroundStyle(Palette.secondary)
             HStack(alignment: .bottom, spacing: 3) {
@@ -419,7 +419,7 @@ struct CostBlockB: View {
         var s = "Cost and tokens estimated from this Mac's Claude Code logs at API rates."
         if !summary.unpricedModels.isEmpty {
             s += " Unpriced model\(summary.unpricedModels.count > 1 ? "s" : ""): "
-                + summary.unpricedModels.joined(separator: ", ") + " (counted as A$0)."
+                + summary.unpricedModels.joined(separator: ", ") + " (counted as \(store.money(0)))."
         }
         return s
     }

@@ -39,7 +39,7 @@ and Work on Safari (tag `W`, blue). Each source can be added once; any account c
 ## Menu bar
 
 The label is drawn as a template image and never changes colour with usage. It starts with the
-Claude glyph (15–16 pt), then for each account shown, in order, an outlined tag and its values.
+Claude spark (a vector trace, 16 pt), then for each account shown, in order, an outlined tag and its values.
 
 | Style | Example |
 |---|---|
@@ -84,7 +84,9 @@ A standard toolbar preferences window: General, Accounts, About; fixed width, he
 title follows the tab; position remembered.
 
 - **General.** Menu bar style with a live preview, metric switches, dropdown layout, refresh interval,
-  Launch at login (off by default), the currency line ("AUD · US$1 = A$1.42 · updated 26 Oct").
+  Launch at login (off by default), the cost currency (AUD default; USD, EUR, GBP, NZD, CAD, JPY and
+  the locale's currency), and, when converting, the exchange rate ("US$1 = A$1.42 · updated 26 Oct").
+  JPY shows no decimals. Extra usage stays in the currency the API reports.
 - **Accounts.** One section per account: name, tag, colour, sign-in source, status (green check with
   the email or organization, or the problem with its action button), show in menu bar, Remove
   Account… with confirmation. Add Account at the bottom.

@@ -1,5 +1,7 @@
 # Devlog
 
+> Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).
+
 ## 2026-10-25
 
 - Built the first version from the spec: SwiftPM package with a Core library, the app and tests.
@@ -36,3 +38,5 @@
   new image each time, and each new image fired the observation again. The label is a template image,
   so the observer was removed.
 - Made `--close-menu` work while the menu is open (a Darwin notification polled during menu tracking).
+- Version 0.2.0, for friends: MIT licence, the authorship note above (also in the README and the
+  About tab), a currency setting, and the menu bar spark as a vector trace instead of shipped PNGs.

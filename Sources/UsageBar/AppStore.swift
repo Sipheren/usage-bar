@@ -23,7 +23,7 @@ enum CostState: Equatable {
 @MainActor
 final class AppStore: ObservableObject {
     static let settingsKey = "settings.v1"
-    static let rateKey = "exchangeRate.v1"
+    static let rateKey = "exchangeRates.v2"
     static let emailsKey = "accountEmails.v1"
 
     @Published var settings: AppSettings {
@@ -32,7 +32,7 @@ final class AppStore: ObservableObject {
     @Published private(set) var states: [UUID: AccountState] = [:]
     @Published private(set) var costs: [UUID: CostState] = [:]
     @Published private(set) var now = Date()
-    @Published private(set) var rate: ExchangeRate
+    @Published private(set) var rates: ExchangeRates
     @Published var selectedTab: UUID?
 
     let fetcher = AccountFetcher()
@@ -53,7 +53,7 @@ final class AppStore: ObservableObject {
         let defaults = UserDefaults.standard
         if demo {
             settings = AppSettings()
-            rate = DemoData.rate
+            rates = DemoData.rates
             selectedTab = settings.accounts.first?.id   // the tab with the cost chart, for screenshots
             return
         }
@@ -69,10 +69,10 @@ final class AppStore: ObservableObject {
             settings = fresh
             if let data = try? JSONEncoder().encode(fresh) { defaults.set(data, forKey: AppStore.settingsKey) }
         }
-        if let data = defaults.data(forKey: AppStore.rateKey), let r = try? JSONDecoder().decode(ExchangeRate.self, from: data) {
-            rate = r
+        if let data = defaults.data(forKey: AppStore.rateKey), let r = try? JSONDecoder().decode(ExchangeRates.self, from: data) {
+            rates = r
         } else {
-            rate = .fallback
+            rates = .fallback
         }
         // Emails are display-only metadata, kept so Settings can show them before the first fetch.
         if let emails = defaults.dictionary(forKey: AppStore.emailsKey) as? [String: String] {
@@ -124,6 +124,7 @@ final class AppStore: ObservableObject {
             UserDefaults.standard.set(data, forKey: AppStore.settingsKey)
         }
         if old.refreshMinutes != settings.refreshMinutes { schedulePolling() }
+        if old.currency != settings.currency { refreshRateIfNeeded() }
         let oldLogs = old.accounts.map { "\($0.id)\($0.logsDir ?? "")" }
         let newLogs = settings.accounts.map { "\($0.id)\($0.logsDir ?? "")" }
         if oldLogs != newLogs { refreshCosts() }
@@ -276,7 +277,7 @@ final class AppStore: ObservableObject {
             if account.source.isClaudeCode {
                 st.snapshot = DemoData.personalSnapshot(now: now)
                 st.email = DemoData.personalEmail
-                costs[account.id] = .ready(DemoData.personalCost(rate: rate.rate))
+                costs[account.id] = .ready(DemoData.personalCost(audPerUSD: rates.rates["AUD"] ?? 1.42))
             } else {
                 st.snapshot = DemoData.workSnapshot(now: now)
                 st.email = DemoData.workOrganization
@@ -360,18 +361,44 @@ final class AppStore: ObservableObject {
 
     func cost(for account: Account) -> CostState? { costs[account.id] }
 
-    /// USD -> display currency (AUD).
-    func local(_ usd: Double) -> Double { usd * rate.rate }
+    /// The currency cost figures show in. Falls back to USD while the chosen currency has no rate yet.
+    var displayCurrency: String {
+        Currency.convert(usd: 1, to: settings.currency, rates: rates) == nil ? "USD" : settings.currency
+    }
 
-    var currencyLine: String { Formatters.currencyLine(rate) }
+    /// A US-dollar cost in the display currency: "A$6.20", "€214", "¥938".
+    func money(_ usd: Double) -> String {
+        let code = displayCurrency
+        return Currency.format(Currency.convert(usd: usd, to: code, rates: rates) ?? usd, code: code)
+    }
 
+    /// Whole units for chart labels.
+    func moneyWhole(_ usd: Double) -> String {
+        let code = displayCurrency
+        return Currency.formatWhole(Currency.convert(usd: usd, to: code, rates: rates) ?? usd, code: code)
+    }
+
+    /// The Exchange rate row in Settings; nil (row hidden) for USD.
+    var rateLine: String? { Formatters.rateLine(rates, code: settings.currency) }
+
+    var currencyOptions: [String] {
+        Currency.options(localeCode: Locale.current.currency?.identifier, available: Set(rates.rates.keys))
+    }
+
+    /// Fetches rates once a day, and straight away when the chosen currency has none. Never for USD.
     func refreshRateIfNeeded() {
-        guard !demo else { return }
-        guard rate.needsRefresh(now: Date()) else { return }
+        guard !demo, Currency.needsRate(settings.currency) else { return }
+        let missing = rates.rates[settings.currency] == nil
+        guard missing || rates.needsRefresh(now: Date()) else { return }
         Task {
-            guard let fresh = try? await ExchangeRate.fetch(currency: "AUD") else { return }
-            rate = fresh
-            if let data = try? JSONEncoder().encode(fresh) { UserDefaults.standard.set(data, forKey: AppStore.rateKey) }
+            do {
+                let fresh = try await ExchangeRates.fetch()
+                rates = fresh
+                if let data = try? JSONEncoder().encode(fresh) { UserDefaults.standard.set(data, forKey: AppStore.rateKey) }
+                Log.fetch.info("exchange rates updated: \(fresh.rates.count, privacy: .public) currencies")
+            } catch {
+                Log.fetch.notice("exchange rate fetch failed: \(error.localizedDescription, privacy: .public)")
+            }
         }
     }
 

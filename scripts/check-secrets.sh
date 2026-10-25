@@ -15,9 +15,10 @@ Scans files for secrets and personal data, and exits 1 if it finds any.
   --help     show this help
 
 Looks for: Anthropic keys and tokens, JWTs, sessionKey cookie values, access/refresh token values,
-PEM private keys, AWS and GitHub tokens, email addresses (example.com/.org/.net are fine), home-folder
-paths under /Users, UUIDs (unless listed in scripts/secret-scan-allow.txt), and any extra patterns
-in SECRET_SCAN_PRIVATE_PATTERNS from config/local.env (names, employer, hostname...).
+PEM private keys, AWS and GitHub tokens, email addresses, home-folder paths under /Users, UUIDs, and
+any extra patterns in SECRET_SCAN_PRIVATE_PATTERNS from config/local.env (names, employer, hostname...).
+Allowed: example.com/.org/.net addresses, plus the exact emails and UUIDs listed in
+scripts/secret-scan-allow.txt (the maintainer's published address, synthetic test ids).
 
 A line containing "secret-scan: allow" is skipped. Use that sparingly, for provably fake data.
 Binary files are skipped.
@@ -96,6 +97,8 @@ is_allowed() {
     case "$kind" in
         email)
             [[ "$lower" =~ @example\.(com|org|net)$ || "$lower" =~ \.example$ ]] && return 0
+            # Addresses the maintainer chose to publish are listed, one per line, in the allow file.
+            [[ -f "$ALLOW_FILE" ]] && $GREP -qixF -- "$m" "$ALLOW_FILE" && return 0
             # Retina asset names such as Icon@2x.png are not addresses.
             [[ "$lower" =~ @[0-9]x\.(png|jpe?g|gif|pdf|tiff?)$ ]] && return 0 ;;
         home-path)

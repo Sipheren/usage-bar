@@ -57,12 +57,4 @@ final class LabelAndCurrencyTests: XCTestCase {
         XCTAssertEqual(DropdownLayout.allCases.map(\.title), ["Both accounts", "One at a time"])
     }
 
-    func testCurrencyLine() {
-        let asOf = ISO8601DateFormatter().date(from: "2026-10-26T00:10:00Z")!
-        let r = ExchangeRate(currency: "AUD", rate: 1.4231, asOf: asOf, fetchedAt: asOf)
-        XCTAssertEqual(Formatters.currencyLine(r, timeZone: TimeZone(identifier: "UTC")!),
-                       "AUD · US$1 = A$1.42 · updated 26 Oct")
-        XCTAssertEqual(Formatters.currencyLine(.fallback, timeZone: TimeZone(identifier: "UTC")!),
-                       "AUD · US$1 = A$1.42 · built-in rate")
-    }
 }

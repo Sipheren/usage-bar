@@ -85,3 +85,27 @@ rebuilds. Ad-hoc signing works but resets them each time.
 
 **Decision.** Usage Bar doesn't touch "Claude Safe Storage" until you click Connect…, so installing or
 launching the app never pops a Keychain prompt unasked.
+
+## 13. The menu bar spark is a vector trace
+
+**Context.** Earlier builds shipped the Claude app's tray icon PNGs in the repository.
+**Decision.** `design/spark/trace_spark.py` traced the Claude app's `TrayIconTemplate@3x.png` once into
+a vector (marching squares, smoothing, Catmull-Rom Beziers) and wrote it to
+`Sources/UsageBar/ClaudeSparkPath.swift`. The app draws that path; it ships no PNG and reads nothing
+from the Claude app at runtime.
+**Consequence.** The spark is crisp at every scale and matches the original at 16 pt: compared side by
+side on a 2× menu bar, and in 1×, 2× and 3× renders, where the differences sit on anti-aliased edges.
+The shape is still the Claude spark; Usage Bar uses it to say "Claude usage" and is not made or
+endorsed by Anthropic.
+
+## 14. MIT licence and an authorship note
+
+**Decision.** The project is MIT licensed so friends can use and change it. The README and the About
+tab say it was built by AI (Claude, by Anthropic) under the direction of its author, Sipheren.
+`scripts/check-secrets.sh` allows exactly the author's published address and nothing else.
+
+## 15. Costs in a chosen currency
+
+**Decision.** Costs are computed in US dollars and shown in the currency picked in Settings (AUD by
+default, so existing installs look the same). Choosing USD skips the exchange-rate request entirely.
+Extra-usage amounts stay in the currency the API reports, because that's what the plan bills.

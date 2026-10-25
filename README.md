@@ -1,6 +1,9 @@
 # Usage Bar
 
-Private project, all rights reserved.
+> Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).
+
+MIT licensed (see [LICENSE](LICENSE)). Usage Bar is an independent project, not made or endorsed by
+Anthropic.
 
 Usage Bar is a macOS menu bar app that shows your Claude plan limits for two accounts at once:
 the 5-hour session, the weekly limit and any model-scoped weekly limit. It also estimates what your
@@ -29,7 +32,8 @@ The screenshots use demo mode, so every number and name in them is made up.
 - Dropdown with each limit's percentage, reset time, a pace marker and a pace sentence such as
   "7% under pace · lasts until reset" or "12% over pace · runs out around Wed 7 pm".
 - Cost estimate from this Mac's Claude Code logs: today, last 30 days, tokens, a 30-day chart and the
-  top model, at current API prices, shown in AUD.
+  top model, at current API prices, in the currency you pick (AUD by default; USD, EUR, GBP, NZD,
+  CAD, JPY, or your own locale's currency).
 - Extra usage (pay-as-you-go credits) when the plan has it.
 - Rate-limit friendly: a 429 pauses one account and keeps its last numbers on screen.
 - Launch at login (off by default).
@@ -41,6 +45,21 @@ The screenshots use demo mode, so every number and name in them is made up.
 - For the Claude Code source: Claude Code signed in on this Mac.
 - For the Claude app source: the Claude desktop app signed in.
 - For the Safari source: claude.ai signed in in Safari, and Full Disk Access for Usage Bar.
+
+## Using it with friends
+
+Anyone with a Mac that meets the requirements can build and run their own copy.
+
+- Each person needs their own Claude account (a Pro or Max plan shows the most limits). Usage Bar
+  shows the accounts signed in on that Mac; it can't see anyone else's.
+- In **Settings… > Accounts**, each account picks its sign-in source: the Claude Code login, the
+  Claude app login, or a claude.ai session in Safari. Set up whichever ones that person uses.
+- No data leaves their Mac except the requests listed under "Privacy and security": calls to
+  Anthropic for usage and profile, and one daily exchange-rate request when costs show in a currency
+  other than US dollars.
+- Builds work without a code-signing identity (ad-hoc), but macOS then forgets the Keychain and Full
+  Disk Access permissions after each rebuild. A free Apple developer account or a self-signed
+  code-signing certificate fixes that; see "Install".
 
 ## Install
 
@@ -80,7 +99,8 @@ works, and names the exact problem when it doesn't.
 
 - Click the menu bar item for the dropdown. **Refresh Now** (⌘R) fetches immediately.
 - **Settings… > General** sets the menu bar style, which limits it shows, the dropdown layout, the
-  refresh interval (1, 2, 5 or 10 minutes) and Launch at login.
+  refresh interval (1, 2, 5 or 10 minutes), Launch at login and the cost currency. Extra-usage amounts
+  always stay in the currency your Claude plan bills in.
 - **Settings… > Accounts** renames accounts, sets their tag and colour, and picks each sign-in source.
 - The pace marker on each bar shows where usage would be if you spread it evenly over the window.
 
@@ -134,7 +154,7 @@ Read the logs with the full path (in zsh, plain `log` is a shell builtin). macOS
 | `GET https://api.anthropic.com/api/oauth/profile` | Account email and organization | Same token |
 | `GET https://claude.ai/api/organizations` | Organizations for a cookie sign-in | The claude.ai session cookie |
 | `GET https://claude.ai/api/organizations/{id}/usage` | Plan limits for a cookie sign-in | Same cookie |
-| `GET https://open.er-api.com/v6/latest/USD` | USD to AUD rate, once a day | Nothing about you |
+| `GET https://open.er-api.com/v6/latest/USD` | Exchange rates, at most once a day, only when costs show in a currency other than USD | Nothing about you |
 
 Details: [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
 
@@ -152,6 +172,10 @@ from its menu and open it again. macOS applies the grant on the next launch.
 **Keychain prompt for "Claude Safe Storage".** That's the Claude app source asking once. Choose
 **Always Allow**. If you clicked Deny, click **Connect…** in Accounts to ask again.
 
+**Costs show in US$ although you picked another currency.** Usage Bar shows US dollars until it has
+that currency's rate; it fetches the rate as soon as you pick one. Check the Exchange rate row in
+General.
+
 **The app icon has a grey frame, or Finder shows an old icon.** Rebuild with `scripts/install.sh`
 (the icon comes from `design/icon/AppIcon.icon`). If Finder still shows the old one, macOS is using a
 cached copy:
@@ -168,8 +192,8 @@ touch "/Applications/Usage Bar.app" && killall Dock
 Sources/UsageBarCore/   Logic with no UI: decoding, pace, formatting, pricing, cost scanner, credentials
 Sources/UsageBar/       The app: menu bar item, dropdown, Settings window, debug commands, demo data
 Tests/UsageBarTests/    XCTest suite (synthetic data only)
-Resources/              Menu bar glyph (the Claude tray icon template)
 design/icon/            App icon source (Icon Composer document and the script that draws it)
+design/spark/           The menu bar spark: the tracing script and an SVG preview of the vector
 mockup/                 The original HTML design mockups
 scripts/                build, install, uninstall, check-secrets, setup-dev, qa/capture
 config/                 local.env.example (copy to local.env, which git ignores)
@@ -186,3 +210,4 @@ docs/                   Architecture, data sources, development, decisions, port
 - [docs/SPEC.md](docs/SPEC.md): the product spec.
 - [docs/DEVLOG.md](docs/DEVLOG.md) and [CHANGELOG.md](CHANGELOG.md): history.
 - [AGENTS.md](AGENTS.md): working rules for coding agents.
+- [LICENSE](LICENSE): MIT.
