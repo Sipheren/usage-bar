@@ -6,6 +6,12 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 ## [Unreleased]
 
+### Fixed
+- Memory held after switching Settings tabs. Each switch left SwiftUI observation-tracking registrations
+  behind (about 130 KB), and nothing released them until the app quit. The Settings window is now torn down
+  when it closes and rebuilt on the next open. Measured: 32 MB with the window open, back to 13 MB after
+  closing, flat across rounds.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added

@@ -48,8 +48,10 @@ enum SettingsTab: String, CaseIterable {
 
 /// A standard macOS preferences window: toolbar tabs with SF Symbols, window title = selected tab,
 /// fixed width, height fitted to each tab (animated on switch), position remembered.
+/// The window is torn down when it closes and rebuilt on the next open: switching tabs leaves
+/// observation-tracking registrations inside the SwiftUI hosting graphs that are only freed with them.
 @MainActor
-final class SettingsWindowController {
+final class SettingsWindowController: NSObject, NSWindowDelegate {
     static let width: CGFloat = 560
     private static let autosaveName = "UsageBarSettingsWindow"
 
@@ -59,6 +61,18 @@ final class SettingsWindowController {
 
     init(store: AppStore) {
         self.store = store
+        super.init()
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        // Release on the next turn, after AppKit has finished closing the window.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.window?.isVisible != true else { return }
+            self.window?.delegate = nil
+            self.window?.contentViewController = nil
+            self.window = nil
+            self.tabs = nil
+        }
     }
 
     var isVisible: Bool { window?.isVisible ?? false }
@@ -103,6 +117,7 @@ final class SettingsWindowController {
         w.initialFirstResponder = nil
         w.autorecalculatesKeyViewLoop = false
         w.animationBehavior = .documentWindow
+        w.delegate = self
         tabs = tc
         window = w
         tc.fitWindow(animated: false)
