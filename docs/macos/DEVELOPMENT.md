@@ -53,6 +53,8 @@ Run them on the installed app, for example
 | `--scan-costs` | Full cost scan of `~/.claude/projects` without the cache. Prints counts and totals only. |
 | `--fetch-personal` | One real usage request for the Claude Code login. Prints the HTTP status and limit percentages. Spends rate-limit budget. |
 | `--dump-desktop-shape` | Key names and value types of the Claude app's decrypted token cache, never values. Shows a Keychain prompt. |
+| `--export-fixtures DIR` | Fetches each due account once (Personal: OAuth usage and profile; Work: claude.ai organizations and org usage), writes anonymised copies to `DIR/api` and then `DIR/expected.json`. Raw responses stay in memory; a leak check gates every file. Files already in `DIR/api` are kept. Quit the app first and launch it with `open -n -W --stdout LOG "/Applications/Usage Bar.app" --args --export-fixtures DIR` so its own Full Disk Access applies. The output is local test data: never commit it. |
+| `--fixtures-expected DIR` | Regenerates `DIR/expected.json` (the answer sheet built by `ParitySheet`) from the files in DIR. No network. `USAGEBAR_FIXTURES=DIR swift test` then checks it for drift. |
 | `--render-menubar DIR` | Draws the menu bar label in every style to PNG sample sheets. Makes one Claude Code usage request. |
 | `--open-menu [secs]` | Opens the running app's menu, closing it after `secs` (default 6, at most 30). |
 | `--close-menu` | Closes the menu. |

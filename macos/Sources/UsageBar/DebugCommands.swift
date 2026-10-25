@@ -18,6 +18,9 @@ enum DebugCommands {
       --open-settings TAB    Ask the running app to open Settings on general|accounts|about
       --close-settings       Ask the running app to close Settings
       --set-layout both|one  Ask the running app to switch the dropdown layout
+      --export-fixtures DIR  Fetch each due account once and write anonymised API fixtures to DIR/api, then
+                             DIR/expected.json. Quit the app first; launch with `open` so Full Disk Access applies.
+      --fixtures-expected DIR  Regenerate DIR/expected.json from the fixtures in DIR (no network)
       --render-menubar DIR   This binary renders the menu bar label itself (saved settings + one Personal fetch,
                              Work as not connected) plus a sheet of every style, to PNGs in DIR. Touches no Keychain
                              item except the Claude Code login read through /usr/bin/security.
@@ -51,6 +54,13 @@ enum DebugCommands {
         case "--set-layout":
             post(DebugNotification.setLayout, ["layout": args.count > 2 ? args[2] : "both"])
             return 0
+        case "--export-fixtures":
+            guard args.count > 2 else { print(usage); return 64 }
+            let dir = URL(fileURLWithPath: args[2]).standardizedFileURL
+            return runBlocking { await exportFixtures(to: dir) }
+        case "--fixtures-expected":
+            guard args.count > 2 else { print(usage); return 64 }
+            return writeExpected(to: URL(fileURLWithPath: args[2]).standardizedFileURL)
         case "--render-menubar":
             guard args.count > 2 else { print(usage); return 64 }
             return renderMenuBar(to: URL(fileURLWithPath: args[2]).standardizedFileURL)

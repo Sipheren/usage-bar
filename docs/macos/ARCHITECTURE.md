@@ -34,6 +34,9 @@ The app is one SwiftPM package in `macos/` with three targets:
 | `Pricing.swift` | API prices per model and the cost calculation. |
 | `CostScanner.swift` | Incremental scanner over Claude Code's JSONL logs. |
 | `Currency.swift` | Display currency: conversion from US dollars, symbols, decimals, the rate line. |
+| `JSONValue.swift` | A JSON value that keeps key order and number spelling, for rewriting responses. |
+| `FixtureAnonymizer.swift` | Turns a real API response into an anonymised fixture with the same structure and value types. |
+| `ParitySheet.swift` | Builds `expected.json`, the answer sheet for a fixtures folder (fixed now, time zone and rate). |
 | `Log.swift` | `os.Logger` categories: fetch, cost, ui, auth. |
 
 ## App modules (`macos/Sources/UsageBar`)
@@ -50,6 +53,7 @@ The app is one SwiftPM package in `macos/` with three targets:
 | `CostService.swift` | Runs the cost scanner off the main thread and keeps its cache file. |
 | `DemoData.swift` | Sample data for demo mode. |
 | `DebugCommands.swift`, `DebugSnapshot.swift` | Command-line debug entry points and the menu bar sample sheet. |
+| `FixtureExport.swift` | `--export-fixtures` and `--fixtures-expected` (see DEVELOPMENT.md). |
 
 ## Data flow
 

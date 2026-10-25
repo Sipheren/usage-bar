@@ -42,6 +42,11 @@ public struct UsageClient: Sendable {
         try await perform(oauthRequest(UsageClient.usageURL, token: token))
     }
 
+    /// One GET with the OAuth headers, nothing decoded. For the fixture export only: the body stays in memory.
+    public func rawGET(_ url: URL, token: String) async throws -> RawResponse {
+        try await RawResponse.get(oauthRequest(url, token: token), session: session)
+    }
+
     public func fetchProfile(token: String) async throws -> (Profile?, Int) {
         let (data, response) = try await session.data(for: oauthRequest(UsageClient.profileURL, token: token))
         let status = (response as? HTTPURLResponse)?.statusCode ?? 0
@@ -86,6 +91,30 @@ public struct UsageClient: Sendable {
             if let d = f.date(from: v) { return max(0, d.timeIntervalSince(now)) }
         }
         return nil
+    }
+}
+
+/// An undecoded HTTP response. Holds credentials-derived data, so never print or log `data`.
+public struct RawResponse: Sendable {
+    public var data: Data
+    public var status: Int
+    public var retryAfter: String?
+    public var cfMitigated: String?
+
+    static func get(_ request: URLRequest, session: URLSession) async throws -> RawResponse {
+        let (data, response) = try await session.data(for: request)
+        let http = response as? HTTPURLResponse
+        return RawResponse(data: data, status: http?.statusCode ?? 0,
+                           retryAfter: http?.value(forHTTPHeaderField: "Retry-After"),
+                           cfMitigated: http?.value(forHTTPHeaderField: "cf-mitigated"))
+    }
+
+    /// True when claude.ai answered with a Cloudflare challenge instead of the API.
+    public var isCloudflareChallenge: Bool {
+        guard let url = URL(string: "https://claude.ai/"),
+              let http = HTTPURLResponse(url: url, statusCode: status, httpVersion: nil,
+                                         headerFields: cfMitigated.map { ["cf-mitigated": $0] } ?? [:]) else { return false }
+        return ClaudeAiCookieClient.isCloudflareChallenge(http, body: data)
     }
 }
 

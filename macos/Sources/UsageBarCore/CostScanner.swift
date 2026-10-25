@@ -16,6 +16,8 @@ public struct CostSummary: Equatable, Sendable {
     public var last30Tokens: Int64 = 0
     /// 30 daily costs in USD, oldest first, today last.
     public var dailyUSD: [Double] = Array(repeating: 0, count: 30)
+    /// 30 daily token totals, oldest first, today last.
+    public var dailyTokens: [Int64] = Array(repeating: 0, count: 30)
     public var topModel: String?
     /// Models that contributed tokens but have no price (and so cost 0).
     public var unpricedModels: [String] = []
@@ -337,11 +339,15 @@ public final class CostScanner: @unchecked Sendable {
 
         var s = CostSummary()
         var perModel: [UInt16: (tokens: Int64, usd: Double)] = [:]
-        for (dayOffset, byModel) in buckets {
-            for (mi, counts) in byModel {
+        // Sorted, so the floating-point sums come out the same on every run (dictionary order is random).
+        for dayOffset in buckets.keys.sorted() {
+            let byModel = buckets[dayOffset]!
+            for mi in byModel.keys.sorted() {
+                let counts = byModel[mi]!
                 let name = Int(mi) < models.count ? models[Int(mi)] : "unknown"
                 let usd = Pricing.cost(counts, model: name) ?? 0
                 s.dailyUSD[dayOffset] += usd
+                s.dailyTokens[dayOffset] += counts.total
                 s.last30USD += usd
                 s.last30Tokens += counts.total
                 if dayOffset == 29 {
@@ -352,7 +358,7 @@ public final class CostScanner: @unchecked Sendable {
                 perModel[mi, default: (0, 0)].usd += usd
             }
         }
-        s.perModel = perModel.map { mi, v in
+        s.perModel = perModel.sorted { $0.key < $1.key }.map { mi, v in
             let name = Int(mi) < models.count ? models[Int(mi)] : "unknown"
             return ModelCost(model: name, tokens: v.tokens, usd: v.usd, match: Pricing.match(name))
         }.sorted { ($0.usd, $0.tokens) > ($1.usd, $1.tokens) }

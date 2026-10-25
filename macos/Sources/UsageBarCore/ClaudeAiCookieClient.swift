@@ -85,6 +85,11 @@ public struct ClaudeAiCookieClient: Sendable {
         return r
     }
 
+    /// One GET with the session cookie, nothing decoded. For the fixture export only.
+    public func rawGET(_ url: URL, cookies jar: [String: String]) async throws -> RawResponse {
+        try await RawResponse.get(request(url, cookieHeader: ClaudeAiCookieClient.cookieHeader(from: jar)), session: session)
+    }
+
     static func cookieHeader(from jar: [String: String]) -> String {
         jar.map { "\($0.key)=\($0.value)" }.joined(separator: "; ")
     }

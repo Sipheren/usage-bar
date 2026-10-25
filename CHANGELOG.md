@@ -11,6 +11,10 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 
 ## [Unreleased]
 
+### Added
+- macOS: `--export-fixtures` and `--fixtures-expected` debug commands, which write anonymised API fixtures
+  and an answer sheet for testing a port without real accounts (local data, never committed).
+
 ### Changed
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
   sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
