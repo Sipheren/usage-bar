@@ -1,0 +1,15 @@
+# Build output
+.build/
+build/
+.swiftpm/
+xcuserdata/
+*.xcuserstate
+
+# Real screenshots and local QA captures: they contain real account data
+screens/
+
+# Machine-specific settings (signing identity, private scan words)
+config/local.env
+
+# macOS
+.DS_Store

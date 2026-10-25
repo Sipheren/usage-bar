@@ -1,0 +1,87 @@
+# Decisions
+
+Short records of choices that shape the project. Newest last.
+
+## 1. Independent of CodexBar
+
+**Context.** CodexBar shows Codex and Claude limits and inspired this app.
+**Decision.** Usage Bar shares no code, data or files with CodexBar and depends on nothing from it. It
+gets usage data only from Anthropic (the API and claude.ai).
+**Consequence.** Every reader, decoder and endpoint here was written and verified for this project.
+
+## 2. Read-only access to other apps' sign-ins
+
+**Context.** Claude Code and the Claude app own their tokens and refresh them on their own schedule.
+**Decision.** Usage Bar reads credentials and never refreshes, writes or deletes them. It has no
+sign-in flow.
+**Consequence.** An expired sign-in shows which app to open. Refreshing a CLI token from here could
+sign the CLI out, so that option stays off the table.
+
+## 3. Prices come from the live pricing page
+
+**Context.** The bundled Claude API reference and the live pricing page disagreed on one figure
+(Sonnet 5.5 cache reads: $0.20 against $0.10). The page's footnote says Opus 5.5 and Sonnet 5.5 cache
+hits cost 0.05× input.
+**Decision.** `Pricing.swift` follows the live page and names its source and date.
+**Consequence.** Re-check the page when prices change and update the table and its date.
+
+## 4. A monochrome menu bar
+
+**Decision.** The menu bar label never changes colour with usage: no orange values, no red pills.
+**Consequence.** The label is always a template image. Warn and critical thresholds were removed.
+
+## 5. Bars as the default style
+
+**Decision.** New installs, and settings saved before this default, use the Bars style (two stacked
+bars per account). Percentages, Compact and Icon only stay available.
+
+## 6. Dropdown A as the default
+
+**Decision.** The dropdown shows both accounts at once by default. Layout B (tabs, one account, with the
+30-day chart) is a setting.
+
+## 7. De-duplicating Claude Code log records
+
+**Context.** Claude Code writes several lines per message while streaming. Later lines carry the
+complete usage, and resumed sessions copy history into new files.
+**Decision.** The key is `message.id:requestId` (fallback `sessionId:message.id`). Keep the line with
+the largest token total; ties go to the later line; an incomplete line never replaces a complete one.
+Use the 5-minute/1-hour cache-write split when present and count the aggregate only without it.
+**Consequence.** Keeping the first line would undercount; summing every line would overcount.
+
+## 8. The app icon is an Icon Composer document
+
+**Context.** macOS 26 puts icons that don't fill its shape into a grey frame. The first icon had
+transparent margins and edge pixels just under full opacity.
+**Decision.** `design/icon/AppIcon.icon` holds full-canvas layers (slate gradient fill, orange spark,
+orange and blue bars). `build.sh` compiles it with `actool` into `Assets.car` plus an `.icns`, and sets
+`CFBundleIconName`. `design/icon/make_icon.py` redraws the layers.
+**Consequence.** The system applies the shape and lighting. Icon Composer's file format has no
+published schema; the keys follow a working third-party tool and `ictool` renders the result.
+
+## 9. The Safari source sweeps cookie folders
+
+**Context.** The source reads a claude.ai session cookie from `*.binarycookies` files. A search
+limited to Safari's container found no session on the development Mac; the broader search found it.
+**Decision.** Search Safari's files and container, plus every `*.binarycookies` under
+`~/Library/Cookies` and `~/Library/HTTPStorages`, keeping only claude.ai cookies.
+**Consequence.** The sweep reads other apps' cookie files (in memory, filtered). Narrow it once someone
+confirms where Safari keeps the live session.
+
+## 10. Spend rate-limit budget carefully
+
+**Context.** Relaunches, menu opens and debug runs all hit the usage endpoint and caused 429s.
+**Decision.** A launch or menu open fetches only when the last attempt is a full refresh interval old
+(saved to disk). A 429 keeps the last numbers and notes the pause in the header. Nothing fetches inside
+a Retry-After window.
+
+## 11. One stable signing identity
+
+**Decision.** Sign every build with the same identity (`USAGEBAR_SIGN_IDENTITY`) and keep the bundle id.
+**Consequence.** macOS keeps Keychain "Always Allow", Full Disk Access and Login Items grants across
+rebuilds. Ad-hoc signing works but resets them each time.
+
+## 12. The Claude app source waits for Connect
+
+**Decision.** Usage Bar doesn't touch "Claude Safe Storage" until you click Connect…, so installing or
+launching the app never pops a Keychain prompt unasked.
