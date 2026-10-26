@@ -102,7 +102,8 @@ internal sealed class TrayController : IDisposable
         var image = s.LabelStyle != LabelStyle.IconOnly && first is not null && firstAccount is not null
             ? Draw(n, first.Stale, dc => DrawFor(dc, first.Values, Colour(firstAccount.Preset.For(dark), fg), first.Missing))
             : Draw(n, false, dc => IconRenderer.DrawSpark(dc, n, fg));
-        plan.Add(new TrayIconPlan(SingleId, image, model.Accounts.Count == 0 ? "Usage Bar" : model.SingleTooltip(), null));
+        // No account shown (none set up, or all hidden): the spark alone, as on the Mac.
+        plan.Add(new TrayIconPlan(SingleId, image, model.Accounts.Count == 0 ? "Claude usage" : model.SingleTooltip(), null));
         return plan;
     }
 

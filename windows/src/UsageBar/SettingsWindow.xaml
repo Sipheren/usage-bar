@@ -203,10 +203,27 @@
 
                 <!-- Accounts -->
                 <StackPanel x:Name="AccountsPage" Visibility="Collapsed">
+                    <!-- No accounts: say so and offer the sources, as on the Mac. -->
+                    <Border x:Name="NoAccountsCard" Style="{StaticResource Card}" Visibility="Collapsed">
+                        <StackPanel Margin="24,20">
+                            <TextBlock Text="No accounts" FontSize="14" FontWeight="SemiBold" HorizontalAlignment="Center" Foreground="{DynamicResource Text}"/>
+                            <TextBlock Text="No Claude sign-in was found on this PC. Add an account for each way you sign in: the Claude Code login or the Claude app."
+                                       Style="{StaticResource SecondaryText}" TextAlignment="Center" Margin="0,6,0,0"/>
+                            <Button x:Name="EmptyAddButton" AutomationProperties.Name="Add Account" Style="{StaticResource WinButton}" VerticalAlignment="Center" Click="Add_Click" Padding="14,0,10,0" HorizontalAlignment="Center" Margin="0,14,0,0">
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="Add Account" VerticalAlignment="Center"/>
+                                    <Path Data="{StaticResource IconChevronDown}" Stroke="{DynamicResource Text}" StrokeThickness="1.3" Width="16" Height="16" Margin="10,0,0,0"
+                                          StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin="0.5,0.5">
+                                        <Path.RenderTransform><ScaleTransform ScaleX="0.75" ScaleY="0.75"/></Path.RenderTransform>
+                                    </Path>
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
                     <ItemsControl x:Name="AccountsList" ItemTemplate="{StaticResource AccountCard}" Focusable="False"/>
-                    <Border Style="{StaticResource Card}">
+                    <Border x:Name="AddCard" Style="{StaticResource Card}">
                         <DockPanel Style="{StaticResource Row}" MinHeight="52">
-                            <Button x:Name="AddButton" DockPanel.Dock="Right" Style="{StaticResource WinButton}" VerticalAlignment="Center" Click="Add_Click" Padding="14,0,10,0">
+                            <Button x:Name="AddButton" AutomationProperties.Name="Add Account" DockPanel.Dock="Right" Style="{StaticResource WinButton}" VerticalAlignment="Center" Click="Add_Click" Padding="14,0,10,0">
                                 <StackPanel Orientation="Horizontal">
                                     <TextBlock Text="Add Account" VerticalAlignment="Center"/>
                                     <Path Data="{StaticResource IconChevronDown}" Stroke="{DynamicResource Text}" StrokeThickness="1.3" Width="16" Height="16" Margin="10,0,0,0"
@@ -216,8 +233,8 @@
                                 </StackPanel>
                                 <Button.ContextMenu>
                                     <ContextMenu x:Name="AddMenu">
-                                        <MenuItem Header="Claude Code login" Click="AddClaudeCode_Click"/>
-                                        <MenuItem Header="Claude app" Click="AddDesktop_Click"/>
+                                        <MenuItem x:Name="AddClaudeCodeItem" Header="Claude Code login" Click="AddClaudeCode_Click"/>
+                                        <MenuItem x:Name="AddDesktopItem" Header="Claude app" Click="AddDesktop_Click"/>
                                     </ContextMenu>
                                 </Button.ContextMenu>
                             </Button>

@@ -42,6 +42,21 @@ public partial class App : Application
             return;
         }
 
+        if (Arg("--detect-sign-ins") is { } detectPath)
+        {
+            // What a first run would add: found or not found only, never ids or tokens.
+            var found = SignInDetector.Detect();
+            var adds = AppSettings.FirstRun(found).Accounts.Select(a => a.Name).ToList();
+            File.WriteAllText(detectPath, string.Join(Environment.NewLine,
+                $"Claude Code login: {(found.ClaudeCodeLogin ? "found" : "not found")}",
+                $"Claude Code account details: {(found.ClaudeCodeAccountUuid is null ? "not found" : "found")}",
+                $"Claude app sign-in: {(found.ClaudeAppHasTokenCache && found.ClaudeAppAccountUuid is { Length: > 0 } ? "found" : "not found")}",
+                $"Claude app on the Claude Code account: {(found.ClaudeAppAccountUuid is { Length: > 0 } u && string.Equals(u, found.ClaudeCodeAccountUuid, StringComparison.OrdinalIgnoreCase) ? "yes" : "no")}",
+                $"A first run would add: {(adds.Count == 0 ? "no accounts" : string.Join(", ", adds))}", ""));
+            Shutdown();
+            return;
+        }
+
         if (Arg("--desktop-shape") is { } shapePath)
         {
             // Key names and value types of the Claude app's decrypted token cache, never values.
@@ -51,7 +66,7 @@ public partial class App : Application
             return;
         }
 
-        var demo = args.Contains("--demo") || Arg("--selftest") is not null;
+        var demo = args.Contains("--demo") || args.Contains("--demo-accounts") || Arg("--selftest") is not null;
         // One instance per user; a second launch asks the first to open its flyout.
         single = new Mutex(true, demo ? @"Local\UsageBar.Demo" : @"Local\UsageBar", out var first);
         showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, demo ? @"Local\UsageBar.Demo.Show" : @"Local\UsageBar.Show");
@@ -75,8 +90,8 @@ public partial class App : Application
 
         var fixtures = Arg("--fixtures") ?? Environment.GetEnvironmentVariable("USAGEBAR_FIXTURES_UI");
         var selfTest = Arg("--selftest");
-        store = new AppStore(demo || selfTest is not null, fixtures is { Length: > 0 } && Directory.Exists(fixtures) ? fixtures : null,
-                             Arg("--scenario"));
+        store = new AppStore(demo, fixtures is { Length: > 0 } && Directory.Exists(fixtures) ? fixtures : null,
+                             Arg("--scenario"), int.TryParse(Arg("--demo-accounts"), out var n) ? n : 2);
         if (demo)
         {
             // Screenshot switches for demo mode only; real settings are never touched.

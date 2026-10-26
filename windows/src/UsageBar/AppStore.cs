@@ -49,7 +49,7 @@ internal sealed class AppStore
     static string StatePath => Path.Combine(Paths.AppData, "state.json");
     static string RatesPath => Path.Combine(Paths.AppData, "rates.json");
 
-    public AppStore(bool demo, string? fixturesDir, string? scenario = null)
+    public AppStore(bool demo, string? fixturesDir, string? scenario = null, int demoAccounts = 2)
     {
         Demo = demo;
         FixturesDir = fixturesDir;
@@ -61,7 +61,7 @@ internal sealed class AppStore
         Desktop = new DesktopSource(http);
         fetcher = new AccountFetcher(http, Desktop);
         costService = new CostService(Path.Combine(Paths.LocalAppData, "cost-cache.json"));
-        Settings = demo ? DemoData.Settings() : LoadSettings();
+        Settings = demo ? DemoData.Settings(demoAccounts) : LoadSettings();
         // Test data only: a Work account answered from the fixtures folder. Never saved (AppSettings.ToJson).
         if (fixturesDir is not null && !demo)
             Settings.Accounts.Add(Account.DefaultWork() with { Id = FixtureAccountId, Source = AccountSource.Fixture(fixturesDir) });
@@ -129,6 +129,8 @@ internal sealed class AppStore
 
     async Task RefreshAsync(Account account, FetchTrigger trigger)
     {
+        // Demo mode reads and fetches nothing, including accounts added or switched in its Settings.
+        if (Demo) return;
         var st = State(account);
         if (st.Fetching) return;
         var source = account.Source;
@@ -165,6 +167,7 @@ internal sealed class AppStore
 
     async Task RefreshCostsAsync()
     {
+        if (Demo) return;
         // A copy: the scan awaits, and Settings can add or remove accounts meanwhile.
         foreach (var a in Settings.Accounts.ToList())
         {
@@ -178,6 +181,7 @@ internal sealed class AppStore
 
     async Task RefreshRatesAsync()
     {
+        if (Demo) return;
         var code = Settings.Currency.ToUpperInvariant();
         if (!Currency.NeedsRate(code)) return;
         if (!Rates.IsFallback && !Rates.NeedsRefresh(Now) && Rates.Rates.ContainsKey(code)) return;
@@ -228,11 +232,32 @@ internal sealed class AppStore
 
     // MARK: Persistence
 
+    /// <summary>
+    /// Saved settings as they are, or a first run (no file, or not JSON): one account per sign-in found, saved straight
+    /// away so account ids stay stable (decision 16).
+    /// </summary>
     static AppSettings LoadSettings()
     {
-        try { return File.Exists(SettingsPath) ? AppSettings.FromJson(File.ReadAllText(SettingsPath)) : new AppSettings(); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return new AppSettings(); }
+        try
+        {
+            if (File.Exists(SettingsPath) && AppSettings.FromJson(File.ReadAllText(SettingsPath)) is { } saved) return saved;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+        {
+            // Can't read it now: show what's signed in, but leave the file alone.
+            Log.Info("settings: unreadable, " + e.GetType().Name);
+            return AppSettings.FirstRun(SignInDetector.Detect());
+        }
+        var found = SignInDetector.Detect();
+        var fresh = AppSettings.FirstRun(found);
+        Log.Info($"first run: Claude Code login {(found.ClaudeCodeLogin ? "found" : "not found")}; adding " +
+                 (fresh.Accounts.Count == 0 ? "no accounts" : string.Join(", ", fresh.Accounts.Select(a => a.Name))));
+        Write(SettingsPath, fresh.ToJson());
+        return fresh;
     }
+
+    /// <summary>One account per sign-in source (decision 16).</summary>
+    public bool HasAccount(SourceKind kind) => Settings.Accounts.Any(a => a.Source.Kind == kind);
 
     public void SaveSettings()
     {
@@ -245,8 +270,10 @@ internal sealed class AppStore
         {
             if (!File.Exists(StatePath)) return;
             var saved = JsonSerializer.Deserialize<Dictionary<Guid, PersistedAccountState>>(File.ReadAllText(StatePath), AppJson.Options);
+            // Only accounts that still exist, so state for removed accounts is dropped on the next save.
             foreach (var (id, p) in saved ?? new())
-                states[id] = new AccountState { Snapshot = p.Snapshot, LastSuccess = p.LastSuccess, LastAttempt = p.LastAttempt, WaitUntil = p.WaitUntil, Email = p.Email };
+                if (Settings.Accounts.Any(a => a.Id == id))
+                    states[id] = new AccountState { Snapshot = p.Snapshot, LastSuccess = p.LastSuccess, LastAttempt = p.LastAttempt, WaitUntil = p.WaitUntil, Email = p.Email };
         }
         catch (Exception e) when (e is IOException or JsonException) { Log.Info("state: unreadable, starting fresh"); }
     }
@@ -308,11 +335,14 @@ internal sealed class AppStore
     {
         var now = Now;
         Rates = DemoData.Rates(now);
-        var p = Settings.Accounts[0];
-        var w = Settings.Accounts[1];
-        states[p.Id] = new AccountState { Snapshot = DemoData.Personal(now), LastSuccess = now, Email = DemoData.PersonalEmail };
-        states[w.Id] = new AccountState { Snapshot = DemoData.Work(now), LastSuccess = now, Email = DemoData.WorkOrganization };
-        costs[p.Id] = new CostState(DemoData.PersonalCost(Rates.Rates["AUD"]));
+        var a = Settings.Accounts;
+        if (a.Count > 0)
+        {
+            states[a[0].Id] = new AccountState { Snapshot = DemoData.Personal(now), LastSuccess = now, Email = DemoData.PersonalEmail };
+            costs[a[0].Id] = new CostState(DemoData.PersonalCost(Rates.Rates["AUD"]));
+        }
+        if (a.Count > 1)
+            states[a[1].Id] = new AccountState { Snapshot = DemoData.Work(now), LastSuccess = now, Email = DemoData.WorkOrganization };
         lastAnyUpdate = now;
     }
 }

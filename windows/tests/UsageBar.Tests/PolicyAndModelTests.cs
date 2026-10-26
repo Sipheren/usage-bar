@@ -231,7 +231,9 @@ public class SettingsTests
     [Fact]
     public void FreshSettingsDefaults()
     {
+        // Accounts come only from a first run's detection or the user (decision 16).
         var s = new AppSettings();
+        Assert.Empty(s.Accounts);
         Assert.Equal(LabelStyle.Bars, s.LabelStyle);
         Assert.Equal(TrayIconMode.PerAccount, s.TrayIcons);
         Assert.Equal(DropdownLayout.BothAccounts, s.DropdownLayout);
@@ -241,10 +243,6 @@ public class SettingsTests
         Assert.True(s.ShowWeekly);
         Assert.False(s.ShowScoped);
         Assert.False(s.DesktopConnected);
-        // One account unless the user adds more: no Work account appears without work details.
-        Assert.Equal(new[] { "P" }, s.Accounts.Select(a => a.Tag));
-        Assert.Equal(SourceKind.ClaudeCode, s.Accounts[0].Source.Kind);
-        Assert.Equal("orange", s.Accounts[0].Colour);
     }
 
     const string OldDefaults = """
@@ -257,49 +255,59 @@ public class SettingsTests
     """;
 
     [Fact]
-    public void SettingsFromZeroPointOneDropTheUntouchedDefaultWorkAccount()
+    public void SavedSettingsLoadWithTheirAccountsUnchanged()
     {
-        var s = AppSettings.FromJson(OldDefaults.Replace("%EXTRA%", ""));
-        Assert.Equal(new[] { "Personal" }, s.Accounts.Select(a => a.Name));
-        Assert.Equal(AppSettings.CurrentDefaultsVersion, s.DefaultsVersion);
-        // Once migrated it stays: an account the user adds later is kept.
-        s.Accounts.Add(Account.DefaultWork());
-        Assert.Equal(2, AppSettings.FromJson(s.ToJson()).Accounts.Count);
+        // 0.1.0's untouched Work account is kept too: no migration adds, removes or renames accounts.
+        var s = AppSettings.FromJson(OldDefaults.Replace("%EXTRA%", ",\"defaultsVersion\":0"))!;
+        Assert.Equal(new[] { "Personal", "Work" }, s.Accounts.Select(a => a.Name));
+        Assert.Equal(new[] { "P", "W" }, s.Accounts.Select(a => a.Tag));
+        Assert.Equal(Guid.Parse("00000000-0000-4000-8000-0000000000bb"), s.Accounts[1].Id);
+        var back = AppSettings.FromJson(s.ToJson())!;
+        Assert.Equal(s.Accounts, back.Accounts);
     }
 
     [Fact]
-    public void AWorkAccountTheUserTouchedOrConnectedIsKept()
+    public void SavedSettingsWithoutAnAccountListKeepPersonal()
     {
-        Assert.Equal(2, AppSettings.FromJson(OldDefaults.Replace("%EXTRA%", ",\"desktopConnected\":true")).Accounts.Count);
-        Assert.Equal(2, AppSettings.FromJson(OldDefaults.Replace("\"name\":\"Work\"", "\"name\":\"Job\"").Replace("%EXTRA%", "")).Accounts.Count);
+        // Every Windows version saved its accounts; a file without the list falls back to the one account all of them started with.
+        var s = AppSettings.FromJson("""{"labelStyle":"percentages"}""")!;
+        Assert.Equal(new[] { "P" }, s.Accounts.Select(a => a.Tag));
+        Assert.Equal(SourceKind.ClaudeCode, s.Accounts[0].Source.Kind);
     }
 
     [Fact]
     public void FixtureAccountsAreNeverSaved()
     {
         var s = new AppSettings();
+        s.Accounts.Add(Account.DefaultPersonal());
         s.Accounts.Add(Account.DefaultWork() with { Source = AccountSource.Fixture("C:/fixtures") });
-        Assert.Single(AppSettings.FromJson(s.ToJson()).Accounts);
+        Assert.Single(AppSettings.FromJson(s.ToJson())!.Accounts);
     }
 
     [Fact]
     public void PartialOrOddJsonKeepsDefaultsForEverythingElse()
     {
-        var s = AppSettings.FromJson("""{"labelStyle":"percentages","refreshMinutes":5,"currency":"eur","trayIcons":"nonsense"}""");
+        var s = AppSettings.FromJson("""{"labelStyle":"percentages","refreshMinutes":5,"currency":"eur","trayIcons":"nonsense"}""")!;
         Assert.Equal(LabelStyle.Percentages, s.LabelStyle);
         Assert.Equal(5, s.RefreshMinutes);
         Assert.Equal("EUR", s.Currency);
         Assert.Equal(TrayIconMode.PerAccount, s.TrayIcons);
-        Assert.Single(s.Accounts);
-        Assert.Equal(new AppSettings().Accounts.Count, AppSettings.FromJson("not json").Accounts.Count);
+    }
+
+    [Fact]
+    public void UnreadableSettingsAreAFirstRun()
+    {
+        Assert.Null(AppSettings.FromJson("not json"));
+        Assert.Null(AppSettings.FromJson("[1,2]"));
     }
 
     [Fact]
     public void SettingsRoundTrip()
     {
         var s = new AppSettings { LabelStyle = LabelStyle.IconOnly, TrayIcons = TrayIconMode.Single, Currency = "USD" };
-        s.Accounts.Add(Account.DefaultWork() with { Name = "Job", ShowInTray = false });
-        var back = AppSettings.FromJson(s.ToJson());
+        s.Accounts.Add(Account.DefaultPersonal());
+        s.Accounts.Add(Account.DefaultClaudeApp() with { Name = "Job", ShowInTray = false });
+        var back = AppSettings.FromJson(s.ToJson())!;
         Assert.Equal(LabelStyle.IconOnly, back.LabelStyle);
         Assert.Equal(TrayIconMode.Single, back.TrayIcons);
         Assert.Equal("Job", back.Accounts[1].Name);
@@ -311,7 +319,8 @@ public class SettingsTests
     public void StyleAndLayoutTitles()
     {
         Assert.Equal(new[] { "Bars", "Percentages", "Icon only" }, LabelStyles.Offered.Select(LabelStyles.Title));
-        Assert.Equal("Both accounts", DropdownLayout.BothAccounts.Title());
+        // The saved value stays bothAccounts; it shows every account.
+        Assert.Equal("All accounts", DropdownLayout.BothAccounts.Title());
         Assert.Equal("One at a time", DropdownLayout.OneAtATime.Title());
         Assert.Equal("One per account", TrayIconMode.PerAccount.Title());
         Assert.Equal("Single icon", TrayIconMode.Single.Title());

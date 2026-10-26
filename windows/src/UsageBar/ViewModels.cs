@@ -39,10 +39,9 @@ internal sealed class FlyoutVm
     public string UpdatedText { get; init; } = "";
     public List<AccountVm> Accounts { get; init; } = new();
     public AccountVm? Selected { get; init; }
-    public bool LayoutA { get; init; }
-    public bool HasAccounts => Accounts.Count > 0;
-    /// <summary>Layout B's account tabs only make sense with more than one account.</summary>
-    public bool ShowTabs => Accounts.Count > 1;
+    /// <summary>The empty state, layout A or layout B (with tabs only when there is another account to switch to).</summary>
+    public DropdownContent Content { get; init; }
+    public bool ShowTabs => Content.Tabs;
     /// <summary>Past four tabs a name would be cut to an ellipsis, so the tabs show badges only (the name is the tooltip).</summary>
     public bool ShowTabNames => Accounts.Count <= 4;
 
@@ -68,7 +67,7 @@ internal sealed class FlyoutVm
             UpdatedText = Formatters.UpdatedAgo(store.LastUpdated, now),
             Accounts = accounts,
             Selected = accounts.FirstOrDefault(a => a.Selected),
-            LayoutA = store.Settings.DropdownLayout == DropdownLayout.BothAccounts,
+            Content = DropdownContent.For(store.Settings.DropdownLayout, accounts.Count),
         };
     }
 

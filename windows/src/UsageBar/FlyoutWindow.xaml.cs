@@ -56,8 +56,10 @@ public partial class FlyoutWindow : Window
     {
         var vm = FlyoutVm.Build(store);
         DataContext = vm;
-        LayoutA.Visibility = vm.LayoutA ? Visibility.Visible : Visibility.Collapsed;
-        LayoutB.Visibility = vm.LayoutA ? Visibility.Collapsed : Visibility.Visible;
+        static Visibility Shown(bool on) => on ? Visibility.Visible : Visibility.Collapsed;
+        EmptyState.Visibility = Shown(vm.Content.View == DropdownView.Empty);
+        LayoutA.Visibility = Shown(vm.Content.View == DropdownView.Stacked);
+        LayoutB.Visibility = Shown(vm.Content.View == DropdownView.OneAtATime);
     }
 
     internal void ShowAt(Native.RECT? iconRect, Guid? account)
@@ -124,6 +126,7 @@ public partial class FlyoutWindow : Window
     void Refresh_Click(object sender, RoutedEventArgs e) => Refresh();
     void About_Click(object sender, RoutedEventArgs e) => OpenSettings("about");
     void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings(null);
+    void OpenAccounts_Click(object sender, RoutedEventArgs e) => OpenSettings("accounts");
     void Quit_Click(object sender, RoutedEventArgs e) => quit();
     void Connect_Click(object sender, RoutedEventArgs e) => store.ConnectDesktop();
 
@@ -155,13 +158,3 @@ internal sealed class NullToCollapsed : IValueConverter
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
 }
 
-/// <summary>Collapsed when true, visible when false.</summary>
-internal sealed class InverseVis : MarkupExtension, IValueConverter
-{
-    public override object ProvideValue(IServiceProvider serviceProvider) => this;
-
-    public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture) =>
-        value is true ? Visibility.Collapsed : Visibility.Visible;
-
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture) => Binding.DoNothing;
-}

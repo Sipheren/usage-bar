@@ -75,6 +75,7 @@ internal static class Theme
             r["Pressed"] = B(0x0AFFFFFF);
             r["ButtonFill"] = B(0x0FFFFFFF);
             r["FlyoutFill"] = B(0xF22C2C2C);
+            r["MenuFill"] = B(0xFF2C2C2C);
             r["FlyoutTint"] = B(0xD92C2C2C);
             r["FlyoutBorder"] = B(0x14FFFFFF);
             r["WindowFill"] = B(0xFF202020);
@@ -107,6 +108,7 @@ internal static class Theme
             r["Pressed"] = B(0xFFEBEBEB);
             r["ButtonFill"] = B(0xFFE6E6E6);
             r["FlyoutFill"] = B(0xF5F3F3F3);
+            r["MenuFill"] = B(0xFFF9F9F9);
             r["FlyoutTint"] = B(0xFFF3F3F3);   // opaque: dark text needs a solid surface over the backdrop
             r["FlyoutBorder"] = B(0x1A000000);
             r["WindowFill"] = B(0xFFF3F3F3);

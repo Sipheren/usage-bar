@@ -43,6 +43,32 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 - macOS: with no account in the menu bar, the label's tooltip and accessibility text were blank; they
   now read "Claude usage", and the label is the spark alone.
 
+## [Windows 0.1.4] - 2026-10-26
+
+### Changed
+- Windows: the first launch adds an account only for each sign-in it finds, with no prompt and nothing
+  decrypted: Personal when Claude Code's credentials file exists, and a Claude app account when the app is
+  signed in to a different account than Claude Code. Nothing found means no accounts (decision 16).
+- Windows: saved settings load unchanged. 0.1.1's one-time removal of an unused default Work account is
+  gone.
+- Windows: Add Account offers each sign-in source once (a source in use is greyed out) and adds that
+  source's account: Personal, or Claude app in purple.
+- Windows: the "Both accounts" layout is now "All accounts" (the saved value is unchanged).
+
+### Added
+- Windows: a "No accounts" state in the flyout, whose **Open Settings…** opens the Accounts tab, and in
+  Settings > Accounts.
+- Windows: debug options `--demo-accounts 0|1|2` and `--detect-sign-ins <file>`.
+
+### Fixed
+- Windows: settings weren't saved until you changed one, so every launch gave the account a new id: a new
+  tray-icon entry in Windows' list each time, and saved usage that was never reused. The first run now
+  saves straight away, and saved state for accounts that no longer exist is dropped.
+- Windows: demo mode no longer reads or fetches anything when an account is added or switched, or the
+  currency changes.
+- Windows: context menus (Add Account, text-box edit menus) follow the app's light or dark palette, and the
+  Add Account buttons have an accessible name.
+
 ## [Windows 0.1.3] - 2026-10-26
 
 ### Fixed

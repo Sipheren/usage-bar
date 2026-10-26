@@ -4,6 +4,12 @@
 
 ## 2026-10-26 (Windows)
 
+- 0.1.4: Windows follows the new account contract (decision 16), ported test-first from the Mac's
+  `AccountSetupTests`. Detection was checked against this PC's real files (`--detect-sign-ins`: the Claude
+  app is on the Claude Code account, so only Personal is added) and with a real first run. That run showed
+  0.1.0 to 0.1.3 never saved settings on their own: `state.json` held 16 ids for one account, one per
+  launch. Interaction checks through UI Automation also caught demo mode reading the real Claude app
+  config when an account was added, and an unthemed Add Account menu.
 - 0.1.3: a bug pass before merging. `--selftest` showed every closed Settings window that had shown the
   Accounts tab staying alive; removing the account card's controls one type at a time pointed at the
   colour combo, and freezing its swatch brushes fixed it (0 live windows and flat memory over three

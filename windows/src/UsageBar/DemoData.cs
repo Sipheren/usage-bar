@@ -11,13 +11,18 @@ internal static class DemoData
     public const string PersonalEmail = "personal@example.com";
     public const string WorkOrganization = "Example Co";
 
-    /// <summary>Default settings with fixed account ids, so Windows keeps one tray entry per demo icon across launches.</summary>
-    public static AppSettings Settings()
+    /// <summary>
+    /// Personal then Work, the README pair (<c>--demo</c>), or the first <paramref name="count"/> of them
+    /// (<c>--demo-accounts 0|1|2</c>). Fixed ids, so Windows keeps one tray entry per demo icon across launches.
+    /// </summary>
+    public static AppSettings Settings(int count = 2)
     {
-        var s = new AppSettings();
-        s.Accounts[0] = s.Accounts[0] with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000aa") };
-        s.Accounts.Add(Account.DefaultWork() with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000bb") });
-        return s;
+        var all = new[]
+        {
+            Account.DefaultPersonal() with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000aa") },
+            Account.DefaultWork() with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000bb") },
+        };
+        return new AppSettings { Accounts = all.Take(Math.Clamp(count, 0, all.Length)).ToList() };
     }
 
     /// <summary><c>--scenario edge</c>: eight accounts covering every awkward state the flyout and Settings must lay out, and enough to scroll.</summary>

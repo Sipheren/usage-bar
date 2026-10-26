@@ -156,6 +156,13 @@ public partial class SettingsWindow : Window
     void LoadAccounts()
     {
         AccountsList.ItemsSource = store.Settings.Accounts.Select(a => new AccountEditVm(store, a.Id)).ToList();
+        var none = store.Settings.Accounts.Count == 0;
+        NoAccountsCard.Visibility = none ? Visibility.Visible : Visibility.Collapsed;
+        AddCard.Visibility = none ? Visibility.Collapsed : Visibility.Visible;
+        // One account per sign-in source: a source already in use is greyed out (decision 16).
+        AddClaudeCodeItem.IsEnabled = !store.HasAccount(SourceKind.ClaudeCode);
+        AddDesktopItem.IsEnabled = !store.HasAccount(SourceKind.ClaudeDesktop);
+        AddButton.IsEnabled = EmptyAddButton.IsEnabled = AccountSources.Addable.Any(k => !store.HasAccount(k));
     }
 
     void Connect_Click(object sender, RoutedEventArgs e) => store.ConnectDesktop();
@@ -172,26 +179,26 @@ public partial class SettingsWindow : Window
 
     void Add_Click(object sender, RoutedEventArgs e)
     {
-        AddMenu.PlacementTarget = AddButton;
+        AddMenu.PlacementTarget = sender as UIElement ?? AddButton;
         AddMenu.Placement = System.Windows.Controls.Primitives.PlacementMode.Bottom;
         AddMenu.IsOpen = true;
     }
 
-    void AddClaudeCode_Click(object sender, RoutedEventArgs e) => AddAccount(AccountSource.ClaudeCode());
-    void AddDesktop_Click(object sender, RoutedEventArgs e) => AddAccount(AccountSource.ClaudeDesktop);
+    void AddClaudeCode_Click(object sender, RoutedEventArgs e) => AddAccount(SourceKind.ClaudeCode);
+    void AddDesktop_Click(object sender, RoutedEventArgs e) => AddAccount(SourceKind.ClaudeDesktop);
 
-    void AddAccount(AccountSource source)
+    /// <summary>The source's default account (Personal or Claude app), with another tag or colour only when another account has it.</summary>
+    void AddAccount(SourceKind kind)
     {
-        var used = store.Settings.Accounts.Select(a => a.Tag).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        var tag = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".Select(c => c.ToString()).First(t => !used.Contains(t));
-        var account = new Account
-        {
-            Name = source.Kind == SourceKind.ClaudeCode ? "Claude Code" : "Claude app", Tag = tag,
-            // The first preset no other account uses, so a new account is told apart straight away.
-            Colour = (AccountColours.All.FirstOrDefault(p => store.Settings.Accounts.All(a => a.Colour != p.Id)) ?? AccountColours.All[0]).Id,
-            Source = source,
-            LogsDir = source.Kind == SourceKind.ClaudeCode ? Path.Combine(source.Dir ?? Paths.DefaultClaudeConfigDir, "projects") : null,
-        };
+        if (store.HasAccount(kind)) return;
+        var others = store.Settings.Accounts;
+        var account = Account.DefaultAccount(kind);
+        var tags = others.Select(a => a.Tag).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        if (tags.Contains(account.Tag))
+            account = account with { Tag = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".Select(c => c.ToString()).First(t => !tags.Contains(t)) };
+        if (others.Any(a => a.Colour == account.Colour)
+            && AccountColours.All.FirstOrDefault(p => others.All(a => a.Colour != p.Id)) is { } free)
+            account = account with { Colour = free.Id };
         store.UpdateSettings(s => s.Accounts.Add(account));
         store.AccountSourceChanged(account);
         LoadAccounts();

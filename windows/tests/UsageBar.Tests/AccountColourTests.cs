@@ -64,7 +64,7 @@ public class AccountColourTests
         {"defaultsVersion":1,"accounts":[{"id":"00000000-0000-4000-8000-0000000000aa","name":"Personal","tag":"P",
           "colorHex":"#D97757","source":{"kind":"claudeCode"}},{"id":"00000000-0000-4000-8000-0000000000bb","name":"Job","tag":"J",
           "colorHex":"#4C9A6A","source":{"kind":"claudeCode"}}]}
-        """);
+        """)!;
         Assert.Equal(new[] { "orange", "green" }, s.Accounts.Select(a => a.Colour));
         Assert.DoesNotContain("colorHex", s.ToJson());
     }

@@ -23,17 +23,24 @@ public static class LabelStyles
 /// <summary>One notification-area icon per shown account (the default), or one icon for all of them.</summary>
 public enum TrayIconMode { PerAccount, Single }
 
+/// <summary><c>BothAccounts</c> is the saved name from when there were always two; it shows every account.</summary>
 public enum DropdownLayout { BothAccounts, OneAtATime }
 
 public static class EnumTitles
 {
     public static string Title(this TrayIconMode m) => m == TrayIconMode.PerAccount ? "One per account" : "Single icon";
-    public static string Title(this DropdownLayout l) => l == DropdownLayout.BothAccounts ? "Both accounts" : "One at a time";
+    public static string Title(this DropdownLayout l) => l == DropdownLayout.BothAccounts ? "All accounts" : "One at a time";
 }
 
 public sealed record MetricSelection(bool Session = true, bool Weekly = true, bool Scoped = false);
 
 public enum SourceKind { ClaudeCode, ClaudeDesktop, Fixture }
+
+public static class AccountSources
+{
+    /// <summary>The sources Settings > Add Account offers, once each (decision 16). Fixtures are test data only.</summary>
+    public static readonly SourceKind[] Addable = { SourceKind.ClaudeCode, SourceKind.ClaudeDesktop };
+}
 
 /// <summary>Where an account's sign-in comes from. <c>Dir</c> is the Claude Code config folder or the fixtures folder.</summary>
 public sealed record AccountSource(SourceKind Kind, string? Dir = null)
@@ -71,6 +78,20 @@ public sealed record Account
         LogsDir = Path.Combine(Paths.DefaultClaudeConfigDir, "projects"),
     };
 
+    public static Account DefaultClaudeApp() => new()
+    {
+        Name = "Claude app", Tag = "C", Colour = "purple", Source = AccountSource.ClaudeDesktop,
+    };
+
+    /// <summary>The account a first run and Settings > Add Account create for a sign-in source (one per source).</summary>
+    public static Account DefaultAccount(SourceKind kind) => kind switch
+    {
+        SourceKind.ClaudeCode => DefaultPersonal(),
+        SourceKind.ClaudeDesktop => DefaultClaudeApp(),
+        _ => throw new ArgumentOutOfRangeException(nameof(kind), "Fixture accounts are test data, not a sign-in source."),
+    };
+
+    /// <summary>The demo and fixture Work account (on the Claude app source), as in the Mac screenshots.</summary>
     public static Account DefaultWork() => new()
     {
         Name = "Work", Tag = "W", Colour = "blue", Source = AccountSource.ClaudeDesktop,
@@ -103,8 +124,11 @@ public static class Rgb
 /// <summary>Everything the user can set. Every field is optional when loading, so older files never reset everything.</summary>
 public sealed class AppSettings
 {
-    /// <summary>One account by default; the user adds others. Nothing appears without a sign-in behind it.</summary>
-    public List<Account> Accounts { get; set; } = new() { Account.DefaultPersonal() };
+    /// <summary>
+    /// None by default: a first run adds one per sign-in it finds (<see cref="FirstRun"/>), and the user adds the rest.
+    /// Zero accounts is a normal state (decision 16).
+    /// </summary>
+    public List<Account> Accounts { get; set; } = new();
     public LabelStyle LabelStyle { get; set; } = LabelStyle.Bars;
     public TrayIconMode TrayIcons { get; set; } = TrayIconMode.PerAccount;
     public bool ShowSession { get; set; } = true;
@@ -118,10 +142,6 @@ public sealed class AppSettings
     public bool DesktopConnected { get; set; }
     /// <summary>Token-cache entry chosen per Claude app account uuid (a key path, never a token).</summary>
     public Dictionary<string, string> DesktopTokenChoice { get; set; } = new();
-
-    /// <summary>Bumped when saved settings need a one-time change on load (see <see cref="ApplyMigrations"/>).</summary>
-    public int DefaultsVersion { get; set; } = CurrentDefaultsVersion;
-    public const int CurrentDefaultsVersion = 1;
 
     public static readonly int[] RefreshOptions = { 1, 2, 5, 10 };
 
@@ -137,42 +157,37 @@ public sealed class AppSettings
         finally { Accounts = saved; }
     }
 
-    /// <summary>
-    /// One-time changes for settings saved by older versions. 0.1.0 created a Work account on the Claude app
-    /// by default; if the user never touched or connected it, it goes, so only real accounts show.
-    /// </summary>
-    public bool ApplyMigrations()
-    {
-        if (DefaultsVersion >= CurrentDefaultsVersion) return false;
-        var work = Account.DefaultWork();
-        if (!DesktopConnected)
-            Accounts.RemoveAll(a => a.Source.Kind == SourceKind.ClaudeDesktop && a.Name == work.Name && a.Tag == work.Tag && a.Colour == work.Colour);
-        if (Accounts.Count == 0) Accounts.Add(Account.DefaultPersonal());
-        DefaultsVersion = CurrentDefaultsVersion;
-        return true;
-    }
+    /// <summary>Settings for a fresh install: one account per sign-in found, none when nothing was found.</summary>
+    public static AppSettings FirstRun(FoundSignIns found) => new() { Accounts = found.Kinds.Select(Account.DefaultAccount).ToList() };
 
-    public static AppSettings FromJson(string json)
+    /// <summary>
+    /// Saved settings, loaded as they are: nothing adds, removes or renames accounts (decision 16). Null when the
+    /// text isn't a JSON object, which the app treats as a first run.
+    /// </summary>
+    public static AppSettings? FromJson(string json)
     {
         var s = new AppSettings();
         JsonDocument doc;
         try { doc = JsonDocument.Parse(json); }
-        catch (JsonException) { return s; }
+        catch (JsonException) { return null; }
         using (doc)
         {
             var r = doc.RootElement;
-            if (r.ValueKind != JsonValueKind.Object) return s;
+            if (r.ValueKind != JsonValueKind.Object) return null;
             T? Get<T>(string key)
             {
                 if (!r.TryGetProperty(key, out var v)) return default;
                 try { return v.Deserialize<T>(AppJson.Options); }
                 catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException) { return default; }
             }
-            if (Get<List<Account>>("accounts") is { Count: > 0 } accounts)
+            // Any saved list, an empty one included, is kept. Every Windows version saved its accounts, so a file
+            // without a readable list falls back to the one account all of them started with.
+            if (Get<List<Account>>("accounts") is { } accounts)
                 // 0.1.x colours were free-form hex: keep the nearest preset.
                 s.Accounts = accounts.Select(a => a.LegacyColorHex is { } hex
                     ? a with { Colour = AccountColours.Nearest(hex).Id, LegacyColorHex = null }
                     : a with { Colour = AccountColours.Get(a.Colour).Id }).ToList();
+            else s.Accounts = new() { Account.DefaultPersonal() };
             if (Get<LabelStyle?>("labelStyle") is { } ls) s.LabelStyle = ls;
             if (Get<TrayIconMode?>("trayIcons") is { } ti) s.TrayIcons = ti;
             if (Get<bool?>("showSession") is { } ss) s.ShowSession = ss;
@@ -183,10 +198,7 @@ public sealed class AppSettings
             if (Get<string>("currency") is { Length: > 0 } cur) s.Currency = cur.ToUpperInvariant();
             if (Get<bool?>("desktopConnected") is { } dc) s.DesktopConnected = dc;
             if (Get<Dictionary<string, string>>("desktopTokenChoice") is { } tc) s.DesktopTokenChoice = tc;
-            // Absent in 0.1.0 files: they need the migrations.
-            s.DefaultsVersion = Get<int?>("defaultsVersion") ?? 0;
         }
-        s.ApplyMigrations();
         return s;
     }
 }

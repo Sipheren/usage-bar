@@ -75,12 +75,18 @@ URI flag, as the macOS reader does for the Claude app's cookies, and never copy 
 
 Follow [DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection): one or more accounts, up to one per
 sign-in source, and a first run adds only the sign-ins it finds, with no prompt and nothing decrypted.
-Zero accounts is a normal state. On Windows (all **unverified**):
+Zero accounts is a normal state. On Windows:
 
 - Claude Code: the `.credentials.json` above exists. Don't parse the token to decide.
 - Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid` that
   isn't `oauthAccount.accountUuid` in `%USERPROFILE%\.claude.json`. Don't call DPAPI for this check.
 - Browser session: never checked on first run; the user adds it from Settings.
+
+Verified on Windows 11 (2026-10-26) with `UsageBar.exe --detect-sign-ins` and a real first run: the
+credentials file and `.claude.json` were found; the Claude app's `config.json` held a V2 token cache and a
+`lastKnownAccountUuid` equal to the Claude Code account's, so the first run added Personal only. A Claude
+app signed in to a different account is covered by tests only. Save the first run's settings straight
+away: Windows 0.1.0 to 0.1.3 didn't, so every launch gave the account a new id and a new tray-icon entry.
 
 ### Everything else is the same
 

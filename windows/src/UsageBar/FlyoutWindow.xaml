@@ -164,7 +164,20 @@
             </StackPanel>
             <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" Focusable="False">
             <StackPanel>
-            <!-- Layout A: both accounts. -->
+            <!-- No accounts, either layout. -->
+            <StackPanel x:Name="EmptyState" Margin="16,14,16,12" Visibility="Collapsed">
+                <TextBlock Text="Claude" FontSize="17" FontWeight="SemiBold"/>
+                <Border Height="1" Background="{DynamicResource Separator}" Margin="0,12"/>
+                <StackPanel Margin="0,4">
+                    <TextBlock Text="No accounts" FontSize="15" FontWeight="SemiBold" HorizontalAlignment="Center"/>
+                    <TextBlock Text="No Claude sign-in was found on this PC. Add the Claude Code login or the Claude app in Settings."
+                               Style="{StaticResource SecondaryText}" TextAlignment="Center" Margin="0,6,0,0"/>
+                    <Button Content="Open Settings…" Style="{StaticResource WinButton}" HorizontalAlignment="Center" Margin="0,12,0,0"
+                            Click="OpenAccounts_Click"/>
+                </StackPanel>
+            </StackPanel>
+
+            <!-- Layout A: all accounts. -->
             <StackPanel x:Name="LayoutA" Margin="16,14,16,0">
                 <DockPanel Margin="0,0,0,12">
                     <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Click="Refresh_Click" ToolTip="Refresh now" VerticalAlignment="Top">
@@ -176,8 +189,6 @@
                     </StackPanel>
                 </DockPanel>
                 <ItemsControl ItemsSource="{Binding Accounts}" ItemTemplate="{StaticResource AccountA}" Focusable="False"/>
-                <TextBlock Text="No accounts. Add one in Settings." Style="{StaticResource SecondaryText}" Margin="0,0,0,12"
-                           Visibility="{Binding HasAccounts, Converter={local:InverseVis}}"/>
             </StackPanel>
 
             <!-- Layout B: one account at a time. -->
