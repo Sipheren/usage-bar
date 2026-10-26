@@ -25,6 +25,8 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   Windows app (0.1.4) and its tray icons.
 - Docs: the authorship note is one line at the end of the README instead of a quote at the top of the
   README and the devlog.
+- macOS: the About credit is now a short footer line ("MIT License. Made with Claude by Sipheren.").
+- Windows: the About credit is now a short footer line ("MIT License. Made with Claude by Sipheren.").
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
   sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the

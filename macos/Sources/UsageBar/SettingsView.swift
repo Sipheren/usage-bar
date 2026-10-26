@@ -463,8 +463,7 @@ struct AboutTab: View {
             } footer: {
                 VStack(spacing: 4) {
                     Text("Usage Bar is independent. It reads your existing sign-ins, and all usage data comes from Anthropic.")
-                    Text("Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).")
-                    Text("MIT License.")
+                    Text("MIT License. Made with Claude by Sipheren.")
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)

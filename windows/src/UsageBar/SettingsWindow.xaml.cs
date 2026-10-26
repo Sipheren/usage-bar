@@ -8,7 +8,6 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
 using UsageBar.Core;
 
 namespace UsageBar;
@@ -220,12 +219,6 @@ public partial class SettingsWindow : Window
     void ShowFolder_Click(object sender, RoutedEventArgs e)
     {
         if (BuildInfo.ProjectFolder is { } f) Process.Start(new ProcessStartInfo("explorer.exe", $"\"{f}\"") { UseShellExecute = true });
-    }
-
-    void Link_Navigate(object sender, RequestNavigateEventArgs e)
-    {
-        Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri) { UseShellExecute = true });
-        e.Handled = true;
     }
 }
 

@@ -278,7 +278,7 @@
                         </StackPanel>
                     </Border>
                     <TextBlock TextAlignment="Center" FontSize="11" LineHeight="17" Foreground="{DynamicResource Secondary}" TextWrapping="Wrap" Margin="-8,0">
-                        Usage Bar is independent. It reads your existing sign-ins, and all usage data comes from Anthropic.<LineBreak/>Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (<Hyperlink NavigateUri="mailto:sipheren@gmail.com" RequestNavigate="Link_Navigate" Foreground="{DynamicResource Accent}">sipheren@gmail.com</Hyperlink>).<LineBreak/>MIT License.
+                        Usage Bar is independent. It reads your existing sign-ins, and all usage data comes from Anthropic.<LineBreak/>MIT License. Made with Claude by Sipheren.
                     </TextBlock>
                 </StackPanel>
             </Grid>

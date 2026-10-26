@@ -101,9 +101,9 @@ endorsed by Anthropic.
 
 ## 14. MIT licence and an authorship note
 
-**Decision.** The project is MIT licensed so friends can use and change it. A line at the end of the
-README and the About tab say it was built by AI (Claude, by Anthropic) under the direction of its
-author, Sipheren; nowhere else, and never at the top of a page.
+**Decision.** The project is MIT licensed so friends can use and change it. The About tab's footer
+reads "Made with Claude by Sipheren", and the full note is one line at the end of the README; nowhere
+else, and never at the top of a page.
 `scripts/check-secrets.sh` allows exactly the author's published address and nothing else.
 
 ## 15. Costs in a chosen currency
