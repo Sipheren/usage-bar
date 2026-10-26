@@ -63,6 +63,6 @@ final class CurrencyTests: XCTestCase {
     func testOldSettingsDefaultToAUD() throws {
         let s = try JSONDecoder().decode(AppSettings.self, from: Data(#"{"menuBarStyle":"compact"}"#.utf8))
         XCTAssertEqual(s.currency, "AUD")
-        XCTAssertEqual(AppSettings().currency, "AUD")
+        XCTAssertEqual(AppSettings(firstRunWith: FoundSignIns()).currency, "AUD")
     }
 }

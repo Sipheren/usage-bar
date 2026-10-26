@@ -2,8 +2,8 @@
 
 > Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).
 
-Usage Bar shows your Claude plan limits for two accounts at once, right in the menu bar: the 5-hour
-session, the weekly limit and any model-scoped weekly limit, each with a pace marker. It also
+Usage Bar shows your Claude plan limits for one or more accounts at once, right in the menu bar: the
+5-hour session, the weekly limit and any model-scoped weekly limit, each with a pace marker. It also
 estimates what your Claude Code usage would cost at API prices.
 
 It reads sign-ins you already have (Claude Code, the Claude desktop app, or a browser session). It has
@@ -14,9 +14,9 @@ Anthropic.
 
 ![Menu bar](docs/images/menubar.png)
 
-| Both accounts (default) | One at a time |
+| All accounts (default) | One at a time |
 |---|---|
-| ![Dropdown, both accounts](docs/images/dropdown-a.png) | ![Dropdown, one account](docs/images/dropdown-b.png) |
+| ![Dropdown, all accounts](docs/images/dropdown-a.png) | ![Dropdown, one account](docs/images/dropdown-b.png) |
 
 | General | Accounts | About |
 |---|---|---|
@@ -36,7 +36,9 @@ The macOS app is the reference implementation. Every platform follows the same d
 
 ## Features
 
-- Two (or three) accounts side by side, each with its own colour and tag.
+- One or more accounts side by side, up to one per sign-in source (Claude Code, the Claude desktop app,
+  a browser session), each with its own colour and tag. The first launch adds only the sign-ins it
+  finds; with just one, it shows just the one.
 - A monochrome menu bar label: Bars (default), Percentages (`P 20% / 60%`), Compact (`P 20·60`) or
   Icon only. Usage never changes its colour.
 - A dropdown with each limit's percentage, reset time, a pace marker and a pace sentence such as
@@ -58,8 +60,9 @@ scripts/setup-dev.sh          # git hooks and config/local.env
 macos/scripts/install.sh      # checks, tests, build, sign, install, open
 ```
 
-Then open the menu bar item, choose **Settings… > Accounts** and pick a sign-in source for each
-account. Requirements, signing, permissions, uninstalling and troubleshooting:
+The first launch adds an account for each sign-in it finds on the Mac: the Claude Code login and the
+Claude desktop app. To add a Safari session, or change anything, open the menu bar item and choose
+**Settings… > Accounts**. Requirements, signing, permissions, uninstalling and troubleshooting:
 [macos/README.md](macos/README.md).
 
 ### Windows

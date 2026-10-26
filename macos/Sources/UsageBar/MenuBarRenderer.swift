@@ -40,7 +40,7 @@ enum MenuBarRenderer {
     private static func layout(_ model: MenuBarModel, _ pal: Palette, draw: Bool) -> CGFloat {
         var x: CGFloat = 0
         x += ClaudeSpark.draw(at: x, barHeight: height, color: pal.fg, draw: draw)
-        guard model.style != .iconOnly else { return x }
+        guard !model.showsSparkOnly else { return x }
 
         let ctx = draw ? NSGraphicsContext.current?.cgContext : nil
         for account in model.accounts {

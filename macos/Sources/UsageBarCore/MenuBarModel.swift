@@ -54,6 +54,9 @@ public struct MenuBarModel: Equatable, Sendable {
         return MenuBarModel(style: style, accounts: items)
     }
 
+    /// The spark alone: the Icon only style, or no account shown (none set up, or all hidden).
+    public var showsSparkOnly: Bool { style == .iconOnly || accounts.isEmpty }
+
     /// withPercent spaces the slash ("20% / 60%"); compact uses a tight middle dot ("20·60").
     public var separator: String {
         switch style {
@@ -69,6 +72,7 @@ public struct MenuBarModel: Equatable, Sendable {
 
     /// Plain-text rendering, used for tests and accessibility: "P 20% / 60%  W 45% / 72%".
     public var plainText: String {
+        if showsSparkOnly { return "✳" }
         switch style {
         case .iconOnly:
             return "✳"
@@ -84,6 +88,6 @@ public struct MenuBarModel: Equatable, Sendable {
     }
 
     public var accessibilityLabel: String {
-        style == .iconOnly ? "Claude usage" : "Claude usage " + plainText
+        showsSparkOnly ? "Claude usage" : "Claude usage " + plainText
     }
 }

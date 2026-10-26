@@ -46,6 +46,14 @@ public enum ClaudeCodeCredentials {
         return try parse(out)
     }
 
+    /// Whether the login's Keychain item exists, from its attributes only. No `-w`: the secret is never
+    /// read and nothing prompts. A first run uses it to decide whether to add the Claude Code account.
+    public static func itemExists(configDir: String = "~/.claude") async -> Bool {
+        guard let service = try? service(forConfigDir: configDir),
+              let result = try? await runSecurity(["find-generic-password", "-s", service]) else { return false }
+        return result.0 == 0   // 44 = no such item
+    }
+
     public static func parse(_ raw: Data) throws -> CLIToken {
         var data = raw
         while let last = data.last, last == 0x0A || last == 0x0D || last == 0x20 { data.removeLast() }

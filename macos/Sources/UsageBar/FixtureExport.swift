@@ -16,7 +16,7 @@ extension DebugCommands {
             return 1
         }
 
-        var settings = AppSettings()
+        var settings = AppSettings(accounts: Account.personalAndWork())   // no saved settings: the original pair
         if let data = UserDefaults.standard.data(forKey: "settings.v1"),
            var saved = try? JSONDecoder().decode(AppSettings.self, from: data) {
             _ = saved.applyMigrations()

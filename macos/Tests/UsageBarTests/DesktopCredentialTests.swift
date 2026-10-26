@@ -164,7 +164,7 @@ final class DesktopCredentialTests: XCTestCase {
         XCTAssertEqual(s.accounts.map(\.tag), ["P", "W"])
         XCTAssertEqual(s.refreshMinutes, 2)
         XCTAssertFalse(s.desktopKeychainApproved)
-        var custom = AppSettings()
+        var custom = AppSettings(accounts: Account.personalAndWork())
         custom.refreshMinutes = 5
         custom.accounts[0].name = "Mine"
         let round = try JSONDecoder().decode(AppSettings.self, from: JSONEncoder().encode(custom))

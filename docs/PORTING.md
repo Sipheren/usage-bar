@@ -63,6 +63,17 @@ URI flag, as the macOS reader does for the Claude app's cookies, and never copy 
 - Practical order: build the Claude Code source first, then the Claude app source. Leave a browser
   source until the other two work.
 
+### First run
+
+Follow [DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection): one or more accounts, up to one per
+sign-in source, and a first run adds only the sign-ins it finds, with no prompt and nothing decrypted.
+Zero accounts is a normal state. On Windows (all **unverified**):
+
+- Claude Code: the `.credentials.json` above exists. Don't parse the token to decide.
+- Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid` that
+  isn't `oauthAccount.accountUuid` in `%USERPROFILE%\.claude.json`. Don't call DPAPI for this check.
+- Browser session: never checked on first run; the user adds it from Settings.
+
 ### Everything else is the same
 
 The endpoints, headers, response decoding, 429 handling, log rules and prices in
@@ -107,7 +118,8 @@ ids in `scripts/secret-scan-allow.txt` can be reused.
 | Reset text (rounded to the minute), money, tokens, "Updated N min ago" | `Formatters.swift` | `FormattingTests` in `PaceAndFormattingTests.swift` |
 | Currency: conversion, symbols, decimals, rate line | `Currency.swift` | `CurrencyTests.swift` |
 | Fetch policy, 429 presentation, persisted state | `FetchPolicy.swift` | `RateLimitTests.swift` |
-| Label model (styles, metric order, stale, "–"), settings defaults and migrations | `MenuBarModel.swift`, `Models.swift` | `MenuBarModelTests.swift` |
+| Label model (styles, metric order, stale, "–", the spark alone with no account shown), settings defaults and migrations | `MenuBarModel.swift`, `Models.swift` | `MenuBarModelTests.swift` |
+| First-run accounts from what was found, one default account per source, what the dropdown shows for 0, 1 or more accounts | `AccountSetup.swift`, `Models.swift` | `AccountSetupTests.swift` |
 | Cost scanner (de-duplication, cache split, incremental reads, day buckets) and pricing | `CostScanner.swift`, `Pricing.swift` | `CostScannerTests.swift` |
 | claude.ai cookie flow: organization choice, Cloudflare and scope detection | `ClaudeAiCookieClient.swift` | `ClaudeAiCookieClientTests` in `SafariCookieTests.swift` |
 | Claude app token search and choice, shape dump without values | `DesktopTokenParser.swift` | the token-parser tests in `DesktopCredentialTests.swift` (not the AES-CBC ones) |

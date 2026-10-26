@@ -49,7 +49,9 @@ Run them on the installed app, for example
 
 | Command | What it does |
 |---|---|
-| `--demo` | Starts the app with sample data: no network, no credentials, nothing saved. |
+| `--demo` | Starts the app with sample data and two accounts: no network, no credentials, nothing saved. |
+| `--demo-accounts N` | The same with N accounts, 0 to 3 (Personal, Work, Claude app). |
+| `--detect-sign-ins` | Prints what a first run would add: found / not found for each source. No prompt, no secret read, nothing saved. |
 | `--scan-costs` | Full cost scan of `~/.claude/projects` without the cache. Prints counts and totals only. |
 | `--fetch-personal` | One real usage request for the Claude Code login. Prints the HTTP status and limit percentages. Spends rate-limit budget. |
 | `--dump-desktop-shape` | Key names and value types of the Claude app's decrypted token cache, never values. Shows a Keychain prompt. |
@@ -61,13 +63,14 @@ Run them on the installed app, for example
 | `--open-settings general\|accounts\|about` | Opens Settings on a tab. |
 | `--close-settings` | Closes Settings. |
 | `--set-layout both\|one` | Switches the dropdown layout. |
+| `--set-style miniBars\|withPercent\|compact\|iconOnly` | Switches the menu bar style. |
 | `--connect-work` | Same as clicking Connect… for the Claude app source (Keychain prompt). |
 | `--unregister-login-item` | Removes the app from Login Items (used by `macos/scripts/uninstall.sh`). |
 
-The `--open-*`, `--close-settings`, `--set-layout` and `--connect-work` commands send a distributed
-notification to the running app and return at once. While the menu is open, macOS holds distributed
-notifications back until it closes, so `--close-menu` uses a Darwin notification instead, which the app
-checks every 0.2 s while the menu is open. Close the menu before sending any other command.
+The `--open-*`, `--close-settings`, `--set-layout`, `--set-style` and `--connect-work` commands send a
+distributed notification to the running app and return at once. While the menu is open, macOS holds
+distributed notifications back until it closes, so `--close-menu` uses a Darwin notification instead,
+which the app checks every 0.2 s while the menu is open. Close the menu before sending any other command.
 
 ## Logs
 
@@ -105,7 +108,9 @@ macos/scripts/qa/capture.sh screens/dropdown.png --menu
   `open -a` line makes it active.
 - `screens/` is not tracked: real captures show real account data. For images you commit (they go in
   `docs/images/`), run the app with `--demo` (quit the normal copy first so only one menu bar item
-  shows).
+  shows, and so the debug hooks, which every running copy receives, reach only the demo).
+- Check the UI at every account count with `--demo-accounts 0` to `3`, and every label style with
+  `--set-style`.
 - Look at every capture before you keep it.
 
 ## Rules

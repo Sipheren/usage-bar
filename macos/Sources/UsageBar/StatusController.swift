@@ -11,7 +11,8 @@ enum DebugNotification {
     static let openSettings = Notification.Name("com.sipheren.usagebar.openSettings")
     static let closeSettings = Notification.Name("com.sipheren.usagebar.closeSettings")
     static let setLayout = Notification.Name("com.sipheren.usagebar.setLayout")
-    static let all = [openMenu, connectWork, closeMenu, openSettings, closeSettings, setLayout]
+    static let setStyle = Notification.Name("com.sipheren.usagebar.setStyle")
+    static let all = [openMenu, connectWork, closeMenu, openSettings, closeSettings, setLayout, setStyle]
     /// Darwin notification name for closing an open menu (see StatusController).
     static let closeMenuDarwin = "com.sipheren.usagebar.closeMenu"
 }
@@ -41,6 +42,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         store.objectWillChange
             .sink { [weak self] _ in self?.scheduleUpdate() }
             .store(in: &cancellables)
+        store.showSettings = { [weak self] tab in self?.openSettingsFromMenu(tab) }
 
         let dnc = DistributedNotificationCenter.default()
         for name in DebugNotification.all {
@@ -113,7 +115,7 @@ final class StatusController: NSObject, NSMenuDelegate {
         lastModel = model
         button.image = MenuBarRenderer.image(for: model, dark: false)
         button.setAccessibilityLabel(model.accessibilityLabel)
-        button.toolTip = model.style == .iconOnly ? "Claude usage" : model.plainText
+        button.toolTip = model.showsSparkOnly ? "Claude usage" : model.plainText
     }
 
     // MARK: NSMenuDelegate
@@ -142,6 +144,12 @@ final class StatusController: NSObject, NSMenuDelegate {
     }
 
     // MARK: Actions
+
+    /// From a button inside the dropdown: the window can only come forward once the menu stops tracking.
+    private func openSettingsFromMenu(_ tab: SettingsTab) {
+        menu.cancelTracking()
+        DispatchQueue.main.async { [weak self] in self?.settingsWindow.show(tab: tab) }
+    }
 
     @objc private func refreshNow() { store.refreshAll(.manual) }
     @objc private func openSettings() { settingsWindow.show(tab: .general) }
@@ -174,6 +182,10 @@ final class StatusController: NSObject, NSMenuDelegate {
             settingsWindow.close()
         case DebugNotification.setLayout:
             store.settings.dropdownLayout = (info?["layout"] as? String) == "one" ? .oneAtATime : .bothAccounts
+        case DebugNotification.setStyle:
+            if let style = (info?["style"] as? String).flatMap(MenuBarStyle.init(rawValue:)) {
+                store.settings.menuBarStyle = style
+            }
         default:
             break
         }
@@ -186,9 +198,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var status: StatusController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        let demo = CommandLine.arguments.contains("--demo")
-            || ProcessInfo.processInfo.environment["USAGEBAR_DEMO"] == "1"
-        let store = AppStore(demo: demo)
+        let demoAccounts = DemoData.requestedAccountCount(arguments: CommandLine.arguments,
+                                                          environment: ProcessInfo.processInfo.environment)
+        guard demoAccounts == nil, AppStore.savedSettings() == nil else {
+            launch(AppStore(demoAccounts: demoAccounts))
+            return
+        }
+        // First run: look for existing sign-ins (no prompt, no secret read) before creating the accounts.
+        Task { @MainActor in
+            let found = await SignInDetector.detect()
+            self.launch(AppStore(firstRun: found))
+        }
+    }
+
+    private func launch(_ store: AppStore) {
         self.store = store
         status = StatusController(store: store)
         store.start()

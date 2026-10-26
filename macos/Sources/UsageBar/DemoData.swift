@@ -1,11 +1,32 @@
 import Foundation
 import UsageBarCore
 
-/// Built-in sample data for demo mode (`--demo` or `USAGEBAR_DEMO=1`): the mockup's numbers and
-/// made-up identities. Used for README screenshots, so it must never contain real data.
+/// Built-in sample data for demo mode (`--demo`, `--demo-accounts N` or `USAGEBAR_DEMO=1`): the mockup's
+/// numbers and made-up identities. Used for README screenshots, so it must never contain real data.
 enum DemoData {
     static let personalEmail = "personal@example.com"
     static let workOrganization = "Example Co"
+    static let claudeAppEmail = "app@example.com"
+
+    /// `--demo` shows the README pair; `--demo-accounts N` picks 0 to 3.
+    static let defaultAccountCount = 2
+    static let accountCounts = 0...3
+
+    /// Personal, then Work, then a Claude app account.
+    static func accounts(count: Int) -> [Account] {
+        let all = [Account.defaultPersonal(), Account.defaultWork(), Account.defaultClaudeApp()]
+        return Array(all.prefix(min(max(count, 0), all.count)))
+    }
+
+    /// The demo account count asked for at launch, or nil for a normal launch.
+    static func requestedAccountCount(arguments: [String], environment: [String: String]) -> Int? {
+        if let i = arguments.firstIndex(of: "--demo-accounts") {
+            let n = arguments.indices.contains(i + 1) ? Int(arguments[i + 1]) : nil
+            return min(max(n ?? defaultAccountCount, accountCounts.lowerBound), accountCounts.upperBound)
+        }
+        if arguments.contains("--demo") || environment["USAGEBAR_DEMO"] == "1" { return defaultAccountCount }
+        return nil
+    }
     static let rates = ExchangeRates(rates: ["USD": 1, "AUD": 1.42, "EUR": 0.92, "GBP": 0.79, "NZD": 1.66,
                                              "CAD": 1.37, "JPY": 151.3], asOf: Date(), fetchedAt: Date())
 
@@ -30,6 +51,14 @@ enum DemoData {
             limit(.session, used: 45, expected: 57, now: now),
             limit(.weekly, used: 72, expected: 60, now: now),
             limit(.scoped(id: "demo-model", name: "Fable"), used: 4, expected: 60, now: now),
+        ], extra: nil, fetchedAt: now)
+    }
+
+    static func claudeAppSnapshot(now: Date) -> UsageSnapshot {
+        UsageSnapshot(limits: [
+            limit(.session, used: 30, expected: 41, now: now),
+            limit(.weekly, used: 38, expected: 45, now: now),
+            limit(.scoped(id: "demo-model", name: "Fable"), used: 8, expected: 45, now: now),
         ], extra: nil, fetchedAt: now)
     }
 

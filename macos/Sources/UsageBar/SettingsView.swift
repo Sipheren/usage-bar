@@ -270,20 +270,28 @@ struct AccountsTab: View {
 
     var body: some View {
         Form {
-            ForEach($store.settings.accounts) { $account in
-                AccountSection(account: $account) { pendingRemoval = account }
-            }
-            Section {
-                HStack {
-                    Spacer()
-                    Menu("Add Account") {
-                        ForEach(AccountSource.Kind.allCases, id: \.self) { kind in
-                            Button(kind.label) { store.addAccount(kind: kind) }
-                                .disabled(store.hasAccount(ofKind: kind))
-                        }
+            if store.settings.accounts.isEmpty {
+                Section {
+                    VStack(spacing: 6) {
+                        Text("No accounts").font(.headline)
+                        Text("No Claude sign-in was found on this Mac. Add an account for each way you sign in: the Claude Code login, the Claude app or a Safari session.")
+                            .foregroundStyle(.secondary)
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                        addAccountMenu.padding(.top, 8)
                     }
-                    .fixedSize()
-                    .disabled(AccountSource.Kind.allCases.allSatisfy { store.hasAccount(ofKind: $0) })
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                }
+            } else {
+                ForEach($store.settings.accounts) { $account in
+                    AccountSection(account: $account) { pendingRemoval = account }
+                }
+                Section {
+                    HStack {
+                        Spacer()
+                        addAccountMenu
+                    }
                 }
             }
         }
@@ -303,6 +311,20 @@ struct AccountsTab: View {
         } message: { _ in
             Text("Usage Bar stops showing it. Nothing is signed out and no other app is changed.")
         }
+    }
+}
+
+extension AccountsTab {
+    /// One account per sign-in source: a source already in use is greyed out.
+    private var addAccountMenu: some View {
+        Menu("Add Account") {
+            ForEach(AccountSource.Kind.allCases, id: \.self) { kind in
+                Button(kind.label) { store.addAccount(kind: kind) }
+                    .disabled(store.hasAccount(ofKind: kind))
+            }
+        }
+        .fixedSize()
+        .disabled(AccountSource.Kind.allCases.allSatisfy { store.hasAccount(ofKind: $0) })
     }
 }
 

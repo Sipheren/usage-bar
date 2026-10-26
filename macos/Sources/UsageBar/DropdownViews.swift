@@ -20,9 +20,10 @@ struct DropdownRoot: View {
 
     var body: some View {
         Group {
-            switch store.settings.dropdownLayout {
-            case .bothAccounts: DropdownA()
-            case .oneAtATime: DropdownB()
+            switch DropdownContent(layout: store.settings.dropdownLayout, accountCount: store.settings.accounts.count) {
+            case .empty: DropdownEmpty()
+            case .stacked: DropdownA()
+            case .oneAtATime(let tabs): DropdownB(showsTabs: tabs)
             }
         }
         .frame(width: 360)
@@ -198,7 +199,32 @@ struct ExtraUsageText: View {
     }
 }
 
-// MARK: - Layout A: both accounts
+// MARK: - No accounts (either layout)
+
+struct DropdownEmpty: View {
+    @EnvironmentObject var store: AppStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Claude").font(.system(size: 17, weight: .semibold))
+            Rectangle().fill(Palette.separator).frame(height: 1)
+            VStack(spacing: 6) {
+                Text("No accounts").font(.system(size: 15, weight: .semibold))
+                Text("No Claude sign-in was found on this Mac. Add the Claude Code login, the Claude app or a Safari session in Settings.")
+                    .font(.system(size: 12)).foregroundStyle(Palette.secondary)
+                    .multilineTextAlignment(.center)
+                    .fixedSize(horizontal: false, vertical: true)
+                Button("Open Settings…") { store.showSettings?(.accounts) }
+                    .padding(.top, 6)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 4)
+        }
+        .padding(EdgeInsets(top: 14, leading: 16, bottom: 12, trailing: 16))
+    }
+}
+
+// MARK: - Layout A: all accounts
 
 struct DropdownA: View {
     @EnvironmentObject var store: AppStore
@@ -235,7 +261,7 @@ struct AccountSectionA: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Badge(tag: account.tag, hex: account.badgeHex)
                 VStack(alignment: .leading, spacing: 1) {
-                    Text(account.name).font(.system(size: 15, weight: .semibold))
+                    Text(account.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
                     if let note = pres.headerNote {
                         Text(note).font(.system(size: 11)).foregroundStyle(Palette.secondary)
                     }
@@ -279,6 +305,8 @@ struct AccountSectionA: View {
 struct DropdownB: View {
     @EnvironmentObject var store: AppStore
     @Environment(\.colorScheme) private var scheme
+    /// Off with a single account: there is nothing to switch to.
+    let showsTabs: Bool
 
     var selected: Account? {
         store.settings.accounts.first { $0.id == store.selectedTab } ?? store.settings.accounts.first
@@ -286,14 +314,10 @@ struct DropdownB: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            tabs
-            if let account = selected {
-                AccountDetailB(account: account)
-            } else {
-                Text("No accounts. Add one in Settings.").font(.system(size: 12)).foregroundStyle(Palette.secondary)
-            }
+            if showsTabs { tabs }
+            if let account = selected { AccountDetailB(account: account) }
         }
-        .padding(EdgeInsets(top: 12, leading: 16, bottom: 10, trailing: 16))
+        .padding(EdgeInsets(top: showsTabs ? 12 : 14, leading: 16, bottom: 10, trailing: 16))
     }
 
     private var tabs: some View {
@@ -303,10 +327,12 @@ struct DropdownB: View {
                 Button {
                     store.selectedTab = a.id
                 } label: {
-                    HStack(spacing: 7) {
+                    HStack(spacing: 6) {
                         Badge(tag: a.tag, hex: a.badgeHex, size: 17, fontSize: 10, radius: 4)
                         Text(a.name).font(.system(size: 13, weight: .semibold)).foregroundStyle(.primary)
+                            .lineLimit(1).truncationMode(.tail)
                     }
+                    .padding(.horizontal, 4)
                     .frame(maxWidth: .infinity, minHeight: 30)
                     .background(
                         RoundedRectangle(cornerRadius: 7)
@@ -335,7 +361,7 @@ struct AccountDetailB: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Claude · \(account.name)").font(.system(size: 17, weight: .semibold))
+                    Text("Claude · \(account.name)").font(.system(size: 17, weight: .semibold)).lineLimit(1)
                     Text(Formatters.updatedAgo(st.lastSuccess, now: store.now))
                         .font(.system(size: 12)).foregroundStyle(Palette.secondary)
                     if let note = pres.headerNote {

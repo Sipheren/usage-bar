@@ -36,7 +36,12 @@ Apple developer account or a self-signed code-signing certificate is enough.
 
 ## First-run setup
 
-Open the menu bar item, then **Settings… > Accounts**. Each account has a **Sign-in source**:
+On first launch Usage Bar adds an account for each sign-in it can find without asking you anything:
+the Claude Code login, and the Claude app when it's signed in to a different account. It never checks
+Safari on first launch. If it finds nothing, it starts with no accounts and says so.
+
+To add or remove accounts (one per sign-in source), open the menu bar item, then **Settings… > Accounts**.
+Each account has a **Sign-in source**:
 
 | Source | What it reads | Permission | What you do |
 |---|---|---|---|

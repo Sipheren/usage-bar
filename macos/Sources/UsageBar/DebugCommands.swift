@@ -13,11 +13,15 @@ enum DebugCommands {
       --open-menu [secs]     Ask the running app to open its menu, closing it after secs (default 6)
       --connect-work         Ask the running app to connect the Claude app account (Keychain prompt)
       --demo                 Start the app with built-in sample data (no network, no credentials, nothing saved)
+      --demo-accounts N      The same with N sample accounts, 0 to 3 (--demo shows 2)
+      --detect-sign-ins      What a first run would add: which sign-ins exist (found / not found only, no prompt,
+                             no secret read, nothing saved)
       --unregister-login-item  Remove Usage Bar from Login Items (used by macos/scripts/uninstall.sh)
       --close-menu           Ask the running app to close its menu
       --open-settings TAB    Ask the running app to open Settings on general|accounts|about
       --close-settings       Ask the running app to close Settings
       --set-layout both|one  Ask the running app to switch the dropdown layout
+      --set-style STYLE      Ask the running app to switch the menu bar style: miniBars|withPercent|compact|iconOnly
       --export-fixtures DIR  Fetch each due account once and write anonymised API fixtures to DIR/api, then
                              DIR/expected.json. Quit the app first; launch with `open` so Full Disk Access applies.
       --fixtures-expected DIR  Regenerate DIR/expected.json from the fixtures in DIR (no network)
@@ -54,6 +58,12 @@ enum DebugCommands {
         case "--set-layout":
             post(DebugNotification.setLayout, ["layout": args.count > 2 ? args[2] : "both"])
             return 0
+        case "--set-style":
+            guard args.count > 2, MenuBarStyle(rawValue: args[2]) != nil else { print(usage); return 64 }
+            post(DebugNotification.setStyle, ["style": args[2]])
+            return 0
+        case "--detect-sign-ins":
+            return runBlocking { await detectSignIns() }
         case "--export-fixtures":
             guard args.count > 2 else { print(usage); return 64 }
             let dir = URL(fileURLWithPath: args[2]).standardizedFileURL
@@ -66,6 +76,9 @@ enum DebugCommands {
             return renderMenuBar(to: URL(fileURLWithPath: args[2]).standardizedFileURL)
         case "--demo":
             return nil   // start the app; AppDelegate reads the flag
+        case "--demo-accounts":
+            guard args.count > 2, let n = Int(args[2]), DemoData.accountCounts.contains(n) else { print(usage); return 64 }
+            return nil
         case "--unregister-login-item":
             return unregisterLoginItem()
         case "--help", "-h":
@@ -128,11 +141,27 @@ enum DebugCommands {
         return 0
     }
 
+    // MARK: --detect-sign-ins
+
+    private static func detectSignIns() async -> Int32 {
+        let found = await SignInDetector.detect()
+        let sameAccount = found.claudeAppHasTokenCache && found.claudeAppAccountUuid != nil
+            && found.claudeAppAccountUuid?.lowercased() == found.claudeCodeAccountUuid?.lowercased()
+        print("Claude Code login (Keychain item, attributes only): \(found.claudeCodeLogin ? "found" : "not found")")
+        print("Claude app sign-in (config.json token cache and account): "
+              + (found.claudeAppHasTokenCache && found.claudeAppAccountUuid != nil
+                 ? (sameAccount ? "found, same account as Claude Code (skipped)" : "found") : "not found"))
+        print("Safari: never checked on a first run (needs Full Disk Access)")
+        let names = found.kinds.map { Account.defaultAccount(for: $0).name }
+        print("A first run would add: \(names.isEmpty ? "no accounts" : names.joined(separator: ", "))")
+        return 0
+    }
+
     // MARK: --render-menubar
 
     @MainActor
     private static func renderMenuBar(to dir: URL) -> Int32 {
-        var settings = AppSettings()
+        var settings = AppSettings(accounts: Account.personalAndWork())   // no saved settings: the original pair
         if let data = UserDefaults.standard.data(forKey: "settings.v1"),
            var saved = try? JSONDecoder().decode(AppSettings.self, from: data) {
             _ = saved.applyMigrations()   // in-memory only: reflect the defaults a fresh install shows

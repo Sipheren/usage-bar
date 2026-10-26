@@ -34,6 +34,8 @@ final class AppStore: ObservableObject {
     @Published private(set) var now = Date()
     @Published private(set) var rates: ExchangeRates
     @Published var selectedTab: UUID?
+    /// Set by the status controller: closes the menu and opens Settings on a tab.
+    var showSettings: ((SettingsTab) -> Void)?
 
     let fetcher = AccountFetcher()
     private let costService = CostService()
@@ -48,24 +50,31 @@ final class AppStore: ObservableObject {
     /// Demo mode: built-in sample data, no network, no credential or log reads, nothing saved.
     let demo: Bool
 
-    init(demo: Bool = false) {
-        self.demo = demo
+    /// The saved settings, or nil on a first run (none saved, or unreadable).
+    static func savedSettings() -> AppSettings? {
+        guard let data = UserDefaults.standard.data(forKey: settingsKey) else { return nil }
+        return try? JSONDecoder().decode(AppSettings.self, from: data)
+    }
+
+    /// `demoAccounts` (0 to 3) starts demo mode. `firstRun` is what `SignInDetector` found, used only
+    /// when no settings are saved yet; saved settings are loaded as they are.
+    init(demoAccounts: Int? = nil, firstRun found: FoundSignIns = FoundSignIns()) {
+        demo = demoAccounts != nil
         let defaults = UserDefaults.standard
-        if demo {
-            settings = AppSettings()
+        if let count = demoAccounts {
+            settings = AppSettings(accounts: DemoData.accounts(count: count))
             rates = DemoData.rates
             selectedTab = settings.accounts.first?.id   // the tab with the cost chart, for screenshots
             return
         }
-        if let data = defaults.data(forKey: AppStore.settingsKey),
-           var s = try? JSONDecoder().decode(AppSettings.self, from: data) {
+        if var s = AppStore.savedSettings() {
             // One-time moves for settings saved before the current defaults (miniBars, Work → Safari).
             let migrated = s.applyMigrations()
             settings = s
             if migrated, let data = try? JSONEncoder().encode(s) { defaults.set(data, forKey: AppStore.settingsKey) }
         } else {
-            // First run: persist the defaults now so account ids stay stable across launches.
-            let fresh = AppSettings()
+            // First run: only the sign-ins found. Persist now so account ids stay stable across launches.
+            let fresh = AppSettings(firstRunWith: found)
             settings = fresh
             if let data = try? JSONEncoder().encode(fresh) { defaults.set(data, forKey: AppStore.settingsKey) }
         }
@@ -274,13 +283,17 @@ final class AppStore: ObservableObject {
         for account in settings.accounts {
             var st = AccountState()
             st.lastSuccess = now
-            if account.source.isClaudeCode {
+            switch account.source.kind {
+            case .claudeCode:
                 st.snapshot = DemoData.personalSnapshot(now: now)
                 st.email = DemoData.personalEmail
                 costs[account.id] = .ready(DemoData.personalCost(audPerUSD: rates.rates["AUD"] ?? 1.42))
-            } else {
+            case .safariSession:
                 st.snapshot = DemoData.workSnapshot(now: now)
                 st.email = DemoData.workOrganization
+            case .claudeDesktop:
+                st.snapshot = DemoData.claudeAppSnapshot(now: now)
+                st.email = DemoData.claudeAppEmail
             }
             states[account.id] = st
         }
@@ -410,14 +423,7 @@ final class AppStore: ObservableObject {
 
     func addAccount(kind: AccountSource.Kind) {
         guard !hasAccount(ofKind: kind) else { return }
-        let account: Account
-        switch kind {
-        case .claudeCode: account = Account.defaultPersonal()
-        case .claudeDesktop:
-            account = Account(name: "Claude app", tag: "C", colorHex: Account.blueHex, source: .claudeDesktop, logsDir: nil)
-        case .safariSession: account = Account.defaultWork()
-        }
-        settings.accounts.append(account)
+        settings.accounts.append(Account.defaultAccount(for: kind))
         if let a = settings.accounts.last { Task { await refresh(a, trigger: .manual) } }
     }
 

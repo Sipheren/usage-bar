@@ -51,8 +51,9 @@ else
         || { echo "error: no Usage Bar $MODE is on screen" >&2; exit 1; }
 fi
 
-FULL="$(mktemp -t usagebar-qa).png"
-trap 'rm -f "$FULL"' EXIT
+TMP="$(mktemp -t usagebar-qa)"
+FULL="$TMP.png"
+trap 'rm -f "$TMP" "$FULL"' EXIT
 screencapture -x -D 1 "$FULL"
 cp "$FULL" "$OUT"
 sips -c $((H * SCALE)) $((W * SCALE)) --cropOffset $((Y * SCALE)) $((X * SCALE)) "$OUT" >/dev/null

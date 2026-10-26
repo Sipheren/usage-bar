@@ -94,6 +94,24 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
 | Network error | "Network error: …" with the last numbers greyed |
 | Other HTTP error | "Usage request failed (HTTP n)" |
 
+## First-run detection
+
+A build supports one or more accounts, up to one per sign-in source. On the very first launch (no saved
+settings) it creates an account only for each sign-in it finds, without any prompt and without reading
+a secret. Settings saved by an earlier version are loaded as they are: nothing adds, removes or renames
+their accounts.
+
+| Source | Counts as signed in when | Never |
+|---|---|---|
+| Claude Code login | `/usr/bin/security find-generic-password -s "Claude Code-credentials"` exits 0 (attributes only, **no `-w`**; 44 means no item) | reads the token to decide |
+| Claude app login | `config.json` has a non-empty `oauth:tokenCacheV2` **and** a `lastKnownAccountUuid`, and that uuid (case-insensitive) is not `oauthAccount.accountUuid` from `~/.claude.json` | touches "Claude Safe Storage"; the account shows Connect… as usual |
+| Safari session | never on first run (it needs Full Disk Access); users add it from Settings | probes Safari's cookies |
+
+The new accounts are, in this order: Personal (`P`, Claude Code) and Claude app (`C`). Nothing found
+means no accounts, which is a normal state: the dropdown and Settings say so and offer to add one. The
+result is saved straight away so account ids stay stable. On macOS,
+`UsageBar --detect-sign-ins` prints what a first run would add (found / not found only).
+
 ## Endpoints
 
 ### `GET https://api.anthropic.com/api/oauth/usage`

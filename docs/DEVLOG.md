@@ -43,3 +43,8 @@
 - Reorganised the repository for a Windows port: the macOS app moved to `macos/`, shared docs and
   design assets stay at the root, `docs/PORTING.md` became the Windows starting brief and `AGENTS.md`
   the brief for agents on any platform. Per-platform versions and `macos-v` / `windows-v` tags.
+- Any number of accounts, up to one per sign-in source: a first run adds only the sign-ins it finds
+  (Claude Code by its Keychain item's attributes, the Claude app from its config.json, never Safari),
+  zero accounts has a proper state in the dropdown and Settings, Layout B drops its tabs for one
+  account, and the menu bar is the spark alone with none shown. Checked in demo mode at 0 to 3 accounts
+  with the new `--demo-accounts` and `--set-style` hooks.

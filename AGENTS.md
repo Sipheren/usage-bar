@@ -35,7 +35,9 @@ and assets stay outside the platform folders.
 - **Data only from Anthropic** (the API and claude.ai), plus the exchange-rate API when costs aren't
   in US dollars. Nothing from CodexBar: no code, data or files (decision 1).
 - **Monochrome menu bar / tray icon.** Usage never changes its colour (decision 4).
-- **Bars** is the default label style; **dropdown A** (both accounts) is the default layout.
+- **Bars** is the default label style; **dropdown A** (all accounts) is the default layout.
+- **One or more accounts, up to one per sign-in source.** A first run adds only the sign-ins it finds
+  (none is a valid state); saved settings are never given, or stripped of, accounts (decision 16).
 - The tray and menu bar spark comes from `design/spark/ClaudeSpark.svg` (macOS draws the same shape
   from `macos/Sources/UsageBar/ClaudeSparkPath.swift`). The app icon source is `design/icon/`.
 - Respect `docs/DECISIONS.md`. Changing a decision needs the maintainer's say-so; record it as a new

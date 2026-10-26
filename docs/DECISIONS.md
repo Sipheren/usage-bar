@@ -37,7 +37,7 @@ bars per account). Percentages, Compact and Icon only stay available.
 
 ## 6. Dropdown A as the default
 
-**Decision.** The dropdown shows both accounts at once by default. Layout B (tabs, one account, with the
+**Decision.** The dropdown shows all accounts at once by default. Layout B (tabs, one account, with the
 30-day chart) is a setting.
 
 ## 7. De-duplicating Claude Code log records
@@ -110,3 +110,15 @@ tab say it was built by AI (Claude, by Anthropic) under the direction of its aut
 **Decision.** Costs are computed in US dollars and shown in the currency picked in Settings (AUD by
 default, so existing installs look the same). Choosing USD skips the exchange-rate request entirely.
 Extra-usage amounts stay in the currency the API reports, because that's what the plan bills.
+
+## 16. One account per sign-in source; first run adds only what's signed in
+
+**Context.** Every fresh install started with Personal (Claude Code) and Work (Safari), so a Mac without
+a Safari sign-in showed an empty Work account forever.
+**Decision.** A build shows one or more accounts, up to one per sign-in source (Claude Code login,
+Claude app login, browser session). The first launch adds only the sign-ins it finds, with no prompt
+and no secret read; Safari is never probed then. Nothing found means no accounts, and the dropdown and
+Settings say so. The dropdown, menu bar and Settings work at any count. Several accounts on one source
+(more Claude Code config folders, several browser sessions) are a separate change.
+**Consequence.** Saved settings load exactly as they are; no migration adds, removes or renames
+accounts. The detection rules are in [DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection).

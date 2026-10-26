@@ -14,12 +14,31 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 ### Added
 - macOS: `--export-fixtures` and `--fixtures-expected` debug commands, which write anonymised API fixtures
   and an answer sheet for testing a port without real accounts (local data, never committed).
+- macOS: a "No accounts" state in the dropdown (both layouts, with **Open Settings…**, which opens the
+  Accounts tab) and in Settings > Accounts.
+- macOS: debug commands `--demo-accounts N` (demo mode with 0 to 3 accounts), `--detect-sign-ins` (what
+  a first run would add) and `--set-style` (switch the menu bar style).
 
 ### Changed
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
   sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
   root.
+- All platforms (docs): the contract is now one or more accounts, up to one per sign-in source, and a
+  first run adds only what's signed in (`docs/SPEC.md`, `docs/DATA-SOURCES.md` "First-run detection",
+  decision 16).
+- macOS: a fresh install adds only the sign-ins it finds, with no prompt: Personal when the Claude Code
+  login's Keychain item exists (checked without reading it), and a Claude app account when the app's
+  `config.json` shows a sign-in to a different account. Safari is never probed on first run; add it from
+  Settings. Existing saved settings load unchanged.
+- macOS: the dropdown layout "Both accounts" is now "All accounts" (the saved value is unchanged).
+- macOS: Layout B hides its tab strip with a single account, and tab names truncate cleanly.
+- macOS: a new Claude app account is violet (`#8E6AC8`), so three accounts never share a colour.
+
+### Fixed
+- macOS: a fresh install without a Safari sign-in no longer shows an empty Work account.
+- macOS: with no account in the menu bar, the label's tooltip and accessibility text were blank; they
+  now read "Claude usage", and the label is the spark alone.
 
 ## [0.2.0] - 2026-10-26
 

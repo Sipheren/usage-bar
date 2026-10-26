@@ -81,6 +81,7 @@ public struct Account: Codable, Equatable, Identifiable, Sendable {
 
     public static let clayHex = "#D97757"
     public static let blueHex = "#3E7CC4"
+    public static let violetHex = "#8E6AC8"
 
     public static func defaultPersonal() -> Account {
         Account(name: "Personal", tag: "P", colorHex: clayHex, source: .claudeCode(configDir: "~/.claude"),
@@ -89,6 +90,24 @@ public struct Account: Codable, Equatable, Identifiable, Sendable {
 
     public static func defaultWork() -> Account {
         Account(name: "Work", tag: "W", colorHex: blueHex, source: .safariSession, logsDir: nil)
+    }
+
+    public static func defaultClaudeApp() -> Account {
+        Account(name: "Claude app", tag: "C", colorHex: violetHex, source: .claudeDesktop, logsDir: nil)
+    }
+
+    /// The account Settings > Add Account and a first run create for a sign-in source (one per source).
+    public static func defaultAccount(for kind: AccountSource.Kind) -> Account {
+        switch kind {
+        case .claudeCode: return defaultPersonal()
+        case .claudeDesktop: return defaultClaudeApp()
+        case .safariSession: return defaultWork()
+        }
+    }
+
+    /// The pair every install started with before first-run detection: Personal (Claude Code) and Work (Safari).
+    public static func personalAndWork() -> [Account] {
+        [defaultPersonal(), defaultWork()]
     }
 
     /// Badge colour: the mockup's darker pair for the two defaults, otherwise the bar colour darkened.
@@ -140,11 +159,12 @@ public enum MenuBarStyle: String, Codable, CaseIterable, Sendable {
 }
 
 public enum DropdownLayout: String, Codable, CaseIterable, Sendable {
+    // `bothAccounts` is the saved name from when there were always two; it shows every account.
     case bothAccounts, oneAtATime
 
     public var title: String {
         switch self {
-        case .bothAccounts: return "Both accounts"
+        case .bothAccounts: return "All accounts"
         case .oneAtATime: return "One at a time"
         }
     }
@@ -180,8 +200,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     public static let refreshOptions = [1, 2, 5, 10]
 
-    public init() {
-        accounts = [Account.defaultPersonal(), Account.defaultWork()]
+    /// Every caller names its accounts: a first run uses `init(firstRunWith:)`, demo mode and debug
+    /// fallbacks pass their own list.
+    public init(accounts: [Account]) {
+        self.accounts = accounts
         menuBarStyle = .miniBars
         showSession = true
         showWeekly = true
@@ -203,9 +225,10 @@ public struct AppSettings: Codable, Equatable, Sendable {
              dropdownLayout, refreshMinutes, desktopKeychainApproved, desktopTokenChoice, didMigrateMiniBars, currency
     }
 
-    // Every field optional on decode so older saved settings never reset everything.
+    // Every field optional on decode so older saved settings never reset everything. Settings saved
+    // without a readable account list always meant Personal + Work, so that stays the fallback.
     public init(from decoder: Decoder) throws {
-        self.init()
+        self.init(accounts: Account.personalAndWork())
         let c = try decoder.container(keyedBy: CodingKeys.self)
         if let v = try? c.decode([Account].self, forKey: .accounts) { accounts = v }
         if let v = try? c.decode(MenuBarStyle.self, forKey: .menuBarStyle) { menuBarStyle = v }

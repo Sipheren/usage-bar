@@ -1,14 +1,15 @@
 # Usage Bar: product spec
 
-A menu bar app that shows Claude plan limits for two accounts at once, with a cost estimate from
-Claude Code logs. It is Claude-only and multi-account. This spec describes the macOS app (macOS 26+,
+A menu bar app that shows Claude plan limits for one or more accounts at once (up to one per sign-in
+source), with a cost estimate from Claude Code logs. It is Claude-only and multi-account. This spec describes the macOS app (macOS 26+,
 Apple silicon), the reference implementation; a Windows port keeps the same behaviour with Windows
 equivalents of the macOS parts (see [PORTING.md](PORTING.md)).
 
 Visual reference: the design mockups in `design/mockup/` (`Main.dc.html` for menu bar styles,
 `DropdownA.dc.html` and `DropdownB.dc.html` for the two dropdown layouts). Look: system font, a light
-popover-style card, clay `#D97757` bars for the first account and blue `#3E7CC4` for the second, badge
-colours `#B4532F` and `#2563A8`, and a pace marker on every bar.
+popover-style card, a pace marker on every bar, and a colour per account: clay `#D97757` for Personal
+(Claude Code), blue `#3E7CC4` for Work (Safari) and violet `#8E6AC8` for the Claude app account. Badges
+use `#B4532F` and `#2563A8` for the first two, otherwise the account colour at 80% brightness.
 
 ## Accounts
 
@@ -24,8 +25,29 @@ Sign-in sources (details in [DATA-SOURCES.md](DATA-SOURCES.md)):
 3. **Safari session.** Reads the claude.ai session cookie from Safari's cookie files (needs Full Disk
    Access).
 
-All three are read-only. There is no sign-in flow. Defaults: Personal on Claude Code (tag `P`, clay)
-and Work on Safari (tag `W`, blue). Each source can be added once; any account can switch source.
+All three are read-only. There is no sign-in flow.
+
+**One or more accounts, up to one per sign-in source.** Settings > Accounts > Add Account offers each
+source once, and greys out a source already in use; any account can switch source. Zero accounts is a
+valid state. The default account for each source:
+
+| Source | Name | Tag | Colour |
+|---|---|---|---|
+| Claude Code login | Personal | `P` | clay |
+| Claude app login | Claude app | `C` | violet |
+| Safari session | Work | `W` | blue |
+
+**First run adds only what's signed in**, with no prompt (details in
+[DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection)):
+
+- Claude Code: its Keychain item exists (looked up by attributes; the secret isn't read).
+- Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid`,
+  and that uuid isn't the Claude Code account's (then they're the same account and the fetcher would
+  refuse it). The account then shows its normal "Connect…" state until the one-time Keychain approval.
+- Safari is never probed on first run (it needs Full Disk Access). Users add it from Settings.
+- Nothing found: no accounts. First run saves the result straight away so account ids stay stable.
+
+Settings saved by an earlier version load unchanged: no migration adds, removes or renames accounts.
 
 ## Polling
 
@@ -41,6 +63,8 @@ and Work on Safari (tag `W`, blue). Each source can be added once; any account c
 
 The label is drawn as a template image and never changes colour with usage. It starts with the
 Claude spark (a vector trace, 16 pt), then for each account shown, in order, an outlined tag and its values.
+With no account shown (none set up, or every account's "Show in menu bar" off) it is the spark alone in
+every style.
 
 | Style | Example |
 |---|---|
@@ -57,12 +81,16 @@ order. An account with no data shows its tag and "–". Data older than 15 minut
 An `NSMenu` with one SwiftUI view (360 pt wide) that updates live, then native items with SF Symbols:
 Refresh Now (⌘R), About Usage Bar, Settings… (⌘,), Quit Usage Bar (⌘Q).
 
-- **Layout A, both accounts (default).** Header "Claude" and "Updated N min ago". Per account: badge,
-  name and "Today A$x"; compact limit rows (name, "% · resets …", bar with pace marker, pace line);
-  extra usage; "30 days A$x · N tokens".
-- **Layout B, one at a time.** A tab per account, then large limit rows; a 2×2 grid (Today, 30 days,
+- **Layout A, all accounts (default).** Header "Claude" and "Updated N min ago". Per account, one under
+  the other with a rule between: badge, name and "Today A$x"; compact limit rows (name, "% · resets …",
+  bar with pace marker, pace line); extra usage; "30 days A$x · N tokens".
+- **Layout B, one at a time.** A tab per account (names truncate with "…"; no tab strip when there is
+  only one account), then large limit rows; a 2×2 grid (Today, 30 days,
   Today tokens, 30-day tokens); a 30-day cost chart with its maximum; the top model; the footnote "Cost
   and tokens estimated from this Mac's Claude Code logs at API rates."
+- **No accounts, either layout.** Header "Claude", then "No accounts", a line saying no Claude sign-in
+  was found, and an **Open Settings…** button that closes the menu and opens Settings on the Accounts
+  tab.
 
 Per limit:
 
@@ -90,7 +118,8 @@ title follows the tab; position remembered.
   JPY shows no decimals. Extra usage stays in the currency the API reports.
 - **Accounts.** One section per account: name, tag, colour, sign-in source, status (green check with
   the email or organization, or the problem with its action button), show in menu bar, Remove
-  Account… with confirmation. Add Account at the bottom.
+  Account… with confirmation. Add Account at the bottom. With no accounts: "No accounts", a line saying
+  no Claude sign-in was found, and Add Account.
 - **About.** Icon, name, version ("Version 0.2.0 (build N · hash)"), build date, signing identity,
   data sources, project folder (the repository root) with Show in Finder, and the authorship and
   licence lines.

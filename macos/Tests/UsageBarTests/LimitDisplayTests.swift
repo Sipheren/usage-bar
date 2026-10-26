@@ -54,7 +54,7 @@ final class LabelAndCurrencyTests: XCTestCase {
     }
 
     func testLayoutTitles() {
-        XCTAssertEqual(DropdownLayout.allCases.map(\.title), ["Both accounts", "One at a time"])
+        XCTAssertEqual(DropdownLayout.allCases.map(\.title), ["All accounts", "One at a time"])
     }
 
 }
