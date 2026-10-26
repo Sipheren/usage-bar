@@ -39,6 +39,22 @@ extension AppSettings {
     public init(firstRunWith found: FoundSignIns) {
         self.init(accounts: found.kinds.map(Account.defaultAccount(for:)))
     }
+
+    /// One account per sign-in source: false when another account already uses `kind`.
+    public func canUseSource(_ kind: AccountSource.Kind, for id: UUID) -> Bool {
+        !accounts.contains { $0.id != id && $0.source.kind == kind }
+    }
+
+    /// Moves an account to another sign-in source, with that source's default logs folder. Refuses a
+    /// source another account uses. Returns whether the account changed.
+    @discardableResult
+    public mutating func setSource(_ kind: AccountSource.Kind, for id: UUID) -> Bool {
+        guard let i = accounts.firstIndex(where: { $0.id == id }), accounts[i].source.kind != kind,
+              canUseSource(kind, for: id) else { return false }
+        accounts[i].source = .make(kind)
+        accounts[i].logsDir = AccountSource.make(kind).defaultLogsDir
+        return true
+    }
 }
 
 /// What the dropdown shows for the chosen layout and number of accounts.

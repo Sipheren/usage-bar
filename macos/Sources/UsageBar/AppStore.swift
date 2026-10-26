@@ -23,6 +23,8 @@ enum CostState: Equatable {
 @MainActor
 final class AppStore: ObservableObject {
     static let settingsKey = "settings.v1"
+    /// A copy of saved settings that couldn't be read at all, made before a first run saves over them.
+    static let unreadableSettingsKey = "settings.v1.unreadable"
     static let rateKey = "exchangeRates.v2"
     static let emailsKey = "accountEmails.v1"
 
@@ -68,11 +70,23 @@ final class AppStore: ObservableObject {
             return
         }
         if var s = AppStore.savedSettings() {
+            if !s.unreadableAccounts.isEmpty {
+                Log.ui.notice("settings: \(s.unreadableAccounts.count, privacy: .public) saved account(s) unreadable by this build; kept and not shown")
+            }
             // One-time moves for settings saved before the current defaults (miniBars, Work → Safari).
             let migrated = s.applyMigrations()
             settings = s
             if migrated, let data = try? JSONEncoder().encode(s) { defaults.set(data, forKey: AppStore.settingsKey) }
         } else {
+            // Saved settings that exist but can't be read are copied aside before the first run saves over them.
+            if let unreadable = defaults.object(forKey: AppStore.settingsKey) {
+                if defaults.object(forKey: AppStore.unreadableSettingsKey) == nil {
+                    defaults.set(unreadable, forKey: AppStore.unreadableSettingsKey)
+                    Log.ui.error("settings: saved settings unreadable; copied to \(AppStore.unreadableSettingsKey, privacy: .public) before starting fresh")
+                } else {
+                    Log.ui.error("settings: saved settings unreadable; \(AppStore.unreadableSettingsKey, privacy: .public) already holds an earlier copy, left as it is")
+                }
+            }
             // First run: only the sign-ins found. Persist now so account ids stay stable across launches.
             let fresh = AppSettings(firstRunWith: found)
             settings = fresh
@@ -427,11 +441,11 @@ final class AppStore: ObservableObject {
         if let a = settings.accounts.last { Task { await refresh(a, trigger: .manual) } }
     }
 
-    /// Changes an account's sign-in source from the Settings picker.
+    /// Changes an account's sign-in source from the Settings picker. A source another account uses is refused.
     func setSource(_ kind: AccountSource.Kind, for id: UUID) {
-        guard let i = settings.accounts.firstIndex(where: { $0.id == id }), settings.accounts[i].source.kind != kind else { return }
-        settings.accounts[i].source = .make(kind)
-        settings.accounts[i].logsDir = AccountSource.make(kind).defaultLogsDir
+        var s = settings
+        guard s.setSource(kind, for: id) else { return }
+        settings = s
     }
 
     func removeAccount(_ id: UUID) {

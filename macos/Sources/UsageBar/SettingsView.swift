@@ -358,10 +358,14 @@ struct AccountSection: View {
                     .labelsHidden()
                     .fixedSize()
             }
+            // One account per sign-in source: a source another account uses is greyed out.
             Picker("Sign-in source", selection: Binding(
                 get: { account.source.kind },
                 set: { store.setSource($0, for: account.id) })) {
-                ForEach(AccountSource.Kind.allCases, id: \.self) { Text($0.label).tag($0) }
+                ForEach(AccountSource.Kind.allCases, id: \.self) { kind in
+                    Text(kind.label).tag(kind)
+                        .disabled(!store.settings.canUseSource(kind, for: account.id))
+                }
             }
             LabeledContent("Status") { AccountStatusView(account: account) }
             Toggle("Show in menu bar", isOn: $account.showInMenuBar)
