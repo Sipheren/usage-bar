@@ -48,6 +48,7 @@ internal sealed class AppStore
     DateTimeOffset? lastAnyUpdate;
 
     static string SettingsPath => Path.Combine(Paths.AppData, "settings.json");
+    static string UnreadableSettingsPath => Path.Combine(Paths.AppData, "settings.unreadable.json");
     static string StatePath => Path.Combine(Paths.AppData, "state.json");
     static string RatesPath => Path.Combine(Paths.AppData, "rates.json");
 
@@ -276,6 +277,21 @@ internal sealed class AppStore
             // Can't read it now: show what's signed in, but leave the file alone.
             Log.Info("settings: unreadable, " + e.GetType().Name);
             return AppSettings.FirstRun(SignInDetector.Detect());
+        }
+        // A file that isn't JSON at all: keep a copy before the fresh start overwrites it, as the Mac does.
+        if (File.Exists(SettingsPath))
+        {
+            try
+            {
+                File.Copy(SettingsPath, UnreadableSettingsPath, true);
+                Log.Info("settings: not readable, copied aside before a fresh start");
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Don't overwrite what couldn't be copied.
+                Log.Info("settings: not readable, and copying it aside failed: " + e.GetType().Name);
+                return AppSettings.FirstRun(SignInDetector.Detect());
+            }
         }
         var found = SignInDetector.Detect();
         var fresh = AppSettings.FirstRun(found);

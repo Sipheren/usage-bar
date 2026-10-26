@@ -57,7 +57,8 @@ Fixes from the Mac-side review of 0.1.4 (all edge cases).
 - Windows: a damaged `settings.json` can't stop the app or lose accounts. A null account is dropped; an
   account this build can't read (no source, an unknown source kind, a bad id) is set aside and written
   back unchanged, and the others load with their ids. Only a file without an account list falls back to
-  Personal.
+  Personal. A `settings.json` that isn't JSON at all is copied to `settings.unreadable.json` before the
+  fresh start replaces it.
 - Windows: reading Claude Code's and the Claude app's files no longer blocks them from rewriting, renaming
   or deleting those files.
 - Windows: a login file that can't be read (locked, path too long) or holds an out-of-range expiry shows
