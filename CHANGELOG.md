@@ -14,6 +14,10 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 ### Added
 - macOS: `--export-fixtures` and `--fixtures-expected` debug commands, which write anonymised API fixtures
   and an answer sheet for testing a port without real accounts (local data, never committed).
+- Windows: `windows/` started (version 0.1.0, C# on .NET 10 with WPF). The core logic is ported from the
+  macOS app with its tests: usage decoding, pace, formatting, currency, fetch policy, the tray label model,
+  settings, pricing, the cost scanner and the claude.ai cookie flow. Parity tests reproduce the macOS
+  answer sheet (`expected.json`) when `USAGEBAR_FIXTURES` points at a fixtures folder.
 
 ### Changed
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,

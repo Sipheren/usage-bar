@@ -1,0 +1,13 @@
+<Project>
+  <!-- Shared by every project in windows/. The version comes from windows/VERSION. -->
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)VERSION').Trim())</Version>
+    <Authors>Sipheren</Authors>
+    <Product>Usage Bar</Product>
+    <Copyright>MIT License</Copyright>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+</Project>
