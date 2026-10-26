@@ -66,7 +66,8 @@ internal static class StartupRegistry
             try
             {
                 using var key = Registry.CurrentUser.OpenSubKey(RunKey);
-                return key?.GetValue(Name) is string v && v == Command;
+                // Any Usage Bar entry counts, even one for another copy, so the switch can always turn it off.
+                return key?.GetValue(Name) is string { Length: > 0 };
             }
             catch (System.Security.SecurityException) { return false; }
         }

@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
 namespace UsageBar.Core;
@@ -148,13 +149,46 @@ public sealed class AppSettings
     [JsonIgnore]
     public MetricSelection Metrics => new(ShowSession, ShowWeekly, ShowScoped);
 
+    /// <summary>
+    /// Saved accounts this build couldn't read (a source kind from a newer build, a bad id), kept as JSON and written
+    /// back unchanged so a build that understands them still has them.
+    /// </summary>
+    [JsonIgnore]
+    public List<string> UnreadAccounts { get; set; } = new();
+
     /// <summary>Saved form. Fixture accounts (<c>--fixtures</c>) are test data and are never saved.</summary>
     public string ToJson()
     {
         var saved = Accounts;
-        Accounts = Accounts.Where(a => a.Source.Kind != SourceKind.Fixture).ToList();
-        try { return JsonSerializer.Serialize(this, AppJson.Options); }
+        Accounts = Accounts.Where(a => a.Source?.Kind != SourceKind.Fixture).ToList();
+        try
+        {
+            if (UnreadAccounts.Count == 0) return JsonSerializer.Serialize(this, AppJson.Options);
+            var node = JsonSerializer.SerializeToNode(this, AppJson.Options)!;
+            var list = node["accounts"]!.AsArray();
+            foreach (var raw in UnreadAccounts) list.Add(JsonNode.Parse(raw));
+            return node.ToJsonString(AppJson.Options);
+        }
         finally { Accounts = saved; }
+    }
+
+    /// <summary>One saved account, or null when this build can't use it. Missing names and tags get defaults.</summary>
+    static Account? ReadAccount(JsonElement e)
+    {
+        if (e.ValueKind != JsonValueKind.Object) return null;
+        Account? a;
+        try { a = e.Deserialize<Account>(AppJson.Options); }
+        catch (Exception x) when (x is JsonException or NotSupportedException or InvalidOperationException or FormatException) { return null; }
+        if (a?.Source is null || !Enum.IsDefined(a.Source.Kind) || !e.TryGetProperty("id", out _) || !e.TryGetProperty("source", out _)) return null;
+        var fallback = new Account();
+        return a with
+        {
+            Name = string.IsNullOrEmpty(a.Name) ? fallback.Name : a.Name,
+            Tag = string.IsNullOrEmpty(a.Tag) ? fallback.Tag : a.Tag,
+            // 0.1.x colours were free-form hex: keep the nearest preset.
+            Colour = a.LegacyColorHex is { } hex ? AccountColours.Nearest(hex).Id : AccountColours.Get(a.Colour ?? "").Id,
+            LegacyColorHex = null,
+        };
     }
 
     /// <summary>Settings for a fresh install: one account per sign-in found, none when nothing was found.</summary>
@@ -180,13 +214,19 @@ public sealed class AppSettings
                 try { return v.Deserialize<T>(AppJson.Options); }
                 catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException) { return default; }
             }
-            // Any saved list, an empty one included, is kept. Every Windows version saved its accounts, so a file
-            // without a readable list falls back to the one account all of them started with.
-            if (Get<List<Account>>("accounts") is { } accounts)
-                // 0.1.x colours were free-form hex: keep the nearest preset.
-                s.Accounts = accounts.Select(a => a.LegacyColorHex is { } hex
-                    ? a with { Colour = AccountColours.Nearest(hex).Id, LegacyColorHex = null }
-                    : a with { Colour = AccountColours.Get(a.Colour).Id }).ToList();
+            // Any saved list, an empty one included, is kept, each account on its own: one this build can't read
+            // is set aside and written back, never allowed to take the others with it. Every Windows version
+            // saved its accounts, so only a file without a list falls back to the account all of them started with.
+            if (r.TryGetProperty("accounts", out var list) && list.ValueKind == JsonValueKind.Array)
+            {
+                foreach (var e in list.EnumerateArray())
+                {
+                    if (e.ValueKind == JsonValueKind.Null) continue;
+                    var a = ReadAccount(e);
+                    if (a is null) s.UnreadAccounts.Add(e.GetRawText());
+                    else if (s.Accounts.All(x => x.Id != a.Id)) s.Accounts.Add(a);   // a duplicated id is dropped
+                }
+            }
             else s.Accounts = new() { Account.DefaultPersonal() };
             if (Get<LabelStyle?>("labelStyle") is { } ls) s.LabelStyle = ls;
             if (Get<TrayIconMode?>("trayIcons") is { } ti) s.TrayIcons = ti;

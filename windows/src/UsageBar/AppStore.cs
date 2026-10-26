@@ -36,6 +36,8 @@ internal sealed class AppStore
     public DesktopSource Desktop { get; }
 
     readonly Dictionary<Guid, AccountState> states = new();
+    /// <summary>Accounts with a fetch running, and those to fetch again when it ends (their source changed meanwhile).</summary>
+    readonly HashSet<Guid> inFlight = new(), fetchAgain = new();
     readonly Dictionary<Guid, CostState> costs = new();
     readonly HttpClient http;
     readonly AccountFetcher fetcher;
@@ -131,13 +133,19 @@ internal sealed class AppStore
     {
         // Demo mode reads and fetches nothing, including accounts added or switched in its Settings.
         if (Demo) return;
+        // One request per account at a time. A manual refresh asked for meanwhile (a source change) runs after it.
+        if (inFlight.Contains(account.Id))
+        {
+            if (trigger == FetchTrigger.Manual) fetchAgain.Add(account.Id);
+            return;
+        }
         var st = State(account);
-        if (st.Fetching) return;
         var source = account.Source;
         // Before Connect… the Claude app source reads only its config file and makes no request, so it always runs.
         var localOnly = source.Kind == SourceKind.ClaudeDesktop && !Settings.DesktopConnected;
         var interval = Settings.RefreshMinutes * 60.0;
         if (!localOnly && !FetchPolicy.ShouldFetch(trigger, st.LastAttempt, st.WaitUntil, interval, Now)) return;
+        inFlight.Add(account.Id);
         st.Fetching = true;
         if (!localOnly) st.LastAttempt = Now;
         Changed?.Invoke();
@@ -157,13 +165,25 @@ internal sealed class AppStore
             if (report.Email is not null) st.Email = report.Email;
             if (report.DesktopChoice is { } choice) { Settings.DesktopTokenChoice[choice.AccountUuid] = choice.Path; SaveSettings(); }
         }
+        catch (Exception e)
+        {
+            // Anything the fetch didn't turn into an issue itself: say so on the account, log the type only.
+            st.Issue = AccountIssue.Rejected("Couldn't check this account");
+            Log.Info($"fetch {source.Kind}: failed, {e.GetType().Name}");
+        }
         finally
         {
+            inFlight.Remove(account.Id);
             st.Fetching = false;
             SaveState();
             Changed?.Invoke();
+            if (fetchAgain.Remove(account.Id) && Settings.Accounts.FirstOrDefault(a => a.Id == account.Id) is { } current)
+                _ = RefreshAsync(current, FetchTrigger.Manual);
         }
     }
+
+    /// <summary>Redraws everything bound to the store, for a change it doesn't see itself (the theme).</summary>
+    public void NotifyChanged() => Changed?.Invoke();
 
     async Task RefreshCostsAsync()
     {
@@ -173,8 +193,17 @@ internal sealed class AppStore
         {
             if (a.Source.Kind != SourceKind.ClaudeCode || a.LogsDir is null) { costs.Remove(a.Id); continue; }
             if (!costs.ContainsKey(a.Id)) costs[a.Id] = new CostState(null);
-            var summary = await costService.SummaryAsync(Paths.Expand(a.LogsDir), Now);
-            costs[a.Id] = new CostState(summary);
+            try
+            {
+                var summary = await costService.SummaryAsync(Paths.Expand(a.LogsDir), Now);
+                costs[a.Id] = new CostState(summary);
+            }
+            catch (Exception e)
+            {
+                // One account's logs failing doesn't stop the others; it shows no cost rather than "Counting…".
+                costs.Remove(a.Id);
+                Log.Info("cost: failed, " + e.GetType().Name);
+            }
         }
         Changed?.Invoke();
     }
@@ -273,7 +302,12 @@ internal sealed class AppStore
             // Only accounts that still exist, so state for removed accounts is dropped on the next save.
             foreach (var (id, p) in saved ?? new())
                 if (Settings.Accounts.Any(a => a.Id == id))
-                    states[id] = new AccountState { Snapshot = p.Snapshot, LastSuccess = p.LastSuccess, LastAttempt = p.LastAttempt, WaitUntil = p.WaitUntil, Email = p.Email };
+                    states[id] = new AccountState
+                    {
+                        Snapshot = p.Snapshot, LastSuccess = p.LastSuccess, LastAttempt = p.LastAttempt, WaitUntil = p.WaitUntil, Email = p.Email,
+                        // Still paused by a rate limit: show it again, as before the relaunch.
+                        Issue = p.WaitUntil is { } until && until > Now ? AccountIssue.RateLimited(until) : null,
+                    };
         }
         catch (Exception e) when (e is IOException or JsonException) { Log.Info("state: unreadable, starting fresh"); }
     }

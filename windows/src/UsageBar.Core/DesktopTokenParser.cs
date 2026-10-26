@@ -260,6 +260,13 @@ public static partial class DesktopTokenParser
 /// </summary>
 public static class ChromiumWin
 {
+    /// <summary>A SQLite file URI: every path segment percent-encoded (a user folder can hold %, # or ?), the drive kept as is.</summary>
+    public static string SqliteFileUri(string path)
+    {
+        var parts = path.Replace('\\', '/').Split('/');
+        return "file:///" + string.Join("/", parts.Select((p, i) => i == 0 && p.EndsWith(':') ? p : Uri.EscapeDataString(p)));
+    }
+
     public static byte[] EncryptedKey(byte[] localState)
     {
         try

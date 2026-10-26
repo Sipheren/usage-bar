@@ -25,7 +25,19 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        var args = e.Args;
+        // A failure here must end the process: the handlers below would otherwise keep an invisible copy alive,
+        // holding the single-instance mutex so every later launch just signals it and exits.
+        try { Start(e.Args); }
+        catch (Exception ex)
+        {
+            Log.Info("startup failed: " + ex.GetType().Name);
+            try { tray?.Dispose(); } catch (Exception) { }
+            Shutdown(1);
+        }
+    }
+
+    void Start(string[] args)
+    {
         string? Arg(string name) => Array.IndexOf(args, name) is var i and >= 0 && i + 1 < args.Length ? args[i + 1] : null;
 
         if (Arg("--write-icon") is { } iconPath)
@@ -104,6 +116,8 @@ public partial class App : Application
         flyout = new FlyoutWindow(store, OpenSettings, Quit);
         menu = new MenuWindow(store, OpenSettings, Quit);
         tray.LeftClick += (account, _) => ToggleFlyout(account);
+        // A light/dark switch: redraw what's open in the new palette (flyout, Settings preview and swatches).
+        tray.ThemeChanged += () => { store.NotifyChanged(); settings?.ThemeChanged(); };
         tray.RightClick += pt => menu.ShowAt(pt);
         store.Changed += () => tray.Update();
         tray.Update();

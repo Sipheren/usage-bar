@@ -12,7 +12,10 @@ public static class Formatters
     /// <summary>A number with grouping, rounded half to even like the Mac's NumberFormatter: "1,050", "12.50".</summary>
     public static string Number(double v, int digits)
     {
+        digits = Math.Clamp(digits, 0, 10);
         if (double.IsNaN(v) || double.IsInfinity(v)) return v.ToString(Inv);
+        // Beyond what a decimal holds (absurd server values) plain double formatting will do.
+        if (Math.Abs(v) >= 1e18) return v.ToString("N" + digits, Inv);
         var d = Math.Round((decimal)v, digits, MidpointRounding.ToEven);
         if (d == 0) d = 0m;   // no "-0.00"
         return d.ToString("N" + digits, Inv);
@@ -106,7 +109,7 @@ public static class Formatters
     public static string? ExtraUsageLine(ExtraUsage e)
     {
         if (e.UsedCredits is not { } used) return null;
-        var dp = e.DecimalPlaces ?? 2;
+        var dp = Math.Clamp(e.DecimalPlaces ?? 2, 0, 6);
         var s = "Extra usage " + MinorUnits(used, dp, e.Currency);
         if (e.MonthlyLimit is { } limit) s += " of " + MinorUnits(limit, dp, e.Currency);
         if (e.IsEnabled == false)

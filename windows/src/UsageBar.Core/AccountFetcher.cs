@@ -27,6 +27,8 @@ public interface IDesktopFetcher
 public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = null, Func<string, HttpClient>? fixtureHttp = null)
 {
     public static readonly AccountIssue ClaudeCodeRejected = AccountIssue.Rejected("Claude Code login rejected — run `claude` once");
+    const double MaxRetryAfter = 24 * 3600;
+
     public static readonly AccountIssue ClaudeCodeMissing = AccountIssue.NotSignedIn("Not signed in to Claude Code — run `claude` once");
 
     readonly UsageClient client = new(http);
@@ -48,17 +50,9 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         return report;
     }
 
-    /// <summary>The account file that goes with a Claude Code config folder.</summary>
-    public static string AccountInfoPath(string configDir)
-    {
-        var dir = Paths.Expand(configDir);
-        return string.Equals(dir, Paths.Expand("~/.claude"), StringComparison.OrdinalIgnoreCase)
-            ? Paths.Expand("~/.claude.json") : Path.Combine(dir, ".claude.json");
-    }
-
     public async Task<FetchReport> FetchClaudeCodeAsync(string configDir, DateTimeOffset now, CancellationToken ct)
     {
-        var report = new FetchReport { Route = "token", Email = ClaudeCodeAccountInfo.Read(AccountInfoPath(configDir))?.Email };
+        var report = new FetchReport { Route = "token", Email = ClaudeCodeAccountInfo.Read(Paths.ClaudeAccountInfo(configDir))?.Email };
         CliToken token;
         try { token = ClaudeCodeCredentials.Read(configDir); }
         catch (CredentialException e)
@@ -73,12 +67,12 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
             report.Issue = AccountIssue.ExpiredCli;
             return report;
         }
-        await CallUsageAsync(token.AccessToken, report, ClaudeCodeRejected, ct);
+        await CallUsageAsync(token.AccessToken, report, ClaudeCodeRejected, now, ct);
         return report;
     }
 
     /// <summary>Calls the OAuth usage endpoint and records the outcome on <paramref name="report"/>.</summary>
-    public async Task CallUsageAsync(string token, FetchReport report, AccountIssue rejected, CancellationToken ct)
+    public async Task CallUsageAsync(string token, FetchReport report, AccountIssue rejected, DateTimeOffset now, CancellationToken ct)
     {
         try
         {
@@ -91,7 +85,8 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
                 case FetchOutcomeKind.ScopeError: report.Issue = AccountIssue.Scope; break;
                 case FetchOutcomeKind.RateLimited:
                     report.RetryAfter = o.RetryAfter;
-                    report.Issue = AccountIssue.RateLimited(DateTimeOffset.UtcNow.AddSeconds(o.RetryAfter ?? 300));
+                    // At most a day: a huge Retry-After would otherwise overflow the date.
+                    report.Issue = AccountIssue.RateLimited(now.AddSeconds(Math.Min(o.RetryAfter ?? 300, MaxRetryAfter)));
                     break;
                 case FetchOutcomeKind.Http: report.Issue = AccountIssue.Http(o.Status); break;
                 default: report.Issue = AccountIssue.Rejected("Unexpected usage response"); break;

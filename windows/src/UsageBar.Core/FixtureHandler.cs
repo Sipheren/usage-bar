@@ -52,10 +52,9 @@ public sealed class FixtureHandler(string dir, Func<DateTimeOffset>? clock = nul
             _ => (503, "api/cloudflare-challenge.html", "challenge", null),
         };
         var path = Path.Combine(dir, file);
-        var resp = new HttpResponseMessage((HttpStatusCode)status)
-        {
-            Content = new StringContent(File.Exists(path) ? File.ReadAllText(path) : ""),
-        };
+        // A missing error file is a broken fixtures folder, not an empty error: answer 404 so tests notice.
+        if (!File.Exists(path)) return new HttpResponseMessage(HttpStatusCode.NotFound) { Content = new StringContent("") };
+        var resp = new HttpResponseMessage((HttpStatusCode)status) { Content = new StringContent(File.ReadAllText(path)) };
         if (cf is not null) resp.Headers.TryAddWithoutValidation("cf-mitigated", cf);
         if (retry is not null) resp.Headers.TryAddWithoutValidation("Retry-After", retry);
         return resp;

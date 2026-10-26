@@ -87,7 +87,8 @@ public sealed record ExchangeRates(Dictionary<string, double> Rates, DateTimeOff
                 if (p.Value.ValueKind == JsonValueKind.Number && p.Value.GetDouble() > 0) rates[p.Name.ToUpperInvariant()] = p.Value.GetDouble();
             if (rates.Count == 0) return null;
             rates["USD"] = 1;
-            var asOf = Json.Number(doc.RootElement, "time_last_update_unix") is { } t
+            // A time outside 2000..now+1 day is nonsense from the server: use now.
+            var asOf = Json.Number(doc.RootElement, "time_last_update_unix") is { } t && t >= 946684800 && t <= now.AddDays(1).ToUnixTimeSeconds()
                 ? DateTimeOffset.FromUnixTimeSeconds((long)t) : now;
             return new ExchangeRates(rates, asOf, now);
         }

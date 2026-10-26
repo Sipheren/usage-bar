@@ -54,6 +54,12 @@ public partial class SettingsWindow : Window
         (tab switch { "accounts" => TabAccounts, "about" => TabAbout, _ => TabGeneral }).IsChecked = true;
     }
 
+    internal void ThemeChanged()
+    {
+        RefreshPreview();
+        foreach (var vm in AccountsList.Items.OfType<AccountEditVm>()) vm.ThemeChanged();
+    }
+
     void OnStoreChanged()
     {
         RateText.Text = Formatters.RateLine(store.Rates, store.Settings.Currency) ?? "";
@@ -254,13 +260,21 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
     public string Name
     {
         get => A.Name;
-        set { if (!string.IsNullOrWhiteSpace(value) && value != A.Name) Update(a => a with { Name = value.Trim() }); }
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value)) Revert(nameof(Name));
+            else if (value != A.Name) Update(a => a with { Name = value.Trim() });
+        }
     }
 
     public string Tag
     {
         get => A.Tag;
-        set { if (!string.IsNullOrWhiteSpace(value) && value != A.Tag) Update(a => a with { Tag = value.Trim().ToUpperInvariant() }); }
+        set
+        {
+            if (string.IsNullOrWhiteSpace(value)) Revert(nameof(Tag));
+            else if (value != A.Tag) Update(a => a with { Tag = value.Trim().ToUpperInvariant() });
+        }
     }
 
     /// <summary>The ten presets, each shown in the shade the tray and flyout use with the current theme.</summary>
@@ -291,7 +305,12 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
         return list;
     }
 
-    public List<string> SourceOptions => Sources().Select(s => s.Label).ToList();
+    /// <summary>Each source, greyed out when another account already uses it (one account per source, decision 16).</summary>
+    public List<SourceOption> SourceOptions =>
+        Sources().Select(s => new SourceOption(s.Label, s.Kind == A.Source.Kind || !store.HasAccount(s.Kind))).ToList();
+
+    string SourcesInUse => string.Join(",", SourceOptions.Select(o => o.Enabled));
+    string? lastSourcesInUse;
 
     public int SourceIndex
     {
@@ -302,6 +321,8 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
             if (value < 0 || value >= sources.Count || sources[value].Kind == A.Source.Kind) return;
             var src = sources[value];
             if (src.Kind == SourceKind.Fixture) return;   // fixtures come from --fixtures, not the saved settings
+            // One account per sign-in source (decision 16): a source another account uses can't be picked.
+            if (store.HasAccount(src.Kind)) { Revert(nameof(SourceIndex)); return; }
             Update(a => a with
             {
                 Source = src,
@@ -326,10 +347,25 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
         }
     }
 
+    /// <summary>A rejected edit: tell the box to show the saved value again, once WPF has finished pushing this one.</summary>
+    void Revert(string property) =>
+        Application.Current.Dispatcher.BeginInvoke(() => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(property)));
+
+    /// <summary>The swatches and badge are drawn in the current theme's shades.</summary>
+    public void ThemeChanged()
+    {
+        foreach (var p in new[] { nameof(Presets), nameof(ColourIndex), nameof(Badge) })
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
+    }
+
     public void RefreshStatus()
     {
         foreach (var p in new[] { nameof(Status), nameof(StatusOk), nameof(CanConnect), nameof(SourceIndex) })
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
+        // Only when another account took or freed a source: rebuilding the list on every tick would close an open picker.
+        var inUse = SourcesInUse;
+        if (lastSourcesInUse is not null && inUse != lastSourcesInUse) PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SourceOptions)));
+        lastSourcesInUse = inUse;
     }
 
     /// <summary>
@@ -348,4 +384,10 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+}
+
+/// <summary>A sign-in source in an account's picker; shown as its label.</summary>
+internal sealed record SourceOption(string Label, bool Enabled)
+{
+    public override string ToString() => Label;
 }

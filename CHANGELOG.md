@@ -47,6 +47,37 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 - macOS: with no account in the menu bar, the label's tooltip and accessibility text were blank; they
   now read "Claude usage", and the label is the spark alone.
 
+## [Windows 0.1.5] - 2026-10-26
+
+Fixes from the Mac-side review of 0.1.4 (all edge cases).
+
+### Fixed
+- Windows: a startup error no longer leaves an invisible copy running that holds the single-instance lock
+  and swallows every later launch; it logs the error type and exits.
+- Windows: a damaged `settings.json` can't stop the app or lose accounts. A null account is dropped; an
+  account this build can't read (no source, an unknown source kind, a bad id) is set aside and written
+  back unchanged, and the others load with their ids. Only a file without an account list falls back to
+  Personal.
+- Windows: reading Claude Code's and the Claude app's files no longer blocks them from rewriting, renaming
+  or deleting those files.
+- Windows: a login file that can't be read (locked, path too long) or holds an out-of-range expiry shows
+  "Couldn't read the Claude Code login" instead of silently doing nothing; any other fetch failure shows
+  "Couldn't check this account". A huge Retry-After is capped at a day. One account's cost logs failing no
+  longer stops the others.
+- Windows: with `CLAUDE_CONFIG_DIR` set, the account file is read from inside that folder everywhere (first
+  run, the Claude app's same-account check, fixtures), as Claude Code writes it there.
+- Windows: "Paused by rate limit" comes back after a relaunch while the pause lasts.
+- Windows: an account's Sign-in source picker greys out a source another account uses.
+- Windows: a blanked name or tag goes back to the saved one when you leave the box.
+- Windows: changing an account's source while it's fetching no longer runs two requests at once.
+- Windows: the Claude app's cookie fallback works from a user folder with `%`, `#` or `?` in its name.
+- Windows: the Claude Code version in requests is read each time, so an update shows without a restart.
+- Windows: Launch at login shows On for any Usage Bar entry, so one left by another copy can be turned off.
+- Windows: a light/dark switch redraws an open flyout, the Settings preview and the colour swatches.
+- Windows: absurd server values (`decimal_places` of 29, a far-future rate time) no longer throw.
+- Windows: `install.ps1` builds before stopping anything (a failed build leaves the running copy alone),
+  stops only the installed copy, installs into a clean folder, and says so plainly when `dotnet` is missing.
+
 ## [Windows 0.1.4] - 2026-10-26
 
 ### Changed

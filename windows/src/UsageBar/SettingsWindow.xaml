@@ -48,7 +48,13 @@
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Sign-in source" Style="{StaticResource RowLabel}"/>
                             <ComboBox DockPanel.Dock="Right" MinWidth="170" Style="{StaticResource WinCombo}" VerticalAlignment="Center"
-                                      ItemsSource="{Binding SourceOptions}" SelectedIndex="{Binding SourceIndex}" AutomationProperties.Name="Sign-in source"/>
+                                      ItemsSource="{Binding SourceOptions}" SelectedIndex="{Binding SourceIndex}" AutomationProperties.Name="Sign-in source">
+                                <ComboBox.ItemContainerStyle>
+                                    <Style TargetType="ComboBoxItem" BasedOn="{StaticResource WinComboItem}">
+                                        <Setter Property="IsEnabled" Value="{Binding Enabled}"/>
+                                    </Style>
+                                </ComboBox.ItemContainerStyle>
+                            </ComboBox>
                         </DockPanel>
                         <Border Style="{StaticResource RowSeparator}"/>
                         <DockPanel Style="{StaticResource Row}">

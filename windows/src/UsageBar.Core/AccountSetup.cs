@@ -29,7 +29,7 @@ public sealed record FoundSignIns(bool ClaudeCodeLogin = false, string? ClaudeCo
 public static class SignInDetector
 {
     public static FoundSignIns Detect() =>
-        Detect(Paths.Expand(Paths.DefaultClaudeConfigDir), Paths.Expand("~/.claude.json"), Paths.ClaudeDesktop);
+        Detect(Paths.Expand(Paths.DefaultClaudeConfigDir), Paths.ClaudeAccountInfo(Paths.DefaultClaudeConfigDir), Paths.ClaudeDesktop);
 
     public static FoundSignIns Detect(string claudeConfigDir, string claudeJsonPath, string claudeAppDir)
     {
@@ -37,8 +37,8 @@ public static class SignInDetector
         var login = File.Exists(Path.Combine(claudeConfigDir, ".credentials.json"));
         var cli = ClaudeCodeAccountInfo.Read(claudeJsonPath);
         DesktopConfig? app = null;
-        try { app = DesktopConfig.Parse(File.ReadAllBytes(Path.Combine(claudeAppDir, "config.json"))); }
-        catch (Exception e) when (e is IOException or UnauthorizedAccessException or CredentialException) { }
+        try { app = DesktopConfig.Parse(Paths.ReadShared(Path.Combine(claudeAppDir, "config.json"))); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or CredentialException or ArgumentException) { }
         return new FoundSignIns(login, cli?.AccountUuid,
                                 app?.EncryptedCaches.Any(c => c.Key == "oauth:tokenCacheV2") ?? false, app?.LastKnownAccountUuid);
     }

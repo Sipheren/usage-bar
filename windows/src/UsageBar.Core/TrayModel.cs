@@ -7,8 +7,9 @@ public sealed record TrayAccountItem(string Tag, string Name, List<int> Values, 
                                      int? SessionPercent = null, int? WeeklyPercent = null);
 
 /// <summary>
-/// The tray icon content, the Windows counterpart of the Mac menu bar label. Always monochrome: the percentages never
-/// change its colour (docs/DECISIONS.md, decision 4). <see cref="PlainText"/> matches the Mac label's plain text.
+/// The tray icon content, the Windows counterpart of the Mac menu bar label. Usage never changes a colour
+/// (docs/DECISIONS.md, decision 4); each account's own colour tells the icons apart (decision 17).
+/// <see cref="PlainText"/> matches the Mac label's plain text.
 /// </summary>
 public sealed class TrayModel
 {

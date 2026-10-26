@@ -52,8 +52,8 @@ Open Usage Bar's flyout, then **Settings… > Accounts**. Each account has a **S
 
 | Source | What it reads (read-only) | What you do |
 |---|---|---|
-| Claude Code login | `.credentials.json` in Claude Code's config folder: `%USERPROFILE%\.claude`, or `%CLAUDE_CONFIG_DIR%` when set | Sign in to Claude Code once (`claude`). |
-| Claude app | `%APPDATA%\Claude`: `config.json` (the encrypted token cache), `Local State` (its key, protected by Windows for your user) and, as a fallback, `Network\Cookies` | Click **Connect…**. Nothing is read before that. |
+| Claude Code login | `.credentials.json` in Claude Code's config folder (`%USERPROFILE%\.claude`, or `%CLAUDE_CONFIG_DIR%` when set), and its account file `.claude.json` (`%USERPROFILE%\.claude.json`, or inside `%CLAUDE_CONFIG_DIR%`) for the email | Sign in to Claude Code once (`claude`). |
+| Claude app | `%APPDATA%\Claude`: `config.json` (the encrypted token cache), `Local State` (its key, protected by Windows for your user) and, as a fallback, `Network\Cookies` | Click **Connect…**. Before that, each refresh reads only `config.json` (to see whether the app is signed in, and to whom) and Claude Code's `.claude.json`; nothing is decrypted. |
 
 The first launch adds an account only for each sign-in it finds, with no prompt and nothing decrypted:
 Personal when Claude Code's `.credentials.json` exists, and a Claude app account when the app's
@@ -66,7 +66,8 @@ and names the exact problem when it doesn't.
 
 ## Using it
 
-- Left-click an icon for the flyout; click again or press Esc to close it. **Refresh Now** is Ctrl+R.
+- Left-click an icon for the flyout; click again or press Esc to close it. In the flyout, **Refresh Now** is
+  Ctrl+R, **Settings…** is Ctrl+, and **Quit Usage Bar** is Ctrl+Q.
 - Right-click an icon for Refresh Now, Settings…, About Usage Bar and Quit Usage Bar.
 - Hover an icon for that account's limits and reset times.
 - **Settings… > General**: the tray style (Bars, Percentages or Icon only), **Icons** (one per account,
@@ -84,7 +85,7 @@ full refresh interval old, and a 429 pauses that account until its Retry-After p
 | Path | What |
 |---|---|
 | `%APPDATA%\UsageBar\settings.json` | Settings |
-| `%APPDATA%\UsageBar\state.json` | Each account's last numbers and fetch times, so relaunches don't refetch |
+| `%APPDATA%\UsageBar\state.json` | Each account's last numbers, fetch times and the email or organization shown in Settings, so relaunches don't refetch |
 | `%APPDATA%\UsageBar\rates.json` | The day's exchange rates |
 | `%LOCALAPPDATA%\UsageBar\cost-cache.json` | The cost scanner's incremental cache: token counts and id hashes, no content |
 | `%LOCALAPPDATA%\UsageBar\logs\usagebar.log` | Statuses and counts only: never tokens, cookies, emails or organization names |
@@ -110,7 +111,7 @@ Options for running `src\UsageBar\bin\Debug\net10.0-windows\UsageBar.exe`:
 | Option | Effect |
 |---|---|
 | `--demo` | Built-in sample data. Nothing is read, fetched or saved. Use it for anything visual. |
-| `--fixtures <dir>` | Adds a Work test account answered from a fixtures folder (never saved); timestamps move to now. Set `USAGEBAR_FIXTURE_ERROR` to `401`, `403`, `429` or `cloudflare` to serve an error file. |
+| `--fixtures <dir>` | Adds a Work test account answered from a fixtures folder; timestamps move to now. The account is never written to `settings.json`, though its last numbers do go into `state.json`. Set `USAGEBAR_FIXTURE_ERROR` to `401`, `403`, `429` or `cloudflare` to serve an error file. The environment variable `USAGEBAR_FIXTURES_UI=<dir>` does the same as `--fixtures`. |
 | `--open flyout\|menu\|settings\|accounts\|about` | Opens that view after start. |
 | `--theme light\|dark` | Forces a theme. |
 | `--layout one`, `--style bars\|percentages\|icon`, `--icons single` | Demo mode only: screenshot variants. |
@@ -122,7 +123,7 @@ Options for running `src\UsageBar\bin\Debug\net10.0-windows\UsageBar.exe`:
 | `--write-icon <file>` | Writes the app icon (`.ico`) from `design/icon` and exits. |
 | `--colour-sheet <file>` | Writes a PNG of every colour preset as the tray and flyout draw it, and exits. |
 
-A second launch opens the running copy's flyout. Judge the UI from real screenshots of the running app;
+A second launch toggles the running copy's flyout (opens it, or closes it if it's open). Judge the UI from real screenshots of the running app;
 images for `docs/images` come from demo mode.
 
 ## How it differs from the Mac

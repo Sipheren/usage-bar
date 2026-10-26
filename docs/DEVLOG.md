@@ -2,6 +2,12 @@
 
 ## 2026-10-26 (Windows)
 
+- 0.1.5: fixes from the Mac-side review, test-first where Core could hold them (25 new test cases, including a
+  stub-HTTP suite for the usage client and fetcher). Checked on this PC: Claude Code writes `.claude.json`
+  inside a `CLAUDE_CONFIG_DIR` folder and leaves `~/.claude.json` alone. With the new sharing a reader
+  lets the owner rewrite, rename away or delete the file; a rename *over* an open file still fails on
+  Windows whatever the reader shares, so that case relies on reads being brief. Damaged settings files
+  and a forced startup failure were launched for real: the app starts or exits, never lingers.
 - 0.1.4: Windows follows the new account contract (decision 16), ported test-first from the Mac's
   `AccountSetupTests`. Detection was checked against this PC's real files (`--detect-sign-ins`: the Claude
   app is on the Claude Code account, so only Personal is added) and with a real first run. That run showed

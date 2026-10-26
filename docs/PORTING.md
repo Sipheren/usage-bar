@@ -99,10 +99,11 @@ The endpoints, headers, response decoding, 429 handling, log rules and prices in
 - **Icon:** a notification-area icon. Windows draws tray icons at the small-icon size: 16 px at 100%
   scaling, larger at higher DPI. Ask `GetSystemMetrics(SM_CXSMICON)` (per monitor DPI) instead of
   assuming 16.
-- **No text label.** The macOS label (spark, tags, bars, percentages) doesn't fit in a tray icon. The
-  icon shows the spark from `design/spark/ClaudeSpark.svg`, or bars for the first account in the Bars
-  style. The tooltip carries the numbers (`P 20% / 60% · W 45% / 72%`), and the classic tooltip limit
-  is 128 characters.
+- **No text label.** The macOS label (spark, tags, bars, percentages) doesn't fit in a tray icon. Each
+  account's icon shows its bars or numbers; Icon only, or no account shown, is the spark from
+  `design/spark/ClaudeSpark.svg`. The tooltip carries the numbers: an account's icon lists each limit with
+  its reset (`Usage Bar · Personal`, then `Session 20% · resets in 2h 10m` and so on), the single icon lists
+  each account (`Personal — session 20%, weekly 60%`), and the classic tooltip limit is 128 characters.
 - **Colour:** each account's icon is drawn in that account's colour (decision 17), one of ten presets with a
   shade for dark and one for light taskbars; the tray and the flyout use the same shade. The Icon only spark
   stays monochrome, white on a dark taskbar and black on a light one. A tinted bar track made a clay

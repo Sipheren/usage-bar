@@ -11,8 +11,9 @@ using UsageBar.Core;
 namespace UsageBar;
 
 /// <summary>
-/// Draws the notification-area icons at their real pixel size. Monochrome: white on a dark taskbar, black on a light
-/// one, never coloured by usage (decision 4). Shapes sit on whole pixels so they stay crisp at 16, 20 and 24 px.
+/// Draws the notification-area icons at their real pixel size: bars or numbers in the account's colour (decision 17),
+/// never coloured by usage (decision 4); the spark is white on a dark taskbar, black on a light one. Shapes sit on whole
+/// pixels so they stay crisp at 16, 20 and 24 px.
 /// </summary>
 internal static class IconRenderer
 {

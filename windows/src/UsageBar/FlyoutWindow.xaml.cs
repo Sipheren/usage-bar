@@ -13,7 +13,7 @@ namespace UsageBar;
 
 /// <summary>
 /// The flyout: the Windows counterpart of the Mac dropdown. Opens above the tray icon, closes when it loses focus,
-/// and shows both accounts (layout A) or one at a time with the 30-day chart (layout B).
+/// and shows all accounts (layout A), one at a time with the 30-day chart (layout B), or the "No accounts" state.
 /// </summary>
 public partial class FlyoutWindow : Window
 {

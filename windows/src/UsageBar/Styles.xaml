@@ -255,9 +255,12 @@
                     <Grid Margin="4,2" Background="Transparent">
                         <Border x:Name="Bd" CornerRadius="4" Background="Transparent" Padding="12,6"/>
                         <Border x:Name="Pill" Width="3" Height="16" CornerRadius="1.5" HorizontalAlignment="Left" Background="{DynamicResource Accent}" Visibility="Collapsed"/>
-                        <ContentPresenter Margin="12,6" VerticalAlignment="Center"/>
+                        <ContentPresenter x:Name="Content" Margin="12,6" VerticalAlignment="Center"/>
                     </Grid>
                     <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Content" Property="Opacity" Value="0.4"/>
+                        </Trigger>
                         <Trigger Property="IsHighlighted" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Hover}"/>
                         </Trigger>

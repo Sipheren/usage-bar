@@ -22,6 +22,7 @@ internal sealed class TrayController : IDisposable
 
     public event Action<Guid?, Native.POINT>? LeftClick;
     public event Action<Native.POINT>? RightClick;
+    public event Action? ThemeChanged;
 
     public IntPtr Handle => window.Handle;
 
@@ -67,7 +68,7 @@ internal sealed class TrayController : IDisposable
     }
 
     /// <summary>
-    /// What the tray should show: one icon per shown account (badge over bars or percentage), or a single icon with
+    /// What the tray should show: one icon per shown account (its bars or numbers in its colour), or a single icon with
     /// the first account's bars or percentage, or the spark. Settings uses the same plan for its preview.
     /// </summary>
     internal static List<TrayIconPlan> Plan(AppStore store, int n, bool dark)
@@ -193,6 +194,7 @@ internal sealed class TrayController : IDisposable
         {
             Theme.Apply();
             Update();
+            ThemeChanged?.Invoke();
         }
         return IntPtr.Zero;
     }

@@ -28,12 +28,15 @@ public static class ClaudeCodeCredentials
 
     public static CliToken Read(string configDir)
     {
-        var path = Path.Combine(Paths.Expand(configDir), FileName);
         byte[] data;
-        try { data = File.ReadAllBytes(path); }
+        try { data = Paths.ReadShared(Path.Combine(Paths.Expand(configDir), FileName)); }
         catch (FileNotFoundException) { throw new CredentialException(CredentialError.NotFound); }
         catch (DirectoryNotFoundException) { throw new CredentialException(CredentialError.NotFound); }
-        catch (UnauthorizedAccessException) { throw new CredentialException(CredentialError.Denied); }
+        // Access denied, a sharing violation while Claude Code rewrites it, a path too long: can't read it now.
+        catch (Exception e) when (e is UnauthorizedAccessException or IOException or ArgumentException or NotSupportedException)
+        {
+            throw new CredentialException(CredentialError.Denied);
+        }
         return Parse(data);
     }
 
@@ -45,11 +48,18 @@ public static class ClaudeCodeCredentials
             var oauth = Json.Object(doc.RootElement, "claudeAiOauth") ?? throw new CredentialException(CredentialError.Malformed);
             var token = Json.String(oauth, "accessToken");
             if (string.IsNullOrEmpty(token)) throw new CredentialException(CredentialError.NoToken);
-            DateTimeOffset? expires = Json.Number(oauth, "expiresAt") is { } ms ? DateTimeOffset.FromUnixTimeMilliseconds((long)ms) : null;
+            DateTimeOffset? expires = null;
+            if (Json.Number(oauth, "expiresAt") is { } ms)
+            {
+                if (!(ms >= MinMs && ms <= MaxMs)) throw new CredentialException(CredentialError.Malformed);
+                expires = DateTimeOffset.FromUnixTimeMilliseconds((long)ms);
+            }
             return new CliToken(token, expires, Json.String(oauth, "subscriptionType"));
         }
         catch (JsonException) { throw new CredentialException(CredentialError.Malformed); }
     }
+
+    static readonly double MinMs = DateTimeOffset.MinValue.ToUnixTimeMilliseconds(), MaxMs = DateTimeOffset.MaxValue.ToUnixTimeMilliseconds();
 
     internal static byte[] StripBom(byte[] b) =>
         b.Length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF ? b[3..] : b;
@@ -58,11 +68,11 @@ public static class ClaudeCodeCredentials
 /// <summary>The CLI's account details from <c>~/.claude.json</c>: shown in Settings and used to tell Personal from Work.</summary>
 public sealed record ClaudeCodeAccountInfo(string? Email, string? AccountUuid, string? OrganizationUuid, string? OrganizationName)
 {
+    /// <summary>The account file for <paramref name="path"/>, or for Claude Code's current config folder.</summary>
     public static ClaudeCodeAccountInfo? Read(string? path = null)
     {
-        try { return Parse(File.ReadAllBytes(path ?? Paths.Expand("~/.claude.json"))); }
-        catch (IOException) { return null; }
-        catch (UnauthorizedAccessException) { return null; }
+        try { return Parse(Paths.ReadShared(path ?? Paths.ClaudeAccountInfo(Paths.DefaultClaudeConfigDir))); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or NotSupportedException) { return null; }
     }
 
     public static ClaudeCodeAccountInfo? Parse(byte[] data)
@@ -83,16 +93,14 @@ public static class ClaudeCliVersion
 {
     public const string Fallback = "2.1.310";
 
-    static string? cached;
-
+    /// <summary>Read on every request, as on the Mac, so an update to Claude Code shows without restarting.</summary>
     public static string Current()
     {
-        if (cached is not null) return cached;
         string[] names;
         try { names = Directory.GetFileSystemEntries(Paths.Expand("~/.local/share/claude/versions")).Select(Path.GetFileName).OfType<string>().ToArray(); }
         catch (IOException) { names = Array.Empty<string>(); }
         catch (UnauthorizedAccessException) { names = Array.Empty<string>(); }
-        return cached = Pick(names);
+        return Pick(names);
     }
 
     public static string Pick(IEnumerable<string> names) =>
@@ -107,6 +115,37 @@ public static class Paths
     public static string Home => Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
     /// <summary>Expands a leading <c>~</c> and environment variables.</summary>
+    /// <summary>
+    /// Opens another app's file for reading without blocking it: Claude Code rewrites its files in place and the
+    /// Claude app renames over config.json, so the read shares write and delete access.
+    /// </summary>
+    public static FileStream OpenShared(string path) =>
+        new(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete);
+
+    public static byte[] ReadShared(string path)
+    {
+        using var f = OpenShared(path);
+        using var m = new MemoryStream();
+        f.CopyTo(m);
+        return m.ToArray();
+    }
+
+    /// <summary>
+    /// Claude Code's account file (<c>.claude.json</c>) for a config folder: beside the default <c>~/.claude</c>, but
+    /// inside a folder named by <c>CLAUDE_CONFIG_DIR</c> (checked on Windows 11, Claude Code 2.1).
+    /// </summary>
+    public static string ClaudeAccountInfo(string configDir) =>
+        ClaudeAccountInfo(configDir, Environment.GetEnvironmentVariable("CLAUDE_CONFIG_DIR") is { Length: > 0 } d ? d : null);
+
+    public static string ClaudeAccountInfo(string configDir, string? envConfigDir)
+    {
+        static string Norm(string p) => Path.TrimEndingDirectorySeparator(Expand(p));
+        var dir = Norm(configDir);
+        var isDefault = string.Equals(dir, Norm("~/.claude"), StringComparison.OrdinalIgnoreCase)
+                        && !(envConfigDir is not null && string.Equals(Norm(envConfigDir), dir, StringComparison.OrdinalIgnoreCase));
+        return isDefault ? Expand("~/.claude.json") : Path.Combine(dir, ".claude.json");
+    }
+
     public static string Expand(string path)
     {
         path = Environment.ExpandEnvironmentVariables(path);

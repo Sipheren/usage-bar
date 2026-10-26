@@ -23,7 +23,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
     {
         var report = new FetchReport { Email = ctx.KnownEmail };
         DesktopConfig config;
-        try { config = DesktopConfig.Parse(File.ReadAllBytes(Path.Combine(Dir, "config.json"))); }
+        try { config = DesktopConfig.Parse(Paths.ReadShared(Path.Combine(Dir, "config.json"))); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or CredentialException)
         {
             report.Issue = AccountIssue.NotSignedIn("Claude app not found or not signed in");
@@ -73,7 +73,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
                 return report;
             }
             report.Route = "token";
-            await api.CallUsageAsync(chosen.AccessToken, report, AccountIssue.ExpiredDesktop, ct);
+            await api.CallUsageAsync(chosen.AccessToken, report, AccountIssue.ExpiredDesktop, now, ct);
             if (report.Snapshot is not null)
             {
                 Profile? profile = null;
@@ -143,7 +143,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
     {
         if (key is not null) return key;
         byte[] wrapped;
-        try { wrapped = ChromiumWin.StripDpapiPrefix(ChromiumWin.EncryptedKey(File.ReadAllBytes(Path.Combine(Dir, "Local State")))); }
+        try { wrapped = ChromiumWin.StripDpapiPrefix(ChromiumWin.EncryptedKey(Paths.ReadShared(Path.Combine(Dir, "Local State")))); }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new CredentialException(CredentialError.NotFound); }
         try { return key = ProtectedData.Unprotect(wrapped, null, DataProtectionScope.CurrentUser); }
         catch (CryptographicException) { throw new CredentialException(CredentialError.DecryptFailed); }
@@ -171,7 +171,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
     /// <summary>Key names and value types of the decrypted token cache, never values. For checking a new app version.</summary>
     public string ShapeDump()
     {
-        var config = DesktopConfig.Parse(File.ReadAllBytes(Path.Combine(Dir, "config.json")));
+        var config = DesktopConfig.Parse(Paths.ReadShared(Path.Combine(Dir, "config.json")));
         var sb = new StringBuilder();
         foreach (var (name, value) in config.EncryptedCaches)
         {
@@ -187,7 +187,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
     {
         var path = new[] { Path.Combine(Dir, "Network", "Cookies"), Path.Combine(Dir, "Cookies") }.FirstOrDefault(File.Exists);
         if (path is null) return null;
-        var uri = "file:///" + path.Replace('\\', '/').Replace(" ", "%20") + "?mode=ro&immutable=1";
+        var uri = ChromiumWin.SqliteFileUri(path) + "?mode=ro&immutable=1";
         if (Sqlite.sqlite3_open_v2(Encoding.UTF8.GetBytes(uri + "\0"), out var db, Sqlite.OPEN_READONLY | Sqlite.OPEN_URI, IntPtr.Zero) != 0)
         {
             Sqlite.sqlite3_close(db);

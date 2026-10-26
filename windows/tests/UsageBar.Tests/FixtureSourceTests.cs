@@ -35,6 +35,34 @@ public class FixtureSourceTests
         Assert.Equal(IssueKind.Cloudflare, (await Fetch("cloudflare")).Issue?.Kind);
     }
 
+    [FixtureFact]
+    public async Task ErrorModesServeTheirFilesContent()
+    {
+        // Without this the mapping test above could pass on empty bodies from a fixtures folder missing the files.
+        foreach (var (mode, status, file) in new[] { ("401", 401, "error-401.json"), ("403", 403, "error-403-scope.json"),
+                                                     ("429", 429, "error-429.json"), ("cloudflare", 503, "cloudflare-challenge.html") })
+        {
+            var path = Path.Combine(FixtureParityTests.Dir!, "api", file);
+            Assert.True(File.Exists(path), file);
+            using var http = new HttpClient(new FixtureHandler(FixtureParityTests.Dir!, errorMode: mode));
+            using var resp = await http.GetAsync("https://api.anthropic.com/api/oauth/usage");
+            Assert.Equal(status, (int)resp.StatusCode);
+            Assert.Equal(File.ReadAllText(path), await resp.Content.ReadAsStringAsync());
+        }
+    }
+
+    [Fact]
+    public async Task AMissingErrorFileIsA404NotAnEmptyError()
+    {
+        var empty = Directory.CreateTempSubdirectory("usagebar-nofixtures").FullName;
+        try
+        {
+            using var http = new HttpClient(new FixtureHandler(empty, errorMode: "401"));
+            Assert.Equal(404, (int)(await http.GetAsync("https://api.anthropic.com/api/oauth/usage")).StatusCode);
+        }
+        finally { Directory.Delete(empty, true); }
+    }
+
     [Fact]
     public void RebaseMovesOnlyTimestampsEndingInAt()
     {
