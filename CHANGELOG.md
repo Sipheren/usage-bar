@@ -24,6 +24,29 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
   root.
 
+## [Windows 0.1.3] - 2026-10-26
+
+### Fixed
+- Windows: a closed Settings window stayed in memory after its Accounts tab was shown (about 7 MB and 40
+  GDI objects each time). The colour swatches used unfrozen brushes, which kept the window reachable.
+- Windows: the flyout finds the taskbar from Windows instead of guessing from the work area, so it opens
+  beside the taskbar when the taskbar auto-hides or an app bar is docked.
+- Windows: with many accounts the flyout scrolls inside the screen height, and the menu rows stay below.
+- Windows: clicking another account's tray icon while the flyout is open moves the flyout to it instead of
+  only closing it.
+- Windows: open windows restyle their title bar and backdrop when Windows switches light or dark.
+- Windows: a long account name wraps instead of running into the cost, and the One at a time title wraps
+  instead of running under the refresh button. With more than four accounts the tabs show badges only,
+  with the name as a tooltip. The badge and cost line up with the name's first line, as on the Mac.
+- Windows: Settings moves up to stay on screen when a taller tab opens.
+- Windows: a settings or cache file that can't be written (access denied) is logged instead of closing the
+  app. Any other unexpected error is logged by type only.
+- Windows: the tray icon size follows the main display's current scale, not the scale at sign-in.
+
+### Added
+- Windows: `--selftest <report>` (a resource-leak run) and `--scenario edge` (eight awkward accounts)
+  for testing; the colour sheet also shows the icons at 16, 24 and 32 px.
+
 ## [Windows 0.1.2] - 2026-10-26
 
 ### Changed

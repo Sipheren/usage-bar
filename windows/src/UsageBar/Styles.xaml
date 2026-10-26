@@ -11,6 +11,46 @@
     <Geometry x:Key="IconPeople">M8.4,5.2 A2.4,2.4 0 1 1 8.39,5.1 Z M1.5,13.5 C1.5,10.9 3.5,9.3 6,9.3 C8.5,9.3 10.5,10.9 10.5,13.5 M13.4,5.6 A2,2 0 1 1 13.39,5.5 Z M11,9.5 C13.2,9.3 14.6,10.9 14.6,13.1</Geometry>
     <Geometry x:Key="IconChevronDown">M4,6 L8,10 L12,6</Geometry>
 
+    <!-- A slim scrollbar that suits both themes (the default one is light and wide). -->
+    <ControlTemplate x:Key="SlimThumb" TargetType="Thumb">
+        <Border CornerRadius="3" Margin="2" Background="{DynamicResource ScrollThumb}"/>
+    </ControlTemplate>
+    <Style TargetType="ScrollBar">
+        <Setter Property="Background" Value="Transparent"/>
+        <Setter Property="Width" Value="10"/>
+        <Setter Property="MinWidth" Value="10"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ScrollBar">
+                    <Grid Background="Transparent">
+                        <Track x:Name="PART_Track" IsDirectionReversed="True">
+                            <Track.Thumb><Thumb Template="{StaticResource SlimThumb}" Margin="1,0"/></Track.Thumb>
+                        </Track>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="Orientation" Value="Horizontal">
+                <Setter Property="Width" Value="Auto"/>
+                <Setter Property="MinWidth" Value="0"/>
+                <Setter Property="Height" Value="10"/>
+                <Setter Property="MinHeight" Value="10"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="Transparent">
+                                <Track x:Name="PART_Track">
+                                    <Track.Thumb><Thumb Template="{StaticResource SlimThumb}" Margin="0,1"/></Track.Thumb>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
     <Style x:Key="IconPath" TargetType="Path">
         <Setter Property="Width" Value="16"/>
         <Setter Property="Height" Value="16"/>

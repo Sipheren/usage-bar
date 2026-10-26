@@ -44,7 +44,19 @@ internal sealed class TrayController : IDisposable
     }
     const uint SingleId = 1;
 
-    public static int IconSize => Native.GetSystemMetricsForDpi(Native.SM_CXSMICON, Native.GetDpiForSystem());
+    /// <summary>
+    /// The small-icon size at the primary monitor's current scale, where the notification area lives. Not the system
+    /// DPI, which stays at its sign-in value when the scale changes; Update runs every tick, so a change shows within one.
+    /// </summary>
+    public static int IconSize
+    {
+        get
+        {
+            var primary = Native.MonitorFromPoint(new Native.POINT { X = 0, Y = 0 }, 1);
+            var dpi = Native.GetDpiForMonitor(primary, 0, out var x, out _) == 0 && x > 0 ? x : Native.GetDpiForSystem();
+            return Native.GetSystemMetricsForDpi(Native.SM_CXSMICON, dpi);
+        }
+    }
 
     /// <summary>Brings the icons in line with the settings and the latest data.</summary>
     public void Update()
@@ -119,7 +131,8 @@ internal sealed class TrayController : IDisposable
         var existed = icons.TryGetValue(id, out var old);
         if (!existed || !Native.Shell_NotifyIcon(Native.NIM_MODIFY, ref data))
         {
-            Native.Shell_NotifyIcon(Native.NIM_ADD, ref data);
+            // After TaskbarCreated an icon may still exist (a resent message, a fast restart): then modify it.
+            if (!Native.Shell_NotifyIcon(Native.NIM_ADD, ref data)) Native.Shell_NotifyIcon(Native.NIM_MODIFY, ref data);
             data.uVersion = Native.NOTIFYICON_VERSION_4;
             Native.Shell_NotifyIcon(Native.NIM_SETVERSION, ref data);
         }

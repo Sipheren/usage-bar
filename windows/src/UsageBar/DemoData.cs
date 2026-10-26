@@ -20,6 +20,43 @@ internal static class DemoData
         return s;
     }
 
+    /// <summary><c>--scenario edge</c>: eight accounts covering every awkward state the flyout and Settings must lay out, and enough to scroll.</summary>
+    public static AppSettings EdgeSettings()
+    {
+        var s = new AppSettings();
+        string[] ids = { "aa", "bb", "cc", "dd", "07", "08", "09", "0a" };
+        (string Name, string Tag, string Colour, AccountSource Source)[] defs =
+        {
+            ("Personal account with a very long name for testing", "P", "orange", AccountSource.ClaudeCode()),
+            ("Work", "W", "blue", AccountSource.ClaudeDesktop),
+            ("Side project", "SP", "green", AccountSource.ClaudeDesktop),
+            ("Client", "C", "purple", AccountSource.ClaudeDesktop),
+            ("Team", "T", "teal", AccountSource.ClaudeDesktop),
+            ("Extra", "X", "red", AccountSource.ClaudeDesktop),
+            ("Archive", "AR", "pink", AccountSource.ClaudeDesktop),
+            ("Lab", "L", "lime", AccountSource.ClaudeDesktop),
+        };
+        s.Accounts = defs.Select((d, i) => new Account
+        {
+            Id = Guid.Parse("00000000-0000-4000-8000-0000000000" + ids[i]), Name = d.Name, Tag = d.Tag, Colour = d.Colour,
+            Source = d.Source, LogsDir = i == 0 ? "~/.claude/projects" : null,
+        }).ToList();
+        return s;
+    }
+
+    public static UsageSnapshot OverLimit(DateTimeOffset now) => new(new List<UsageLimit>
+    {
+        new(LimitKind.Session, 105, now.AddMinutes(61)),
+        new(LimitKind.Weekly, 100, now.AddDays(2)),
+        new(LimitKind.Scoped("demo-model", "Fable"), 0, now.AddDays(2)),
+    }, new ExtraUsage(false, 15000, 2040, 13.6, "AUD", 2, "out_of_credits"), now);
+
+    public static UsageSnapshot Unstarted(DateTimeOffset now) => new(new List<UsageLimit>
+    {
+        new(LimitKind.Session, 0, null),
+        new(LimitKind.Weekly, 3, null),
+    }, null, now);
+
     public static ExchangeRates Rates(DateTimeOffset now) => new(new Dictionary<string, double>
     {
         ["USD"] = 1, ["AUD"] = 1.42, ["EUR"] = 0.92, ["GBP"] = 0.79, ["NZD"] = 1.66, ["CAD"] = 1.37, ["JPY"] = 151.3,

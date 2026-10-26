@@ -43,6 +43,8 @@ internal sealed class FlyoutVm
     public bool HasAccounts => Accounts.Count > 0;
     /// <summary>Layout B's account tabs only make sense with more than one account.</summary>
     public bool ShowTabs => Accounts.Count > 1;
+    /// <summary>Past four tabs a name would be cut to an ellipsis, so the tabs show badges only (the name is the tooltip).</summary>
+    public bool ShowTabNames => Accounts.Count <= 4;
 
     static Brush Hex(string hex)
     {

@@ -51,7 +51,7 @@ public partial class App : Application
             return;
         }
 
-        var demo = args.Contains("--demo");
+        var demo = args.Contains("--demo") || Arg("--selftest") is not null;
         // One instance per user; a second launch asks the first to open its flyout.
         single = new Mutex(true, demo ? @"Local\UsageBar.Demo" : @"Local\UsageBar", out var first);
         showSignal = new EventWaitHandle(false, EventResetMode.AutoReset, demo ? @"Local\UsageBar.Demo.Show" : @"Local\UsageBar.Show");
@@ -64,13 +64,19 @@ public partial class App : Application
 
         if (!demo) StartLog();
         Log.Info($"start {BuildInfo.VersionLine}{(demo ? " (demo)" : "")}");
+        // Last resort: log the exception type only (messages can carry paths) and keep the tray app running.
+        DispatcherUnhandledException += (_, ex) => { Log.Info("unhandled: " + ex.Exception.GetType().Name); ex.Handled = true; };
+        TaskScheduler.UnobservedTaskException += (_, ex) => { Log.Info("unobserved: " + ex.Exception.InnerException?.GetType().Name); ex.SetObserved(); };
+        AppDomain.CurrentDomain.UnhandledException += (_, ex) => Log.Info("fatal: " + ex.ExceptionObject.GetType().Name);
         Theme.ForceDark = Arg("--theme") switch { "dark" => true, "light" => false, _ => null };
         Theme.Apply();
         try { Resources["AppIconSource"] = BitmapFrame.Create(new Uri("pack://application:,,,/Assets/app.ico")); }
         catch (Exception ex) when (ex is IOException or NotSupportedException) { }
 
         var fixtures = Arg("--fixtures") ?? Environment.GetEnvironmentVariable("USAGEBAR_FIXTURES_UI");
-        store = new AppStore(demo, fixtures is { Length: > 0 } && Directory.Exists(fixtures) ? fixtures : null);
+        var selfTest = Arg("--selftest");
+        store = new AppStore(demo || selfTest is not null, fixtures is { Length: > 0 } && Directory.Exists(fixtures) ? fixtures : null,
+                             Arg("--scenario"));
         if (demo)
         {
             // Screenshot switches for demo mode only; real settings are never touched.
@@ -88,6 +94,16 @@ public partial class App : Application
         tray.Update();
         store.Start();
 
+        if (selfTest is not null)
+        {
+            Dispatcher.BeginInvoke(async () =>
+            {
+                await SelfTest.RunAsync(store, tray, flyout, menu, tab => { OpenSettings(tab); return settings; }, selfTest);
+                Quit();
+            }, System.Windows.Threading.DispatcherPriority.ApplicationIdle);
+            return;
+        }
+
         var signal = showSignal;
         ThreadPool.RegisterWaitForSingleObject(signal, (_, _) => Dispatcher.BeginInvoke(() => ToggleFlyout(null)), null, Timeout.Infinite, false);
 
@@ -104,7 +120,10 @@ public partial class App : Application
     void ToggleFlyout(Guid? account)
     {
         if (flyout is null || tray is null) return;
-        if (flyout.IsVisible || flyout.JustHidden)
+        // A second click on the same icon closes the flyout; a click on another account's icon moves it there.
+        // (Clicking the tray deactivates the flyout first, so "just hidden" counts as open.)
+        var open = flyout.IsVisible || flyout.JustHidden;
+        if (open && (account is null || account == flyout.ShownFor))
         {
             if (flyout.IsVisible) flyout.Hide();
             return;

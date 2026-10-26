@@ -63,7 +63,11 @@ internal static class StartupRegistry
     {
         get
         {
-            try { return Registry.CurrentUser.OpenSubKey(RunKey)?.GetValue(Name) is string v && v == Command; }
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey(RunKey);
+                return key?.GetValue(Name) is string v && v == Command;
+            }
             catch (System.Security.SecurityException) { return false; }
         }
     }

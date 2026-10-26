@@ -18,7 +18,11 @@ internal static class Theme
 
     static bool ReadLight(string name)
     {
-        try { return Registry.CurrentUser.OpenSubKey(Personalize)?.GetValue(name) is int v ? v != 0 : true; }
+        try
+        {
+            using var key = Registry.CurrentUser.OpenSubKey(Personalize);
+            return key?.GetValue(name) is int v ? v != 0 : true;
+        }
         catch (System.Security.SecurityException) { return true; }
     }
 
@@ -30,8 +34,8 @@ internal static class Theme
     {
         try
         {
-            if (Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent")?.GetValue("AccentPalette") is byte[] p
-                && p.Length >= 32)
+            using var key = Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Explorer\Accent");
+            if (key?.GetValue("AccentPalette") is byte[] p && p.Length >= 32)
             {
                 var i = dark ? 1 : 4;
                 return Color.FromRgb(p[i * 4], p[i * 4 + 1], p[i * 4 + 2]);
@@ -54,7 +58,9 @@ internal static class Theme
         var dark = AppsDark;
         var r = Application.Current.Resources;
         var accent = Accent(dark);
-        r["Accent"] = new SolidColorBrush(accent);
+        var accentBrush = new SolidColorBrush(accent);
+        accentBrush.Freeze();
+        r["Accent"] = accentBrush;
         r["IsDark"] = dark;
         if (dark)
         {
@@ -85,6 +91,7 @@ internal static class Theme
             r["SegmentFill"] = B(0x12FFFFFF);
             r["SegmentSelected"] = B(0x29FFFFFF);
             r["Success"] = B(0xFF6CCB5F);
+            r["ScrollThumb"] = B(0x66FFFFFF);
         }
         else
         {
@@ -116,8 +123,17 @@ internal static class Theme
             r["SegmentFill"] = B(0xFFE3E3E3);
             r["SegmentSelected"] = B(0xFFFFFFFF);
             r["Success"] = B(0xFF0F7B0F);
+            r["ScrollThumb"] = B(0xFF9E9E9E);
         }
+        // Open windows keep the title bar and backdrop they were styled with: style them again.
+        foreach (Window w in Application.Current.Windows)
+            if (Styled.TryGetValue(w, out var backdrop)) StyleWindow(w, backdrop.Value);
     }
+
+    /// <summary>Each styled window's backdrop, for restyling on a theme change; weak, so closed windows are not kept.</summary>
+    static readonly System.Runtime.CompilerServices.ConditionalWeakTable<Window, StrongBox> Styled = new();
+
+    sealed class StrongBox(int? value) { public int? Value { get; } = value; }
 
     /// <summary>Removes the system menu, so DWM draws no caption buttons on a borderless (WindowChrome) popup.</summary>
     public static void RemoveCaptionButtons(Window w)
@@ -134,6 +150,7 @@ internal static class Theme
     {
         var hwnd = new WindowInteropHelper(w).Handle;
         if (hwnd == IntPtr.Zero) return;
+        Styled.AddOrUpdate(w, new StrongBox(backdrop));
         var dark = AppsDark ? 1 : 0;
         Native.DwmSetWindowAttribute(hwnd, Native.DWMWA_USE_IMMERSIVE_DARK_MODE, ref dark, sizeof(int));
         var round = Native.DWMWCP_ROUND;

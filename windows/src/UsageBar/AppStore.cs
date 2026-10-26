@@ -49,7 +49,7 @@ internal sealed class AppStore
     static string StatePath => Path.Combine(Paths.AppData, "state.json");
     static string RatesPath => Path.Combine(Paths.AppData, "rates.json");
 
-    public AppStore(bool demo, string? fixturesDir)
+    public AppStore(bool demo, string? fixturesDir, string? scenario = null)
     {
         Demo = demo;
         FixturesDir = fixturesDir;
@@ -65,7 +65,8 @@ internal sealed class AppStore
         // Test data only: a Work account answered from the fixtures folder. Never saved (AppSettings.ToJson).
         if (fixturesDir is not null && !demo)
             Settings.Accounts.Add(Account.DefaultWork() with { Id = FixtureAccountId, Source = AccountSource.Fixture(fixturesDir) });
-        if (demo) LoadDemo();
+        if (demo && scenario == "edge") { Settings = DemoData.EdgeSettings(); LoadEdge(); }
+        else if (demo) LoadDemo();
         else
         {
             LoadState();
@@ -140,7 +141,8 @@ internal sealed class AppStore
         Changed?.Invoke();
         try
         {
-            var ctx = new DesktopContext(Settings.DesktopConnected, Settings.DesktopTokenChoice, st.Email);
+            // A copy, because the fetch reads it on a worker thread while the UI thread may record a choice.
+            var ctx = new DesktopContext(Settings.DesktopConnected, new Dictionary<string, string>(Settings.DesktopTokenChoice), st.Email);
             var report = await Task.Run(() => fetcher.FetchAsync(account, ctx, Now));
             if (report.Snapshot is not null)
             {
@@ -163,7 +165,8 @@ internal sealed class AppStore
 
     async Task RefreshCostsAsync()
     {
-        foreach (var a in Settings.Accounts)
+        // A copy: the scan awaits, and Settings can add or remove accounts meanwhile.
+        foreach (var a in Settings.Accounts.ToList())
         {
             if (a.Source.Kind != SourceKind.ClaudeCode || a.LogsDir is null) { costs.Remove(a.Id); continue; }
             if (!costs.ContainsKey(a.Id)) costs[a.Id] = new CostState(null);
@@ -228,7 +231,7 @@ internal sealed class AppStore
     static AppSettings LoadSettings()
     {
         try { return File.Exists(SettingsPath) ? AppSettings.FromJson(File.ReadAllText(SettingsPath)) : new AppSettings(); }
-        catch (IOException) { return new AppSettings(); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { return new AppSettings(); }
     }
 
     public void SaveSettings()
@@ -275,10 +278,31 @@ internal sealed class AppStore
             File.WriteAllText(tmp, text);
             File.Move(tmp, path, true);
         }
-        catch (IOException e) { Log.Info("write failed: " + e.GetType().Name); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { Log.Info("write failed: " + e.GetType().Name); }
     }
 
     // MARK: Demo
+
+    void LoadEdge()
+    {
+        var now = Now;
+        Rates = DemoData.Rates(now);
+        var a = Settings.Accounts;
+        states[a[0].Id] = new AccountState { Snapshot = DemoData.OverLimit(now), LastSuccess = now, Email = "a-very-long-address-for-layout-testing@example.com" };
+        states[a[1].Id] = new AccountState { Snapshot = DemoData.Work(now), LastSuccess = now, Email = DemoData.WorkOrganization,
+                                             Issue = AccountIssue.RateLimited(now.AddMinutes(5)) };
+        states[a[2].Id] = new AccountState { Issue = AccountIssue.NotConnected };
+        states[a[3].Id] = new AccountState { Snapshot = DemoData.Personal(now.AddMinutes(-20)), LastSuccess = now.AddMinutes(-20),
+                                             Issue = AccountIssue.Network("offline") };
+        states[a[4].Id] = new AccountState { Snapshot = DemoData.Unstarted(now), LastSuccess = now };
+        states[a[5].Id] = new AccountState { Snapshot = DemoData.Work(now), LastSuccess = now };
+        states[a[6].Id] = new AccountState { Snapshot = DemoData.Personal(now), LastSuccess = now };
+        states[a[7].Id] = new AccountState { Snapshot = DemoData.Work(now), LastSuccess = now };
+        var cost = DemoData.PersonalCost(Rates.Rates["AUD"]);
+        cost.UnpricedModels = new List<string> { "example-model-1", "another-example-model" };
+        costs[a[0].Id] = new CostState(cost);
+        lastAnyUpdate = now;
+    }
 
     void LoadDemo()
     {

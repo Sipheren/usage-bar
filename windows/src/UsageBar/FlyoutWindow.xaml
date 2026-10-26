@@ -75,11 +75,11 @@
             <StackPanel>
                 <Border Height="1" Background="{DynamicResource Separator}" Margin="0,0,0,12"/>
                 <DockPanel Margin="0,0,0,12">
-                    <ContentPresenter DockPanel.Dock="Left" Content="{Binding}" ContentTemplate="{StaticResource Badge}" VerticalAlignment="Center"/>
-                    <TextBlock DockPanel.Dock="Right" Text="{Binding CostLine}" FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"
+                    <ContentPresenter DockPanel.Dock="Left" Content="{Binding}" ContentTemplate="{StaticResource Badge}" VerticalAlignment="Top"/>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding CostLine}" Margin="8,2,0,0" FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Top"
                                Typography.NumeralAlignment="Tabular" Visibility="{Binding CostLine, Converter={StaticResource NotNull}}"/>
-                    <StackPanel Margin="8,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold"/>
+                    <StackPanel Margin="8,0,0,0" VerticalAlignment="Top">
+                        <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
                         <TextBlock Text="{Binding HeaderNote}" FontSize="11" Foreground="{DynamicResource Secondary}" Visibility="{Binding HeaderNote, Converter={StaticResource NotNull}}"/>
                     </StackPanel>
                 </DockPanel>
@@ -97,16 +97,18 @@
 
         <!-- Layout B: an account tab in the segmented control. -->
         <DataTemplate x:Key="Tab">
-            <Button Click="Tab_Click" Tag="{Binding Id}" FocusVisualStyle="{x:Null}" Cursor="Arrow">
+            <Button Click="Tab_Click" Tag="{Binding Id}" FocusVisualStyle="{x:Null}" Cursor="Arrow" ToolTip="{Binding Name}">
                 <Button.Template>
                     <ControlTemplate TargetType="Button">
                         <Border x:Name="Bd" CornerRadius="7" MinHeight="30" Background="Transparent">
-                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <Border Width="17" Height="17" CornerRadius="4" Background="{Binding Badge}">
+                            <DockPanel HorizontalAlignment="Center" VerticalAlignment="Center" Margin="6,0">
+                                <Border DockPanel.Dock="Left" Width="17" Height="17" CornerRadius="4" Background="{Binding Badge}">
                                     <TextBlock Text="{Binding Tag}" Foreground="White" FontSize="10" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                                 </Border>
-                                <TextBlock Text="{Binding Name}" Margin="7,0,0,0" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Text}"/>
-                            </StackPanel>
+                                <TextBlock Text="{Binding Name}" Margin="7,0,0,0" FontSize="13" FontWeight="SemiBold" VerticalAlignment="Center" Foreground="{DynamicResource Text}"
+                                           TextTrimming="CharacterEllipsis"
+                                           Visibility="{Binding DataContext.ShowTabNames, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}"/>
+                            </DockPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <DataTrigger Binding="{Binding Selected}" Value="True">
@@ -123,7 +125,45 @@
     </Window.Resources>
 
     <Border x:Name="Root" Background="{DynamicResource FlyoutFill}">
-        <StackPanel>
+        <DockPanel>
+            <!-- The menu rows, as at the bottom of the Mac dropdown; pinned below the scrolling accounts. -->
+            <StackPanel DockPanel.Dock="Bottom" x:Name="MenuRows">
+            <Border Height="1" Background="{DynamicResource Separator}" Margin="16,0"/>
+            <StackPanel Margin="6,4">
+                <Button Style="{StaticResource MenuRow}" Click="Refresh_Click">
+                    <DockPanel>
+                        <Path Data="{StaticResource IconRefresh}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
+                        <TextBlock DockPanel.Dock="Right" Text="Ctrl+R" FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Refresh Now" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Button>
+                <Button Style="{StaticResource MenuRow}" Click="About_Click">
+                    <DockPanel>
+                        <Path Data="{StaticResource IconInfo}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
+                        <TextBlock Text="About Usage Bar" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Button>
+                <Button Style="{StaticResource MenuRow}" Click="Settings_Click">
+                    <DockPanel>
+                        <Path Data="{StaticResource IconGear}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
+                        <TextBlock DockPanel.Dock="Right" Text="Ctrl+," FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Settings…" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Button>
+            </StackPanel>
+            <Border Height="1" Background="{DynamicResource Separator}" Margin="16,0"/>
+            <StackPanel Margin="6,4,6,6">
+                <Button Style="{StaticResource MenuRow}" Click="Quit_Click">
+                    <DockPanel>
+                        <Path Data="{StaticResource IconPower}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
+                        <TextBlock DockPanel.Dock="Right" Text="Ctrl+Q" FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"/>
+                        <TextBlock Text="Quit Usage Bar" Margin="10,0,0,0" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Button>
+            </StackPanel>
+            </StackPanel>
+            <ScrollViewer x:Name="Scroller" VerticalScrollBarVisibility="Auto" Focusable="False">
+            <StackPanel>
             <!-- Layout A: both accounts. -->
             <StackPanel x:Name="LayoutA" Margin="16,14,16,0">
                 <DockPanel Margin="0,0,0,12">
@@ -155,7 +195,7 @@
                         <Path Data="{StaticResource IconRefresh}" Style="{StaticResource IconPath}" StrokeThickness="1.5"/>
                     </Button>
                     <StackPanel>
-                        <TextBlock FontSize="17" FontWeight="SemiBold"><Run Text="Claude · "/><Run Text="{Binding Name, Mode=OneWay}"/></TextBlock>
+                        <TextBlock FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,8,0"><Run Text="Claude · "/><Run Text="{Binding Name, Mode=OneWay}"/></TextBlock>
                         <TextBlock Text="{Binding UpdatedText}" FontSize="12" Foreground="{DynamicResource Secondary}" Margin="0,2,0,0"/>
                         <TextBlock Text="{Binding HeaderNote}" FontSize="11" Foreground="{DynamicResource Secondary}" Visibility="{Binding HeaderNote, Converter={StaticResource NotNull}}"/>
                     </StackPanel>
@@ -203,40 +243,8 @@
                 </StackPanel>
             </StackPanel>
 
-            <!-- The menu rows, as at the bottom of the Mac dropdown. -->
-            <Border Height="1" Background="{DynamicResource Separator}" Margin="16,0"/>
-            <StackPanel Margin="6,4">
-                <Button Style="{StaticResource MenuRow}" Click="Refresh_Click">
-                    <DockPanel>
-                        <Path Data="{StaticResource IconRefresh}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
-                        <TextBlock DockPanel.Dock="Right" Text="Ctrl+R" FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"/>
-                        <TextBlock Text="Refresh Now" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Button>
-                <Button Style="{StaticResource MenuRow}" Click="About_Click">
-                    <DockPanel>
-                        <Path Data="{StaticResource IconInfo}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
-                        <TextBlock Text="About Usage Bar" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Button>
-                <Button Style="{StaticResource MenuRow}" Click="Settings_Click">
-                    <DockPanel>
-                        <Path Data="{StaticResource IconGear}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
-                        <TextBlock DockPanel.Dock="Right" Text="Ctrl+," FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"/>
-                        <TextBlock Text="Settings…" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Button>
             </StackPanel>
-            <Border Height="1" Background="{DynamicResource Separator}" Margin="16,0"/>
-            <StackPanel Margin="6,4,6,6">
-                <Button Style="{StaticResource MenuRow}" Click="Quit_Click">
-                    <DockPanel>
-                        <Path Data="{StaticResource IconPower}" Style="{StaticResource IconPath}" DockPanel.Dock="Left"/>
-                        <TextBlock DockPanel.Dock="Right" Text="Ctrl+Q" FontSize="12" Foreground="{DynamicResource Secondary}" VerticalAlignment="Center"/>
-                        <TextBlock Text="Quit Usage Bar" Margin="10,0,0,0" VerticalAlignment="Center"/>
-                    </DockPanel>
-                </Button>
-            </StackPanel>
-        </StackPanel>
+            </ScrollViewer>
+        </DockPanel>
     </Border>
 </Window>

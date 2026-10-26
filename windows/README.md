@@ -110,6 +110,8 @@ Options for running `src\UsageBar\bin\Debug\net10.0-windows\UsageBar.exe`:
 | `--open flyout\|menu\|settings\|accounts\|about` | Opens that view after start. |
 | `--theme light\|dark` | Forces a theme. |
 | `--layout one`, `--style bars\|percentages\|icon`, `--icons single` | Demo mode only: screenshot variants. |
+| `--scenario edge` | Demo mode only: eight accounts in every awkward state (long names and emails, over the limit, not started, rate limited, offline, not connected), enough to make the flyout scroll. |
+| `--selftest <report>` | Demo data: opens and closes the tray icons, flyout, menu and Settings hundreds of times over three rounds, writes GDI, USER, handle and memory counts after each phase to the report, and exits. Growth that repeats every round is a leak. |
 | `--desktop-shape <file>` | Writes the key names and value types of the Claude app's decrypted token cache, never values. |
 | `--write-icon <file>` | Writes the app icon (`.ico`) from `design/icon` and exits. |
 | `--colour-sheet <file>` | Writes a PNG of every colour preset as the tray and flyout draw it, and exits. |

@@ -23,6 +23,9 @@ public partial class FlyoutWindow : Window
     DateTime hiddenAt = DateTime.MinValue;
     Native.RECT? lastIcon;
 
+    /// <summary>The account whose icon opened the flyout (null for the single icon or a second launch).</summary>
+    public Guid? ShownFor { get; private set; }
+
     internal FlyoutWindow(AppStore store, Action<string?> openSettings, Action quit)
     {
         this.store = store;
@@ -60,10 +63,12 @@ public partial class FlyoutWindow : Window
     internal void ShowAt(Native.RECT? iconRect, Guid? account)
     {
         if (account is not null) store.SelectedTab = account;
+        ShownFor = account;
         lastIcon = iconRect;
         Rebuild();
         Left = -10000;
         Top = -10000;
+        MaxHeight = WorkAreaHeight(iconRect) - 24;
         Show();
         UpdateLayout();
         Place(iconRect);
@@ -79,29 +84,33 @@ public partial class FlyoutWindow : Window
         Hide();
     }
 
-    /// <summary>Above the icon on a bottom taskbar (or beside it on a side or top taskbar), 12 px from the work-area edge.</summary>
-    void Place(Native.RECT? icon)
+    /// <summary>The icon's monitor: anchor point, work area, monitor bounds and scale.</summary>
+    static (Native.POINT Anchor, PixelRect Work, PixelRect Monitor, double Scale) Screen(Native.RECT? icon)
     {
-        var hwnd = new WindowInteropHelper(this).Handle;
         Native.GetCursorPos(out var cursor);
         var anchor = icon is { } r ? new Native.POINT { X = (r.Left + r.Right) / 2, Y = (r.Top + r.Bottom) / 2 } : cursor;
         var monitor = Native.MonitorFromPoint(anchor, 2);
         var mi = new Native.MONITORINFO { cbSize = (uint)Marshal.SizeOf<Native.MONITORINFO>() };
         Native.GetMonitorInfo(monitor, ref mi);
         Native.GetDpiForMonitor(monitor, 0, out var dpi, out _);
-        var scale = dpi / 96.0;
+        return (anchor, Native.Pixels(mi.rcWork), Native.Pixels(mi.rcMonitor), dpi / 96.0);
+    }
+
+    /// <summary>Against the taskbar beside the icon (above it on the usual bottom taskbar), 12 px from it.</summary>
+    void Place(Native.RECT? icon)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        var (anchor, work, monitor, scale) = Screen(icon);
         int w = (int)Math.Ceiling(ActualWidth * scale), h = (int)Math.Ceiling(ActualHeight * scale);
-        var m = (int)Math.Round(12 * scale);
-        var work = mi.rcWork;
-        var full = mi.rcMonitor;
-        int x = anchor.X - w / 2, y;
-        if (work.Top > full.Top) y = work.Top + m;                                   // taskbar at the top
-        else if (work.Left > full.Left) { x = work.Left + m; y = anchor.Y - h / 2; } // left
-        else if (work.Right < full.Right) { x = work.Right - m - w; y = anchor.Y - h / 2; } // right
-        else y = work.Bottom - m - h;                                                // bottom (the usual)
-        x = Math.Clamp(x, work.Left + m, Math.Max(work.Left + m, work.Right - m - w));
-        y = Math.Clamp(y, work.Top + m, Math.Max(work.Top + m, work.Bottom - m - h));
+        var (x, y) = FlyoutPlacement.Place(work, monitor, Native.TaskbarRect(), anchor.X, anchor.Y, w, h, (int)Math.Round(12 * scale));
         Native.SetWindowPos(hwnd, IntPtr.Zero, x, y, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER);
+    }
+
+    /// <summary>The usable height in DIPs on the icon's monitor, so many accounts scroll instead of running off screen.</summary>
+    static double WorkAreaHeight(Native.RECT? icon)
+    {
+        var (_, work, monitor, scale) = Screen(icon);
+        return FlyoutPlacement.Area(work, monitor, Native.TaskbarRect()).Area.Height / scale;
     }
 
     void Refresh() => _ = store.RefreshAllAsync(FetchTrigger.Manual);

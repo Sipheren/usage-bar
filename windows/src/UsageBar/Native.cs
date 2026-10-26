@@ -87,6 +87,31 @@ internal static partial class Native
     [DllImport("shell32.dll")]
     public static extern int Shell_NotifyIconGetRect(ref NOTIFYICONIDENTIFIER identifier, out RECT iconLocation);
 
+    [StructLayout(LayoutKind.Sequential)]
+    public struct APPBARDATA
+    {
+        public uint cbSize;
+        public IntPtr hWnd;
+        public uint uCallbackMessage, uEdge;
+        public RECT rc;
+        public IntPtr lParam;
+    }
+
+    public const uint ABM_GETTASKBARPOS = 5;
+
+    [DllImport("shell32.dll")]
+    public static extern UIntPtr SHAppBarMessage(uint message, ref APPBARDATA data);
+
+    /// <summary>The main taskbar's rectangle in physical pixels (where it shows when auto-hidden), or null.</summary>
+    public static Core.PixelRect? TaskbarRect()
+    {
+        var d = new APPBARDATA { cbSize = (uint)Marshal.SizeOf<APPBARDATA>() };
+        if (SHAppBarMessage(ABM_GETTASKBARPOS, ref d) == UIntPtr.Zero) return null;
+        return new Core.PixelRect(d.rc.Left, d.rc.Top, d.rc.Right, d.rc.Bottom);
+    }
+
+    public static Core.PixelRect Pixels(RECT r) => new(r.Left, r.Top, r.Right, r.Bottom);
+
     [LibraryImport("user32.dll", EntryPoint = "RegisterWindowMessageW", StringMarshalling = StringMarshalling.Utf16)]
     public static partial uint RegisterWindowMessage(string name);
 
@@ -103,6 +128,13 @@ internal static partial class Native
 
     [DllImport("user32.dll")]
     public static extern bool GetMonitorInfo(IntPtr monitor, ref MONITORINFO info);
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetWindowRect(IntPtr hWnd, out RECT rect);
 
     [LibraryImport("shcore.dll")]
     public static partial int GetDpiForMonitor(IntPtr monitor, int type, out uint dpiX, out uint dpiY);

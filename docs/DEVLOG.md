@@ -4,6 +4,14 @@
 
 ## 2026-10-26 (Windows)
 
+- 0.1.3: a bug pass before merging. `--selftest` showed every closed Settings window that had shown the
+  Accounts tab staying alive; removing the account card's controls one type at a time pointed at the
+  colour combo, and freezing its swatch brushes fixed it (0 live windows and flat memory over three
+  rounds). An independent review found the rest: the flyout edge came from the work area, a click on
+  another icon only closed the flyout, writes caught IOException only, and a theme switch left title
+  bars stale. Eight-account captures (`--scenario edge`) found the long-name, tab and off-screen
+  Settings layouts. A 25-minute idle soak of the installed app stayed flat (75–90 MB private,
+  1,190–1,220 handles, 36–54 GDI objects).
 - 0.1.2: account colours became ten tested presets after the maintainer saw orange render as red in the
   tray. Each preset's dark and light shades were picked by measured contrast and checked on a rendered
   sheet (`--colour-sheet`), on the real taskbar and in the flyout with lossless captures.

@@ -9,7 +9,8 @@ namespace UsageBar;
 
 /// <summary>
 /// Renders every colour preset as it appears: tray bars and numbers on a dark and a light taskbar (real size and
-/// 3×), the tag badge, and a flyout bar on dark and light. For checking the presets by eye (<c>--colour-sheet</c>).
+/// 3×), the tag badge, a flyout bar on dark and light, and the tray icon at 16, 24 and 32 px (100%, 150% and 200% scaling).
+/// For checking the presets by eye (<c>--colour-sheet</c>).
 /// </summary>
 internal static class ColourSheet
 {
@@ -18,7 +19,7 @@ internal static class ColourSheet
 
     public static void Write(string path)
     {
-        const int rowH = 72, top = 34, width = 900;
+        const int rowH = 72, top = 34, width = 1020;
         var visual = new DrawingVisual();
         RenderOptions.SetBitmapScalingMode(visual, BitmapScalingMode.NearestNeighbor);
         TextOptions.SetTextFormattingMode(visual, TextFormattingMode.Display);
@@ -30,6 +31,7 @@ internal static class ColourSheet
             Label(dc, "Light taskbar", 354, 10, 12, Colors.Gray);
             Label(dc, "Badge", 596, 10, 12, Colors.Gray);
             Label(dc, "Flyout bar, dark / light", 650, 10, 12, Colors.Gray);
+            Label(dc, "16 / 24 / 32 px", 900, 10, 12, Colors.Gray);
             var y = top;
             foreach (var p in AccountColours.All)
             {
@@ -42,6 +44,7 @@ internal static class ColourSheet
                 dc.DrawText(t, new Point(610 - t.Width / 2, y + 34 - t.Height / 2));
                 FlyoutBar(dc, 650, y + 14, Color.FromRgb(0x2C, 0x2C, 0x2C), Parse(p.OnDark), Colors.White);
                 FlyoutBar(dc, 770, y + 14, Color.FromRgb(0xF3, 0xF3, 0xF3), Parse(p.OnLight), Colors.Black);
+                Sizes(dc, 900, y, Parse(p.OnDark));
                 y += rowH;
             }
         }
@@ -63,6 +66,21 @@ internal static class ColourSheet
         dc.DrawImage(nums, new Rect(x + 38, y + 26, N, N));
         dc.DrawImage(bars, new Rect(x + 74, y + 6, N * 3, N * 3));
         dc.DrawImage(nums, new Rect(x + 150, y + 6, N * 3, N * 3));
+    }
+
+    /// <summary>Bars above numbers at the other common tray sizes, on the dark taskbar.</summary>
+    static void Sizes(DrawingContext dc, double x, double y, Color colour)
+    {
+        dc.DrawRoundedRectangle(new SolidColorBrush(Color.FromRgb(0x1C, 0x1C, 0x1C)), null, new Rect(x, y + 4, 110, 66), 6, 6);
+        var left = x + 8;
+        foreach (var n in new[] { 16, 24, 32 })
+        {
+            var bars = IconRenderer.Render(n, d => IconRenderer.DrawBars(d, n, Sample, colour, true));
+            var nums = IconRenderer.Render(n, d => IconRenderer.DrawNumbers(d, n, Sample, colour));
+            dc.DrawImage(bars, new Rect(left, y + 6 + (32 - n), n, n));
+            dc.DrawImage(nums, new Rect(left, y + 38 + (32 - n), n, n));
+            left += n + 6;
+        }
     }
 
     static void FlyoutBar(DrawingContext dc, double x, double y, Color bg, Color fill, Color ink)

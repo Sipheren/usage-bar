@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
@@ -27,10 +28,26 @@ public partial class SettingsWindow : Window
         store.Changed += OnStoreChanged;
         Closed += (_, _) => store.Changed -= OnStoreChanged;
         MaxHeight = SystemParameters.WorkArea.Height - 40;
+        // After layout: SizeChanged comes before the window itself has been resized.
+        SizeChanged += (_, _) => Dispatcher.BeginInvoke(KeepOnScreen, System.Windows.Threading.DispatcherPriority.Background);
         LoadGeneral();
         LoadAccounts();
         LoadAbout();
         TabGeneral.IsChecked = true;
+    }
+
+    /// <summary>
+    /// SizeToContent grows the window downwards when a taller tab opens (it is centred on the first one): move it up
+    /// so its bottom stays inside the work area.
+    /// </summary>
+    void KeepOnScreen()
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        if (hwnd == IntPtr.Zero || !Native.GetWindowRect(hwnd, out var r)) return;
+        var mi = new Native.MONITORINFO { cbSize = (uint)System.Runtime.InteropServices.Marshal.SizeOf<Native.MONITORINFO>() };
+        if (!Native.GetMonitorInfo(Native.MonitorFromWindow(hwnd, 2), ref mi)) return;
+        var up = Math.Min(r.Bottom - mi.rcWork.Bottom, r.Top - mi.rcWork.Top);
+        if (up > 0) Native.SetWindowPos(hwnd, IntPtr.Zero, r.Left, r.Top - up, 0, 0, Native.SWP_NOSIZE | Native.SWP_NOZORDER | Native.SWP_NOACTIVATE);
     }
 
     internal void SelectTab(string? tab)
@@ -315,9 +332,18 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(p));
     }
 
+    /// <summary>
+    /// Frozen on purpose: an unfrozen brush keeps a reference to every element that uses it, and with WPF's binding to
+    /// a plain (non-notifying) object that chain kept each closed Settings window alive (found with --selftest).
+    /// </summary>
     static Brush Brush(string hex)
     {
-        try { return new SolidColorBrush((System.Windows.Media.Color)ColorConverter.ConvertFromString(hex)); }
+        try
+        {
+            var b = new SolidColorBrush((System.Windows.Media.Color)ColorConverter.ConvertFromString(hex));
+            b.Freeze();
+            return b;
+        }
         catch (FormatException) { return Brushes.Gray; }
     }
 

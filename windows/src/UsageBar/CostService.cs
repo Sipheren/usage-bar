@@ -44,7 +44,7 @@ internal sealed class CostService(string cachePath)
             if (File.Exists(cachePath) && JsonSerializer.Deserialize<CostCacheFile>(File.ReadAllText(cachePath)) is { Version: CostCacheFile.CurrentVersion } c)
                 return cache = c;
         }
-        catch (Exception e) when (e is IOException or JsonException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException) { }
         return cache = new CostCacheFile(CostCacheFile.CurrentVersion, new());
     }
 
@@ -58,6 +58,6 @@ internal sealed class CostService(string cachePath)
             File.WriteAllText(cachePath + ".tmp", JsonSerializer.Serialize(c));
             File.Move(cachePath + ".tmp", cachePath, true);
         }
-        catch (IOException) { }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { }
     }
 }

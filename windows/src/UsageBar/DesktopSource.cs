@@ -144,7 +144,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
         if (key is not null) return key;
         byte[] wrapped;
         try { wrapped = ChromiumWin.StripDpapiPrefix(ChromiumWin.EncryptedKey(File.ReadAllBytes(Path.Combine(Dir, "Local State")))); }
-        catch (IOException) { throw new CredentialException(CredentialError.NotFound); }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException) { throw new CredentialException(CredentialError.NotFound); }
         try { return key = ProtectedData.Unprotect(wrapped, null, DataProtectionScope.CurrentUser); }
         catch (CryptographicException) { throw new CredentialException(CredentialError.DecryptFailed); }
     }
