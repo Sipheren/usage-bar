@@ -86,8 +86,7 @@ and assets stay outside the platform folders.
 
 ## Versions, tags and the changelog
 
-- Each platform has its own version file: `macos/VERSION` (now 0.2.0), later `windows/VERSION`. Use
-  SemVer.
+- Each platform has its own version file: `macos/VERSION` and `windows/VERSION`. Use SemVer.
 - Tags name the platform: `macos-vX.Y.Z`, `windows-vX.Y.Z`. The existing `v0.1.0` and `v0.2.0` tags are
   the macOS app.
 - Every `CHANGELOG.md` entry names its platform, for example `## [macOS 0.3.0] - 2026-11-02`. Entries

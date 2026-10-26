@@ -123,7 +123,7 @@ title follows the tab; position remembered.
   the email or organization, or the problem with its action button), show in menu bar, Remove
   Account… with confirmation. Add Account at the bottom. With no accounts: "No accounts", a line saying
   no Claude sign-in was found, and Add Account.
-- **About.** Icon, name, version ("Version 0.2.0 (build N · hash)"), build date, signing identity,
+- **About.** Icon, name, version ("Version 0.3.0 (build N · hash)"), build date, signing identity,
   data sources, project folder (the repository root) with Show in Finder, and the authorship and
   licence lines.
 
