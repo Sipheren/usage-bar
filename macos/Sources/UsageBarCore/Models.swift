@@ -197,6 +197,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var didMigrateMiniBars: Bool
     /// ISO code of the currency cost figures are shown in. USD means no conversion and no rate fetch.
     public var currency: String
+    /// Saved accounts this build can't read (a source kind from a newer build, a bad id...). Not shown,
+    /// and written back as they were, after the readable ones, so saving never loses them.
+    public private(set) var unreadableAccounts: [RawJSON] = []
 
     public static let refreshOptions = [1, 2, 5, 10]
 
@@ -226,11 +229,23 @@ public struct AppSettings: Codable, Equatable, Sendable {
     }
 
     // Every field optional on decode so older saved settings never reset everything. Settings saved
-    // without a readable account list always meant Personal + Work, so that stays the fallback.
+    // without an account list always meant Personal + Work, so that stays the fallback. A list is read
+    // account by account: one unreadable entry never costs the others.
     public init(from decoder: Decoder) throws {
         self.init(accounts: Account.personalAndWork())
         let c = try decoder.container(keyedBy: CodingKeys.self)
-        if let v = try? c.decode([Account].self, forKey: .accounts) { accounts = v }
+        if (try? c.nestedUnkeyedContainer(forKey: .accounts)) != nil {
+            // Throws only for JSON that RawJSON can't hold; the settings are then unreadable as a whole.
+            let entries = try c.decode([RawJSON].self, forKey: .accounts)
+            accounts = []
+            for entry in entries {
+                if let account = try? JSONDecoder().decode(Account.self, from: JSONEncoder().encode(entry)) {
+                    accounts.append(account)
+                } else {
+                    unreadableAccounts.append(entry)
+                }
+            }
+        }
         if let v = try? c.decode(MenuBarStyle.self, forKey: .menuBarStyle) { menuBarStyle = v }
         if let v = try? c.decode(Bool.self, forKey: .showSession) { showSession = v }
         if let v = try? c.decode(Bool.self, forKey: .showWeekly) { showWeekly = v }
@@ -242,6 +257,23 @@ public struct AppSettings: Codable, Equatable, Sendable {
         // Absent in old JSON → false → migrations run once.
         didMigrateMiniBars = (try? c.decode(Bool.self, forKey: .didMigrateMiniBars)) ?? false
         if let v = try? c.decode(String.self, forKey: .currency), !v.isEmpty { currency = v.uppercased() }
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        var list = c.nestedUnkeyedContainer(forKey: .accounts)
+        try list.encode(contentsOf: accounts)
+        try list.encode(contentsOf: unreadableAccounts)
+        try c.encode(menuBarStyle, forKey: .menuBarStyle)
+        try c.encode(showSession, forKey: .showSession)
+        try c.encode(showWeekly, forKey: .showWeekly)
+        try c.encode(showScoped, forKey: .showScoped)
+        try c.encode(dropdownLayout, forKey: .dropdownLayout)
+        try c.encode(refreshMinutes, forKey: .refreshMinutes)
+        try c.encode(desktopKeychainApproved, forKey: .desktopKeychainApproved)
+        try c.encode(desktopTokenChoice, forKey: .desktopTokenChoice)
+        try c.encode(didMigrateMiniBars, forKey: .didMigrateMiniBars)
+        try c.encode(currency, forKey: .currency)
     }
 
     /// One-time moves for settings saved before these defaults changed. Returns true if anything changed.

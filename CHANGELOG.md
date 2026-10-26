@@ -46,6 +46,11 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 - macOS: a fresh install without a Safari sign-in no longer shows an empty Work account.
 - macOS: with no account in the menu bar, the label's tooltip and accessibility text were blank; they
   now read "Claude usage", and the label is the spark alone.
+- macOS: the Sign-in source picker could put two accounts on one source; a source another account uses
+  is now greyed out, and choosing it is refused.
+- macOS: one unreadable saved account (an unknown source kind, a bad id) replaced the whole list with
+  Personal + Work; the others now load, it is kept and saved back unchanged, and settings that can't be
+  read at all are copied to `settings.v1.unreadable` before a fresh start.
 
 ## [Windows 0.1.4] - 2026-10-26
 
