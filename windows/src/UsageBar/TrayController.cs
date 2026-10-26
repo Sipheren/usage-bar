@@ -67,28 +67,37 @@ internal sealed class TrayController : IDisposable
         var model = TrayModel.Build(inputs, s.LabelStyle, s.Metrics, now);
         var fg = dark ? Colors.White : Colors.Black;
         var plan = new List<TrayIconPlan>();
+        // Bars or numbers in each account's own colour tell the accounts apart (decision 16).
+        void DrawFor(DrawingContext dc, IReadOnlyList<int> values, Color colour, bool missing)
+        {
+            if (s.LabelStyle == LabelStyle.Bars) IconRenderer.DrawBars(dc, n, missing ? Array.Empty<int>() : values, colour, dark);
+            else IconRenderer.DrawNumbers(dc, n, missing ? Array.Empty<int>() : values, colour);
+        }
         if (s.TrayIcons == TrayIconMode.PerAccount && s.LabelStyle != LabelStyle.IconOnly && shown.Count > 0)
         {
             for (var i = 0; i < shown.Count; i++)
             {
                 var a = shown[i];
                 var item = model.Accounts[i];
-                var values = s.LabelStyle == LabelStyle.Bars ? item.Values : item.SessionPercent is { } sp ? new List<int> { sp } : item.Values;
-                plan.Add(new TrayIconPlan(IconId(a.Id), Draw(n, item.Stale, dc => IconRenderer.DrawAccount(dc, n, a.Tag, values, s.LabelStyle, fg, dark, item.Missing)),
+                var colour = Colour(a.ColorHex, fg);
+                plan.Add(new TrayIconPlan(IconId(a.Id), Draw(n, item.Stale, dc => DrawFor(dc, item.Values, colour, item.Missing)),
                                           TrayModel.AccountTooltip(a.Name, store.State(a).Snapshot, now), a.Id));
             }
             return plan;
         }
         var first = model.Accounts.FirstOrDefault();
-        var image = s.LabelStyle switch
-        {
-            LabelStyle.Bars when first is { Missing: false } => Draw(n, first.Stale, dc => IconRenderer.DrawBars(dc, n, first.Values, fg, dark)),
-            LabelStyle.Percentages or LabelStyle.Compact when first is { Missing: false } =>
-                Draw(n, first.Stale, dc => IconRenderer.DrawPercent(dc, n, first.SessionPercent ?? first.Values.FirstOrDefault(), fg)),
-            _ => Draw(n, false, dc => IconRenderer.DrawSpark(dc, n, fg)),
-        };
+        var firstAccount = shown.FirstOrDefault();
+        var image = s.LabelStyle != LabelStyle.IconOnly && first is not null && firstAccount is not null
+            ? Draw(n, first.Stale, dc => DrawFor(dc, first.Values, Colour(firstAccount.ColorHex, fg), first.Missing))
+            : Draw(n, false, dc => IconRenderer.DrawSpark(dc, n, fg));
         plan.Add(new TrayIconPlan(SingleId, image, model.Accounts.Count == 0 ? "Usage Bar" : model.SingleTooltip(), null));
         return plan;
+    }
+
+    static Color Colour(string hex, Color fallback)
+    {
+        try { return (Color)ColorConverter.ConvertFromString(hex); }
+        catch (FormatException) { return fallback; }
     }
 
     static BitmapSource Draw(int n, bool stale, Action<DrawingContext> draw) =>

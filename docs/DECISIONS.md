@@ -110,3 +110,14 @@ tab say it was built by AI (Claude, by Anthropic) under the direction of its aut
 **Decision.** Costs are computed in US dollars and shown in the currency picked in Settings (AUD by
 default, so existing installs look the same). Choosing USD skips the exchange-rate request entirely.
 Extra-usage amounts stay in the currency the API reports, because that's what the plan bills.
+
+## 16. Account colours in the Windows tray
+
+**Context.** A Windows tray icon is one small square (20 px at 125% scaling). The Mac label's tag letters
+don't fit beside the bars, and a tag badge over the bars wasn't readable at that size.
+**Decision.** On Windows, each account's tray icon shows only its bars, or its session and weekly
+percentages as numbers, drawn in that account's colour. The colour tells the accounts apart, as other tray
+apps do. Usage still never changes a colour: decision 4's rule for usage stands, and the macOS menu bar stays
+monochrome. The maintainer's call, 2026-10-26.
+**Consequence.** Account colours have to read on both a dark and a light taskbar. The Icon only spark stays
+monochrome.

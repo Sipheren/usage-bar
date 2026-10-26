@@ -14,7 +14,8 @@ Run every command below from the repository root.
 |---|---|---|
 | ![General settings](../docs/images/windows-settings-general.png) | ![Account settings](../docs/images/windows-settings-accounts.png) | ![About](../docs/images/windows-settings-about.png) |
 
-Tray icons, one per account (actual size at 125% scaling, shown at 2×): ![Tray icons](../docs/images/windows-tray.png)
+Tray icons, one per account in its colour (in the overflow panel at 125% scaling, shown at 2×):
+![Tray icons](../docs/images/windows-tray.png)
 
 The screenshots come from demo mode, so every number and name in them is made up.
 
@@ -49,9 +50,9 @@ Open Usage Bar's flyout, then **Settings… > Accounts**. Each account has a **S
 | Claude Code login | `.credentials.json` in Claude Code's config folder: `%USERPROFILE%\.claude`, or `%CLAUDE_CONFIG_DIR%` when set | Sign in to Claude Code once (`claude`). |
 | Claude app | `%APPDATA%\Claude`: `config.json` (the encrypted token cache), `Local State` (its key, protected by Windows for your user) and, as a fallback, `Network\Cookies` | Click **Connect…**. Nothing is read before that. |
 
-The defaults are Personal on the Claude Code login and Work on the Claude app. If the Claude app is
-signed in to the same account as Claude Code, Work says so and shows no numbers, so Personal is never
-shown twice. The status row turns green with the account's email or organization when a source works,
+A fresh install has one account, Personal, on the Claude Code login. Add more with **Add Account**: one
+per sign-in you have. If a Claude app account turns out to be the same account as Claude Code, it says so
+and shows no numbers, so Personal is never shown twice. The status row turns green with the account's email or organization when a source works,
 and names the exact problem when it doesn't.
 
 ## Using it
@@ -60,7 +61,7 @@ and names the exact problem when it doesn't.
 - Right-click an icon for Refresh Now, Settings…, About Usage Bar and Quit Usage Bar.
 - Hover an icon for that account's limits and reset times.
 - **Settings… > General**: the tray style (Bars, Percentages or Icon only), **Icons** (one per account,
-  the default, or a single icon), which limits the bars show, the flyout layout, the refresh interval
+  the default, or a single icon); bars and numbers are drawn in each account's colour, which limits the bars show, the flyout layout, the refresh interval
   (1, 2, 5 or 10 minutes), Launch at login (off by default, the per-user Run key) and the cost currency.
 - **Settings… > Accounts**: rename accounts, set their tag and colour, pick each sign-in source, hide an
   account from the tray, add or remove accounts.
@@ -99,7 +100,7 @@ Options for running `src\UsageBar\bin\Debug\net10.0-windows\UsageBar.exe`:
 | Option | Effect |
 |---|---|
 | `--demo` | Built-in sample data. Nothing is read, fetched or saved. Use it for anything visual. |
-| `--fixtures <dir>` | The Work account answers from a fixtures folder; timestamps move to now. Set `USAGEBAR_FIXTURE_ERROR` to `401`, `403`, `429` or `cloudflare` to serve an error file. |
+| `--fixtures <dir>` | Adds a Work test account answered from a fixtures folder (never saved); timestamps move to now. Set `USAGEBAR_FIXTURE_ERROR` to `401`, `403`, `429` or `cloudflare` to serve an error file. |
 | `--open flyout\|menu\|settings\|accounts\|about` | Opens that view after start. |
 | `--theme light\|dark` | Forces a theme. |
 | `--layout one`, `--style bars\|percentages\|icon`, `--icons single` | Demo mode only: screenshot variants. |
@@ -112,9 +113,10 @@ images for `docs/images` come from demo mode.
 ## How it differs from the Mac
 
 - **The tray holds icons, not a label.** Each icon is a square (16 px at 100% scaling, 20 px at 125%), so
-  the Mac's `✳ P [bars] W [bars]` becomes one icon per account (a tag badge over its bars or session
-  percentage), or a single icon with the first account's bars, percentage or the spark. Compact isn't
-  offered: it reads the same as Percentages in a square.
+  the Mac's `✳ P [bars] W [bars]` becomes one icon per account showing its two bars, or its session and
+  weekly percentages, in the account's colour (decision 16): colour, not a letter, tells accounts apart.
+  The single-icon option shows the first account the same way, or the spark. Compact isn't offered: it
+  reads the same as Percentages in a square.
 - **No Safari source.** A browser source isn't built yet: Chrome encrypts cookies with app-bound
   encryption that only Chrome can undo; Firefox is the candidate (docs/PORTING.md).
 - **The light flyout has no blur.** Over Windows 11's acrylic, dark anti-aliased text loses its thin

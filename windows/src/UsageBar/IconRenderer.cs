@@ -51,79 +51,56 @@ internal static class IconRenderer
         return b;
     }
 
-    /// <summary>Bar thickness and gap for a stack of <paramref name="count"/> bars in an n-pixel icon.</summary>
+    /// <summary>Bar thickness and gap for a stack of <paramref name="count"/> bars filling an n-pixel icon.</summary>
     static (int H, int Gap) BarMetrics(int n, int count) => count >= 3
-        ? (Math.Max(2, (int)Math.Round(n * 0.15)), Math.Max(1, n / 12))
-        : (Math.Max(3, (int)Math.Round(n * 0.19)), Math.Max(2, (int)Math.Round(n * 0.12)));
+        ? (Math.Max(3, (int)Math.Round(n * 0.18)), Math.Max(1, (int)Math.Round(n * 0.1)))
+        : (Math.Max(4, (int)Math.Round(n * 0.25)), Math.Max(2, (int)Math.Round(n * 0.14)));
 
-    /// <summary>Stacked bars, the Mac's mini bars: track at reduced opacity, fill at full, at least a dot when above 0.</summary>
-    static void DrawBarStack(DrawingContext dc, IReadOnlyList<int> values, int x, int y, int w, int h, int gap, Color fg, bool dark)
+    /// <summary>
+    /// Stacked bars in the account's colour (decision 16): the track is the same colour faded, the fill full strength,
+    /// at least a dot above 0. The colour says which account; usage never changes it.
+    /// </summary>
+    public static void DrawBars(DrawingContext dc, int n, IReadOnlyList<int> values, Color colour, bool dark)
     {
-        var track = Solid(fg, dark ? 0.3 : 0.25);
-        var fill = Solid(fg, 1);
-        foreach (var v in values)
+        var vals = values.Count > 0 ? values : new[] { 0, 0 };
+        var (h, gap) = BarMetrics(n, vals.Count);
+        var y = (n - (vals.Count * h + (vals.Count - 1) * gap)) / 2;
+        var track = Solid(colour, dark ? 0.38 : 0.32);
+        var fill = Solid(colour, 1);
+        var w = n - 2;
+        foreach (var v in vals)
         {
             var r = h / 2.0;
-            dc.DrawRoundedRectangle(track, null, new Rect(x, y, w, h), r, r);
+            dc.DrawRoundedRectangle(track, null, new Rect(1, y, w, h), r, r);
             var frac = Math.Clamp(v / 100.0, 0, 1);
-            if (frac > 0) dc.DrawRoundedRectangle(fill, null, new Rect(x, y, Math.Max(h, Math.Round(w * frac)), h), r, r);
+            if (frac > 0) dc.DrawRoundedRectangle(fill, null, new Rect(1, y, Math.Max(h, Math.Round(w * frac)), h), r, r);
             y += h + gap;
         }
     }
 
-    /// <summary>Single icon, Bars style: the first account's bars filling the square.</summary>
-    public static void DrawBars(DrawingContext dc, int n, IReadOnlyList<int> values, Color fg, bool dark)
-    {
-        var vals = values.Count > 0 ? values : new[] { 0, 0 };
-        var (h, gap) = BarMetrics(n, vals.Count);
-        var total = vals.Count * h + (vals.Count - 1) * gap;
-        DrawBarStack(dc, vals, 1, (n - total) / 2, n - 2, h, gap, fg, dark);
-    }
-
     /// <summary>
-    /// One account's icon: its tag as a solid badge with the letter cut out, over its bars (Bars) or its session
-    /// percentage (Percentages). A missing account shows the badge over a dash.
+    /// Percentages in the account's colour: one value fills the square; two (session over weekly) stack as large
+    /// as they fit. A dash when there's no data.
     /// </summary>
-    public static void DrawAccount(DrawingContext dc, int n, string tag, IReadOnlyList<int> values, LabelStyle style, Color fg, bool dark, bool missing)
+    public static void DrawNumbers(DrawingContext dc, int n, IReadOnlyList<int> values, Color colour)
     {
-        var bars = style == LabelStyle.Bars && !missing;
-        var count = bars ? Math.Max(values.Count, 1) : 2;
-        // Thin bars with 1 px gaps leave the badge most of the height, so its letter stays readable at 16-24 px.
-        var h = Math.Max(2, (int)Math.Round(n * (count >= 3 ? 0.11 : 0.15)));
-        var gap = n >= 28 ? 2 : 1;
-        var under = n >= 20 ? 2 : 1;
-        var lower = count * h + (count - 1) * gap;
-        var badgeH = bars ? n - lower - under : (int)Math.Round(n * 0.5);
-        var text = string.IsNullOrWhiteSpace(tag) ? "?" : tag.Trim();
-        var letter = Glyphs(text, Math.Round(badgeH * 0.64), n - 4);
-        var badgeW = Math.Min(n, Math.Max(badgeH + 2, (int)Math.Ceiling(letter.Bounds.Width) + 4));
-        var bx = (n - badgeW) / 2;
-        var badge = new RectangleGeometry(new Rect(bx, 0, badgeW, badgeH), 2, 2);
-        letter.Transform = new TranslateTransform(Math.Round(bx + (badgeW - letter.Bounds.Width) / 2), Math.Round((badgeH - letter.Bounds.Height) / 2));
-        dc.DrawGeometry(Solid(fg, 1), null, Geometry.Combine(badge, letter, GeometryCombineMode.Exclude, null));
-
-        var top = badgeH + under;
-        if (missing)
+        var brush = Solid(colour, 1);
+        var texts = values.Count == 0 ? new[] { "–" } : values.Take(2).Select(v => v.ToString(CultureInfo.InvariantCulture)).ToArray();
+        if (texts.Length == 1)
         {
-            var dh = Math.Max(2, h - 1);
-            dc.DrawRectangle(Solid(fg, 1), null, new Rect(n / 2 - h, top + (n - top - dh) / 2, h * 2, dh));
+            var g = Glyphs(texts[0], n * 0.62, n);
+            g.Transform = new TranslateTransform(Math.Round((n - g.Bounds.Width) / 2), Math.Round((n - g.Bounds.Height) / 2));
+            dc.DrawGeometry(brush, null, g);
+            return;
         }
-        else if (bars)
-            DrawBarStack(dc, values, 1, n - lower, n - 2, h, gap, fg, dark);
-        else
+        var gap = Math.Max(2, n / 10);
+        var line = (n - gap) / 2.0;
+        for (var i = 0; i < 2; i++)
         {
-            var num = Glyphs(values.Count > 0 ? values[0].ToString(CultureInfo.InvariantCulture) : "–", n - top - 1, n);
-            num.Transform = new TranslateTransform(Math.Round((n - num.Bounds.Width) / 2), top + Math.Round((n - top - num.Bounds.Height) / 2));
-            dc.DrawGeometry(Solid(fg, 1), null, num);
+            var g = Glyphs(texts[i], Math.Floor(line), n);
+            g.Transform = new TranslateTransform(Math.Round((n - g.Bounds.Width) / 2), Math.Round(i * (line + gap) + (line - g.Bounds.Height) / 2));
+            dc.DrawGeometry(brush, null, g);
         }
-    }
-
-    /// <summary>Single icon, Percentages style: the first account's session percentage as a number.</summary>
-    public static void DrawPercent(DrawingContext dc, int n, int? value, Color fg)
-    {
-        var g = Glyphs(value?.ToString(CultureInfo.InvariantCulture) ?? "–", n * 0.62, n);
-        g.Transform = new TranslateTransform(Math.Round((n - g.Bounds.Width) / 2), Math.Round((n - g.Bounds.Height) / 2));
-        dc.DrawGeometry(Solid(fg, 1), null, g);
     }
 
     /// <summary>The spark, inset slightly so its tips don't touch the icon edge.</summary>

@@ -241,11 +241,45 @@ public class SettingsTests
         Assert.True(s.ShowWeekly);
         Assert.False(s.ShowScoped);
         Assert.False(s.DesktopConnected);
-        Assert.Equal(new[] { "P", "W" }, s.Accounts.Select(a => a.Tag));
+        // One account unless the user adds more: no Work account appears without work details.
+        Assert.Equal(new[] { "P" }, s.Accounts.Select(a => a.Tag));
         Assert.Equal(SourceKind.ClaudeCode, s.Accounts[0].Source.Kind);
-        Assert.Equal(SourceKind.ClaudeDesktop, s.Accounts[1].Source.Kind);
         Assert.Equal("#D97757", s.Accounts[0].ColorHex);
-        Assert.Equal("#3E7CC4", s.Accounts[1].ColorHex);
+    }
+
+    const string OldDefaults = """
+    {"accounts":[
+      {"id":"00000000-0000-4000-8000-0000000000aa","name":"Personal","tag":"P","colorHex":"#D97757","showInTray":true,
+       "source":{"kind":"claudeCode","dir":"~/.claude"},"logsDir":"~/.claude/projects"},
+      {"id":"00000000-0000-4000-8000-0000000000bb","name":"Work","tag":"W","colorHex":"#3E7CC4","showInTray":true,
+       "source":{"kind":"claudeDesktop"}}
+    ]%EXTRA%}
+    """;
+
+    [Fact]
+    public void SettingsFromZeroPointOneDropTheUntouchedDefaultWorkAccount()
+    {
+        var s = AppSettings.FromJson(OldDefaults.Replace("%EXTRA%", ""));
+        Assert.Equal(new[] { "Personal" }, s.Accounts.Select(a => a.Name));
+        Assert.Equal(AppSettings.CurrentDefaultsVersion, s.DefaultsVersion);
+        // Once migrated it stays: an account the user adds later is kept.
+        s.Accounts.Add(Account.DefaultWork());
+        Assert.Equal(2, AppSettings.FromJson(s.ToJson()).Accounts.Count);
+    }
+
+    [Fact]
+    public void AWorkAccountTheUserTouchedOrConnectedIsKept()
+    {
+        Assert.Equal(2, AppSettings.FromJson(OldDefaults.Replace("%EXTRA%", ",\"desktopConnected\":true")).Accounts.Count);
+        Assert.Equal(2, AppSettings.FromJson(OldDefaults.Replace("\"name\":\"Work\"", "\"name\":\"Job\"").Replace("%EXTRA%", "")).Accounts.Count);
+    }
+
+    [Fact]
+    public void FixtureAccountsAreNeverSaved()
+    {
+        var s = new AppSettings();
+        s.Accounts.Add(Account.DefaultWork() with { Source = AccountSource.Fixture("C:/fixtures") });
+        Assert.Single(AppSettings.FromJson(s.ToJson()).Accounts);
     }
 
     [Fact]
@@ -256,7 +290,7 @@ public class SettingsTests
         Assert.Equal(5, s.RefreshMinutes);
         Assert.Equal("EUR", s.Currency);
         Assert.Equal(TrayIconMode.PerAccount, s.TrayIcons);
-        Assert.Equal(2, s.Accounts.Count);
+        Assert.Single(s.Accounts);
         Assert.Equal(new AppSettings().Accounts.Count, AppSettings.FromJson("not json").Accounts.Count);
     }
 
@@ -264,7 +298,7 @@ public class SettingsTests
     public void SettingsRoundTrip()
     {
         var s = new AppSettings { LabelStyle = LabelStyle.IconOnly, TrayIcons = TrayIconMode.Single, Currency = "USD" };
-        s.Accounts[1] = s.Accounts[1] with { Name = "Job", ShowInTray = false };
+        s.Accounts.Add(Account.DefaultWork() with { Name = "Job", ShowInTray = false });
         var back = AppSettings.FromJson(s.ToJson());
         Assert.Equal(LabelStyle.IconOnly, back.LabelStyle);
         Assert.Equal(TrayIconMode.Single, back.TrayIcons);

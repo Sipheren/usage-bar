@@ -142,7 +142,8 @@
 
             <!-- Layout B: one account at a time. -->
             <StackPanel x:Name="LayoutB" Margin="16,12,16,0" DataContext="{Binding Selected}">
-                <Border CornerRadius="9" Background="{DynamicResource SegmentFill}" Padding="2" Margin="0,0,0,14">
+                <Border CornerRadius="9" Background="{DynamicResource SegmentFill}" Padding="2" Margin="0,0,0,14"
+                        Visibility="{Binding DataContext.ShowTabs, RelativeSource={RelativeSource AncestorType=Window}, Converter={StaticResource Vis}}">
                     <ItemsControl ItemsSource="{Binding DataContext.Accounts, RelativeSource={RelativeSource AncestorType=Window}}" ItemTemplate="{StaticResource Tab}" Focusable="False">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><UniformGrid Rows="1"/></ItemsPanelTemplate>

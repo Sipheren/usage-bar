@@ -297,7 +297,7 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
     List<AccountSource> Sources()
     {
         var list = new List<AccountSource> { AccountSource.ClaudeCode(A.Source.Kind == SourceKind.ClaudeCode ? A.Source.Dir : null), AccountSource.ClaudeDesktop };
-        if (store.FixturesDir is { } dir) list.Add(AccountSource.Fixture(dir));
+        if (A.Source.Kind == SourceKind.Fixture) list.Add(A.Source);
         return list;
     }
 
@@ -305,11 +305,11 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
 
     public int SourceIndex
     {
-        get => Sources().FindIndex(s => s.Kind == store.EffectiveSource(A).Kind);
+        get => Sources().FindIndex(s => s.Kind == A.Source.Kind);
         set
         {
             var sources = Sources();
-            if (value < 0 || value >= sources.Count || sources[value].Kind == store.EffectiveSource(A).Kind) return;
+            if (value < 0 || value >= sources.Count || sources[value].Kind == A.Source.Kind) return;
             var src = sources[value];
             if (src.Kind == SourceKind.Fixture) return;   // fixtures come from --fixtures, not the saved settings
             Update(a => a with

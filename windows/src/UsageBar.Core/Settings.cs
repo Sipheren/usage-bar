@@ -109,7 +109,8 @@ public static class Rgb
 /// <summary>Everything the user can set. Every field is optional when loading, so older files never reset everything.</summary>
 public sealed class AppSettings
 {
-    public List<Account> Accounts { get; set; } = new() { Account.DefaultPersonal(), Account.DefaultWork() };
+    /// <summary>One account by default; the user adds others. Nothing appears without a sign-in behind it.</summary>
+    public List<Account> Accounts { get; set; } = new() { Account.DefaultPersonal() };
     public LabelStyle LabelStyle { get; set; } = LabelStyle.Bars;
     public TrayIconMode TrayIcons { get; set; } = TrayIconMode.PerAccount;
     public bool ShowSession { get; set; } = true;
@@ -124,12 +125,39 @@ public sealed class AppSettings
     /// <summary>Token-cache entry chosen per Claude app account uuid (a key path, never a token).</summary>
     public Dictionary<string, string> DesktopTokenChoice { get; set; } = new();
 
+    /// <summary>Bumped when saved settings need a one-time change on load (see <see cref="ApplyMigrations"/>).</summary>
+    public int DefaultsVersion { get; set; } = CurrentDefaultsVersion;
+    public const int CurrentDefaultsVersion = 1;
+
     public static readonly int[] RefreshOptions = { 1, 2, 5, 10 };
 
     [JsonIgnore]
     public MetricSelection Metrics => new(ShowSession, ShowWeekly, ShowScoped);
 
-    public string ToJson() => JsonSerializer.Serialize(this, AppJson.Options);
+    /// <summary>Saved form. Fixture accounts (<c>--fixtures</c>) are test data and are never saved.</summary>
+    public string ToJson()
+    {
+        var saved = Accounts;
+        Accounts = Accounts.Where(a => a.Source.Kind != SourceKind.Fixture).ToList();
+        try { return JsonSerializer.Serialize(this, AppJson.Options); }
+        finally { Accounts = saved; }
+    }
+
+    /// <summary>
+    /// One-time changes for settings saved by older versions. 0.1.0 created a Work account on the Claude app
+    /// by default; if the user never touched or connected it, it goes, so only real accounts show.
+    /// </summary>
+    public bool ApplyMigrations()
+    {
+        if (DefaultsVersion >= CurrentDefaultsVersion) return false;
+        var work = Account.DefaultWork();
+        if (!DesktopConnected)
+            Accounts.RemoveAll(a => a.Source.Kind == SourceKind.ClaudeDesktop && a.Name == work.Name && a.Tag == work.Tag
+                                    && string.Equals(a.ColorHex, work.ColorHex, StringComparison.OrdinalIgnoreCase));
+        if (Accounts.Count == 0) Accounts.Add(Account.DefaultPersonal());
+        DefaultsVersion = CurrentDefaultsVersion;
+        return true;
+    }
 
     public static AppSettings FromJson(string json)
     {
@@ -158,7 +186,10 @@ public sealed class AppSettings
             if (Get<string>("currency") is { Length: > 0 } cur) s.Currency = cur.ToUpperInvariant();
             if (Get<bool?>("desktopConnected") is { } dc) s.DesktopConnected = dc;
             if (Get<Dictionary<string, string>>("desktopTokenChoice") is { } tc) s.DesktopTokenChoice = tc;
+            // Absent in 0.1.0 files: they need the migrations.
+            s.DefaultsVersion = Get<int?>("defaultsVersion") ?? 0;
         }
+        s.ApplyMigrations();
         return s;
     }
 }

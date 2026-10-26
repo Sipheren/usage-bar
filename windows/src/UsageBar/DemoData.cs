@@ -16,7 +16,7 @@ internal static class DemoData
     {
         var s = new AppSettings();
         s.Accounts[0] = s.Accounts[0] with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000aa") };
-        s.Accounts[1] = s.Accounts[1] with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000bb") };
+        s.Accounts.Add(Account.DefaultWork() with { Id = Guid.Parse("00000000-0000-4000-8000-0000000000bb") });
         return s;
     }
 

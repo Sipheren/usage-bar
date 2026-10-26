@@ -41,6 +41,8 @@ internal sealed class FlyoutVm
     public AccountVm? Selected { get; init; }
     public bool LayoutA { get; init; }
     public bool HasAccounts => Accounts.Count > 0;
+    /// <summary>Layout B's account tabs only make sense with more than one account.</summary>
+    public bool ShowTabs => Accounts.Count > 1;
 
     static Brush Hex(string hex)
     {

@@ -24,6 +24,17 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
   root.
 
+## [Windows 0.1.1] - 2026-10-26
+
+### Changed
+- Windows: tray icons show only an account's bars, or its session and weekly percentages as two numbers,
+  in the account's colour; colour tells the accounts apart (decision 16). The tag badge is gone.
+- Windows: one account by default (Personal, on the Claude Code login). Others are added in Settings, so no
+  account appears without a sign-in behind it. Settings saved by 0.1.0 drop the untouched default Work
+  account.
+- Windows: `--fixtures` adds a Work test account that is never saved, instead of switching a saved account.
+- Windows: the one-at-a-time flyout hides the account tabs when there is only one account.
+
 ## [Windows 0.1.0] - 2026-10-26
 
 The first Windows version, in `windows/` (C# on .NET 10 with WPF). Tags for it are `windows-vX.Y.Z`.

@@ -4,6 +4,10 @@
 
 ## 2026-10-26 (Windows)
 
+- 0.1.1: the maintainer's calls after using it. Tray icons are just bars or numbers in the account's
+  colour (decision 16), checked at 8× in the overflow and on the taskbar. One account by default: an
+  account appears only when there is a sign-in behind it; the fixtures add a test account that's never
+  saved.
 - Started the Windows port in `windows/`: C# on .NET 10 with WPF, the core ported test-first from the
   macOS core, xUnit tests mirroring `macos/Tests`, and parity tests that reproduce `expected.json` from the
   shared fixtures (all pass).

@@ -62,6 +62,9 @@ internal sealed class AppStore
         fetcher = new AccountFetcher(http, Desktop);
         costService = new CostService(Path.Combine(Paths.LocalAppData, "cost-cache.json"));
         Settings = demo ? DemoData.Settings() : LoadSettings();
+        // Test data only: a Work account answered from the fixtures folder. Never saved (AppSettings.ToJson).
+        if (fixturesDir is not null && !demo)
+            Settings.Accounts.Add(Account.DefaultWork() with { Id = FixtureAccountId, Source = AccountSource.Fixture(fixturesDir) });
         if (demo) LoadDemo();
         else
         {
@@ -90,10 +93,7 @@ internal sealed class AppStore
 
     public DateTimeOffset? LastUpdated => states.Values.Select(s => s.LastSuccess).Where(d => d is not null).DefaultIfEmpty().Max() ?? lastAnyUpdate;
 
-    /// <summary>The source an account actually uses: <c>--fixtures</c> swaps the Work account to the fixture files.</summary>
-    public AccountSource EffectiveSource(Account a) =>
-        FixturesDir is not null && a.Source.Kind != SourceKind.ClaudeCode && Settings.Accounts.Skip(1).FirstOrDefault()?.Id == a.Id
-            ? AccountSource.Fixture(FixturesDir) : a.Source;
+    static readonly Guid FixtureAccountId = Guid.Parse("00000000-0000-4000-8000-0000000000cc");
 
     public AccountPresentation Presentation(Account a)
     {
@@ -130,7 +130,7 @@ internal sealed class AppStore
     {
         var st = State(account);
         if (st.Fetching) return;
-        var source = EffectiveSource(account);
+        var source = account.Source;
         // Before Connect… the Claude app source reads only its config file and makes no request, so it always runs.
         var localOnly = source.Kind == SourceKind.ClaudeDesktop && !Settings.DesktopConnected;
         var interval = Settings.RefreshMinutes * 60.0;
@@ -141,7 +141,7 @@ internal sealed class AppStore
         try
         {
             var ctx = new DesktopContext(Settings.DesktopConnected, Settings.DesktopTokenChoice, st.Email);
-            var report = await Task.Run(() => fetcher.FetchAsync(account with { Source = source }, ctx, Now));
+            var report = await Task.Run(() => fetcher.FetchAsync(account, ctx, Now));
             if (report.Snapshot is not null)
             {
                 st.Snapshot = report.Snapshot;
@@ -165,7 +165,7 @@ internal sealed class AppStore
     {
         foreach (var a in Settings.Accounts)
         {
-            if (EffectiveSource(a).Kind != SourceKind.ClaudeCode || a.LogsDir is null) { costs.Remove(a.Id); continue; }
+            if (a.Source.Kind != SourceKind.ClaudeCode || a.LogsDir is null) { costs.Remove(a.Id); continue; }
             if (!costs.ContainsKey(a.Id)) costs[a.Id] = new CostState(null);
             var summary = await costService.SummaryAsync(Paths.Expand(a.LogsDir), Now);
             costs[a.Id] = new CostState(summary);

@@ -86,8 +86,8 @@ The endpoints, headers, response decoding, 429 handling, log rules and prices in
   icon shows the spark from `design/spark/ClaudeSpark.svg`, or bars for the first account in the Bars
   style. The tooltip carries the numbers (`P 20% / 60% · W 45% / 72%`), and the classic tooltip limit
   is 128 characters.
-- **Monochrome:** there are no template images, so draw white on a dark taskbar and black on a light
-  one. The usual signal is `SystemUsesLightTheme` under
+- **Colour:** each account's icon is drawn in that account's colour (decision 16); the Icon only spark
+  stays monochrome, white on a dark taskbar and black on a light one. The usual signal is `SystemUsesLightTheme` under
   `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize` (not a documented API; white on a
   dark taskbar verified on Windows 11, a light taskbar not yet seen live); redraw on `WM_SETTINGCHANGE`
   with `ImmersiveColorSet`.
@@ -95,8 +95,11 @@ The endpoints, headers, response decoding, 429 handling, log rules and prices in
   icon's place under `HKCU\Control Panel\NotifyIconSettings`, keyed by the executable and the icon id, so
   ids must stay stable (the Windows build derives them from each account's id). `windows/README.md` says so.
 - **Icon size: verified on Windows 11.** `GetSystemMetricsForDpi(SM_CXSMICON)` gives 20 px at 125% scaling.
-  At that size a tag letter only reads as a solid badge with the letter cut out, over thin bars.
+  A tag letter beside or over the bars isn't readable at that size, so the icon holds only the bars, or the
+  session and weekly percentages as two stacked numbers, in the account's colour.
 - **One icon per account** is the default (the maintainer's choice, 2026-10-26), a single icon an option.
+- **Only real accounts:** a fresh install has one account (the Claude Code login); others are added in
+  Settings. An account with no sign-in behind it never appears.
 - **Dropdown:** a borderless flyout on left-click, anchored to the icon (`Shell_NotifyIconGetRect`),
   closing when it loses focus. It holds Dropdown A by default, Layout B as a setting. Right-click
   opens a menu: Refresh Now, Settings…, About Usage Bar, Quit.
