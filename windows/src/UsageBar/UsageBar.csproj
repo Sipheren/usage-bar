@@ -1,0 +1,41 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>UsageBar</RootNamespace>
+    <AssemblyName>UsageBar</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\UsageBar.Core\UsageBar.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The tray spark is drawn from the shared vector (docs/DECISIONS.md, decision 13). -->
+    <EmbeddedResource Include="..\..\..\design\spark\ClaudeSpark.svg" Link="Assets\ClaudeSpark.svg" LogicalName="ClaudeSpark.svg" />
+    <Resource Include="..\..\..\design\icon\AppIcon.icon\Assets\spark.png" Link="Assets\spark.png" />
+    <Resource Include="..\..\..\design\icon\AppIcon.icon\Assets\bars.png" Link="Assets\bars.png" />
+    <!-- Written by UsageBar.exe with the write-icon option, from the layers above. -->
+    <Resource Include="Assets\app.ico" />
+  </ItemGroup>
+
+  <!-- About shows the build number (commit count) and commit, stamped from git when it's available. -->
+  <Target Name="StampGit" BeforeTargets="GetAssemblyAttributes;GenerateAssemblyInfo">
+    <Exec Command="git rev-parse --short HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" StandardOutputImportance="low" StandardErrorImportance="low" EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCommit" />
+    </Exec>
+    <Exec Command="git rev-list --count HEAD" ConsoleToMSBuild="true" IgnoreExitCode="true" StandardOutputImportance="low" StandardErrorImportance="low" EchoOff="true">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitCount" />
+    </Exec>
+    <ItemGroup>
+      <AssemblyMetadata Include="Commit" Value="$(GitCommit)" Condition="'$(GitCommit)' != '' And !$(GitCommit.Contains(' '))" />
+      <AssemblyMetadata Include="BuildNumber" Value="$(GitCount)" Condition="'$(GitCount)' != '' And !$(GitCount.Contains(' '))" />
+    </ItemGroup>
+  </Target>
+
+</Project>
