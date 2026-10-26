@@ -18,8 +18,9 @@ The app is one SwiftPM package in `macos/` with three targets:
 
 | File | Role |
 |---|---|
-| `Models.swift` | `Account` (with one default account per source), `AccountSource` (Claude Code / Claude app / Safari), `AppSettings` with its one-time migrations, `Paths`. |
-| `AccountSetup.swift` | `FoundSignIns` and the first-run account list built from it; `DropdownContent` (empty state, stacked, tabs or not) for any number of accounts. |
+| `Models.swift` | `Account` (with one default account per source), `AccountSource` (Claude Code / Claude app / Safari), `AppSettings` with its one-time migrations (accounts decode one by one; one it can't read is kept as raw JSON and saved back), `Paths`. |
+| `RawJSON.swift` | Any JSON value, kept as is so an unreadable saved account can be written back unchanged. |
+| `AccountSetup.swift` | `FoundSignIns` and the first-run account list built from it; `DropdownContent` (empty state, stacked, tabs or not) for any number of accounts; the one-account-per-source rule for the Sign-in source picker. |
 | `Usage.swift` | `UsageDecoder` (lenient), `UsageLimit`, `UsageSnapshot`, `ExtraUsage`, `Profile`, ISO-8601 parsing. |
 | `UsageClient.swift` | OAuth usage/profile requests, 429 Retry-After parsing, scope-error detection, exchange rate. |
 | `ClaudeAiCookieClient.swift` | claude.ai organizations + usage with a session cookie; org choice; Cloudflare detection. |

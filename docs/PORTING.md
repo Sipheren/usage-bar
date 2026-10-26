@@ -1,6 +1,6 @@
 # Porting: the Windows starting brief
 
-The Windows port lives in `windows/` (0.1.4, C# on .NET 10 with WPF; see
+The Windows port lives in `windows/` (C# on .NET 10 with WPF; version in `windows/VERSION`; see
 [windows/README.md](../windows/README.md)). The macOS app in `macos/` is the reference implementation:
 when this page and the macOS code disagree, the code is right and this page needs fixing.
 

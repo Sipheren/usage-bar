@@ -99,7 +99,7 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
 A build supports one or more accounts, up to one per sign-in source. On the very first launch (no saved
 settings) it creates an account only for each sign-in it finds, without any prompt and without reading
 a secret. Settings saved by an earlier version are loaded as they are: nothing adds, removes or renames
-their accounts.
+their accounts, and an account a build can't read is kept and saved back unchanged.
 
 | Source | Counts as signed in when | Never |
 |---|---|---|
@@ -157,7 +157,7 @@ Same headers. Usage Bar reads `account.email`, `account.uuid`, `organization.uui
 ### `GET https://claude.ai/api/organizations` and `GET https://claude.ai/api/organizations/{uuid}/usage`
 
 Headers: `Cookie: sessionKey=…` (plus `lastActiveOrg` when present), `Accept: application/json`,
-`Referer: https://claude.ai/` and a Safari User-Agent. The organization list is an array of objects
+`Referer: https://claude.ai/` and a browser User-Agent (Safari's on macOS, Chrome's on Windows). The organization list is an array of objects
 with `uuid` and `name`. Usage Bar picks the `lastActiveOrg` organization, else the first one that
 isn't the personal organization, else the first. The usage response has the same shape as above. A
 `cf-mitigated: challenge` header, or a 403/503/429 page saying "Just a moment", means Cloudflare

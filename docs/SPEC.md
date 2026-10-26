@@ -48,7 +48,9 @@ valid state. The default account for each source:
 - Safari is never probed on first run (it needs Full Disk Access). Users add it from Settings.
 - Nothing found: no accounts. First run saves the result straight away so account ids stay stable.
 
-Settings saved by an earlier version load unchanged: no migration adds, removes or renames accounts.
+Settings saved by an earlier version load unchanged: no migration adds, removes or renames accounts. An
+account this version can't read (say, a source added by a later version) stays hidden and is saved back
+unchanged, and no account can be moved onto a source another account already uses.
 
 ## Polling
 
@@ -129,7 +131,7 @@ title follows the tab; position remembered.
 
 Incremental per file, a `"usage"` pre-filter, de-duplication by `message.id:requestId` keeping the
 largest record, buckets per local day and model, USD prices from `Pricing.swift`, runs off the main
-thread at launch and every 5 minutes, cache file with counts only. See
+thread at launch and every 5 minutes (Windows: with every refresh), cache file with counts only. See
 [DATA-SOURCES.md](DATA-SOURCES.md) and [macos/ARCHITECTURE.md](macos/ARCHITECTURE.md).
 
 ## Build and install

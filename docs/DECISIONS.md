@@ -122,7 +122,8 @@ and no secret read; Safari is never probed then. Nothing found means no accounts
 Settings say so. The dropdown, menu bar and Settings work at any count. Several accounts on one source
 (more Claude Code config folders, several browser sessions) are a separate change.
 **Consequence.** Saved settings load exactly as they are; no migration adds, removes or renames
-accounts. The detection rules are in [DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection).
+accounts, and an account a build can't read is kept and saved back unchanged. The sign-in source picker
+only offers sources no other account uses. The detection rules are in [DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection).
 
 ## 17. Account colours in the Windows tray
 

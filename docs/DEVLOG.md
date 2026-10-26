@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-10-26 (macOS 0.3.0)
+
+- Accounts are one or more, up to one per sign-in source; a first run adds only the sign-ins it finds
+  (the Claude Code Keychain item exists; the Claude app is on a different account), and zero is a normal
+  state with its own dropdown and Settings views.
+- The authorship note moved to one line at the end of the README, and About's footer became one short line.
+- From the cross-platform review: the Sign-in source picker greys out a source another account uses, and
+  an account a build can't read is kept and saved back instead of resetting the list (11 new tests).
+
 ## 2026-10-26 (Windows)
 
 - 0.1.5: fixes from the Mac-side review, test-first where Core could hold them (25 new test cases, including a

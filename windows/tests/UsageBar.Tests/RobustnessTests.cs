@@ -54,6 +54,15 @@ public class SettingsRobustnessTests
     }
 }
 
+/// <summary>Runs only on Windows: other systems don't enforce .NET's file-sharing modes, so these checks mean nothing there.</summary>
+public sealed class WindowsFactAttribute : FactAttribute
+{
+    public WindowsFactAttribute()
+    {
+        if (!OperatingSystem.IsWindows()) Skip = "Windows file sharing only";
+    }
+}
+
 /// <summary>Reads of other apps' files never block their writes, and odd file states give an issue, not an exception.</summary>
 public class SharedReadTests : IDisposable
 {
@@ -81,7 +90,7 @@ public class SharedReadTests : IDisposable
         Assert.False(File.Exists(path + ".old"));
     }
 
-    [Fact]
+    [WindowsFact]
     public void TheOldShareModeBlockedTheRewrite()
     {
         // The control for the test above: File.ReadAllBytes' sharing (read only) stops an in-place rewrite.

@@ -83,7 +83,7 @@ removing by hand, and the script prints the steps: the Full Disk Access entry, a
 
 | What | Where |
 |---|---|
-| Settings, exchange rates, account emails | Preferences, domain `com.sipheren.usagebar` |
+| Settings, exchange rates, account emails | Preferences, domain `com.sipheren.usagebar` (settings that couldn't be read are kept under `settings.v1.unreadable`) |
 | Last usage numbers and fetch times per account | `~/Library/Application Support/UsageBar/state.json` |
 | Claude Code cost cache (token counts only) | `~/Library/Application Support/UsageBar/cost-cache.json` |
 | Logs | Unified log, subsystem `com.sipheren.usagebar` |
