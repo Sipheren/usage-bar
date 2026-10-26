@@ -2,8 +2,9 @@
 
 A menu bar app that shows Claude plan limits for one or more accounts at once (up to one per sign-in
 source), with a cost estimate from Claude Code logs. It is Claude-only and multi-account. This spec describes the macOS app (macOS 26+,
-Apple silicon), the reference implementation; a Windows port keeps the same behaviour with Windows
-equivalents of the macOS parts (see [PORTING.md](PORTING.md)).
+Apple silicon), the reference implementation; the Windows app in `windows/` keeps the same behaviour with
+Windows equivalents of the macOS parts, and tray icons in each account's colour (see
+[PORTING.md](PORTING.md) and decision 17).
 
 Visual reference: the design mockups in `design/mockup/` (`Main.dc.html` for menu bar styles,
 `DropdownA.dc.html` and `DropdownB.dc.html` for the two dropdown layouts). Look: system font, a light
@@ -140,7 +141,7 @@ none).
 
 ## Not in this version
 
-Other providers, notifications, widgets, a history of limits, Linux. Windows is planned (see
+Other providers, notifications, widgets, a history of limits, Linux. A browser source on Windows (see
 [PORTING.md](PORTING.md)).
 
 ## Security

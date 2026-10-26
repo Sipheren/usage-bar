@@ -12,7 +12,7 @@ design/                    icon/ (app icon), spark/ (ClaudeSpark.svg, trace_spar
 docs/                      shared: DATA-SOURCES.md, SPEC.md, DECISIONS.md, PORTING.md, DEVLOG.md, images/
 docs/macos/                macOS only: ARCHITECTURE.md, DEVELOPMENT.md
 macos/                     the macOS app: Package.swift, Sources/, Tests/, VERSION, scripts/, README.md
-windows/                   the Windows app (not started; docs/PORTING.md says how to begin)
+windows/                   the Windows app: UsageBar.slnx, Directory.Build.props, src/, tests/, VERSION, scripts/, README.md
 ```
 
 Each platform lives in its own folder with its own `README.md`, `VERSION` and scripts. Shared rules

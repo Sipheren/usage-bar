@@ -6,7 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 
 **Platforms.** The entries so far are the macOS app. From now on each entry names its platform, for
 example `## [macOS 0.3.0] - 2026-11-02` or `## [Windows 0.1.0] - …`. Each platform keeps its own
-version (`macos/VERSION`, later `windows/VERSION`), and tags are `macos-vX.Y.Z` and `windows-vX.Y.Z`.
+version (`macos/VERSION`, `windows/VERSION`), and tags are `macos-vX.Y.Z` and `windows-vX.Y.Z`.
 The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 
 ## [Unreleased]
@@ -22,7 +22,9 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 ### Changed
 - Repository (all platforms): `.gitattributes` marks `*.png` and `*.ico` as binary, for Windows checkouts.
 - Docs: `docs/PORTING.md` records what the Windows build verified on a real machine; the README lists the
-  Windows app.
+  Windows app (0.1.4) and its tray icons.
+- Docs: the authorship note is one line at the end of the README instead of a quote at the top of the
+  README and the devlog.
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
   sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the

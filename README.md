@@ -1,9 +1,7 @@
 # Usage Bar
 
-> Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).
-
-Usage Bar shows your Claude plan limits for one or more accounts at once, right in the menu bar: the
-5-hour session, the weekly limit and any model-scoped weekly limit, each with a pace marker. It also
+Usage Bar shows your Claude plan limits for one or more accounts at once, in the macOS menu bar or the
+Windows tray: the 5-hour session, the weekly limit and any model-scoped weekly limit, each with a pace marker. It also
 estimates what your Claude Code usage would cost at API prices.
 
 It reads sign-ins you already have (Claude Code, the Claude desktop app, or a browser session). It has
@@ -22,14 +20,15 @@ Anthropic.
 |---|---|---|
 | ![General settings](docs/images/settings-general.png) | ![Account settings](docs/images/settings-accounts.png) | ![About](docs/images/settings-about.png) |
 
-The screenshots come from the macOS app in demo mode, so every number and name in them is made up.
+The screenshots come from the macOS app in demo mode, so every number and name in them is made up. The
+Windows screenshots are in [windows/README.md](windows/README.md).
 
 ## Platforms
 
 | Platform | Status | Folder | Details |
 |---|---|---|---|
 | macOS 26 or later, Apple silicon | Available (0.2.0) | `macos/` | [macos/README.md](macos/README.md) |
-| Windows 11 | Available (0.1.0) | `windows/` | [windows/README.md](windows/README.md) |
+| Windows 11 | Available (0.1.4) | `windows/` | [windows/README.md](windows/README.md) |
 
 The macOS app is the reference implementation. Every platform follows the same data contract
 ([docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)) and product spec ([docs/SPEC.md](docs/SPEC.md)).
@@ -39,8 +38,9 @@ The macOS app is the reference implementation. Every platform follows the same d
 - One or more accounts side by side, up to one per sign-in source (Claude Code, the Claude desktop app,
   a browser session), each with its own colour and tag. The first launch adds only the sign-ins it
   finds; with just one, it shows just the one.
-- A monochrome menu bar label: Bars (default), Percentages (`P 20% / 60%`), Compact (`P 20·60`) or
-  Icon only. Usage never changes its colour.
+- A monochrome menu bar label on macOS: Bars (default), Percentages (`P 20% / 60%`), Compact
+  (`P 20·60`) or Icon only. On Windows, one tray icon per account in that account's colour (Bars or
+  Percentages), or a single icon. Usage never changes a colour.
 - A dropdown with each limit's percentage, reset time, a pace marker and a pace sentence such as
   "7% under pace · lasts until reset" or "12% over pace · runs out around Wed 7 pm".
 - A cost estimate from the Claude Code logs on that computer: today, last 30 days, tokens, a 30-day
@@ -60,8 +60,8 @@ scripts/setup-dev.sh          # git hooks and config/local.env
 macos/scripts/install.sh      # checks, tests, build, sign, install, open
 ```
 
-The first launch adds an account for each sign-in it finds on the Mac: the Claude Code login and the
-Claude desktop app. To add a Safari session, or change anything, open the menu bar item and choose
+The first launch adds an account for each sign-in it finds on the Mac: the Claude Code login, and the
+Claude desktop app when it's signed in to a different account. To add a Safari session, or change anything, open the menu bar item and choose
 **Settings… > Accounts**. Requirements, signing, permissions, uninstalling and troubleshooting:
 [macos/README.md](macos/README.md).
 
@@ -72,8 +72,9 @@ bash scripts/setup-dev.sh                                              # in Git 
 powershell -ExecutionPolicy Bypass -File windows\scripts\install.ps1   # tests, build, install, start
 ```
 
-Windows 11 puts new tray icons in the overflow (`^`): drag Usage Bar's icons onto the taskbar. Then
-open **Settings… > Accounts** from the flyout. Details and screenshots: [windows/README.md](windows/README.md).
+The first launch adds an account for each sign-in it finds, as on the Mac. Windows 11 puts new tray
+icons in the overflow (`^`): drag Usage Bar's icons onto the taskbar. To add or change accounts, open
+**Settings… > Accounts** from the flyout. Details and screenshots: [windows/README.md](windows/README.md).
 
 ## Using it with friends
 
@@ -112,3 +113,7 @@ config/            local.env.example (copy to local.env, which git ignores)
   [docs/macos/DEVELOPMENT.md](docs/macos/DEVELOPMENT.md): the macOS app's internals and workflow.
 - [docs/DEVLOG.md](docs/DEVLOG.md) and [CHANGELOG.md](CHANGELOG.md): history.
 - [LICENSE](LICENSE): MIT.
+
+---
+
+Built with AI (Claude, by Anthropic) under the direction of Sipheren (sipheren@gmail.com).

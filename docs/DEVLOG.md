@@ -1,7 +1,5 @@
 # Devlog
 
-> Built by AI (Claude, by Anthropic) under the direction of its author, Sipheren (sipheren@gmail.com).
-
 ## 2026-10-26 (Windows)
 
 - 0.1.4: Windows follows the new account contract (decision 16), ported test-first from the Mac's

@@ -1,6 +1,6 @@
 # Porting: the Windows starting brief
 
-The Windows port lives in `windows/` (0.1.0, C# on .NET 10 with WPF; see
+The Windows port lives in `windows/` (0.1.4, C# on .NET 10 with WPF; see
 [windows/README.md](../windows/README.md)). The macOS app in `macos/` is the reference implementation:
 when this page and the macOS code disagree, the code is right and this page needs fixing.
 
@@ -117,8 +117,8 @@ The endpoints, headers, response decoding, 429 handling, log rules and prices in
   A tag letter beside or over the bars isn't readable at that size, so the icon holds only the bars, or the
   session and weekly percentages as two stacked numbers, in the account's colour.
 - **One icon per account** is the default (the maintainer's choice, 2026-10-26), a single icon an option.
-- **Only real accounts:** a fresh install has one account (the Claude Code login); others are added in
-  Settings. An account with no sign-in behind it never appears.
+- **Only real accounts:** a first run adds only the sign-ins it finds (see "First run" above);
+  others are added in Settings. An account with no sign-in behind it never appears.
 - **Dropdown:** a borderless flyout on left-click, anchored to the icon (`Shell_NotifyIconGetRect`),
   closing when it loses focus. It holds Dropdown A by default, Layout B as a setting. Right-click
   opens a menu: Refresh Now, Settings…, About Usage Bar, Quit.
