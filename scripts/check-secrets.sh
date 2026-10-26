@@ -68,7 +68,7 @@ is_ignored() {
 }
 
 list_files() {
-    if [[ -d .git ]] && command -v git >/dev/null 2>&1; then
+    if [[ -e .git ]] && command -v git >/dev/null 2>&1; then
         if [[ "$MODE" == "staged" ]]; then
             git diff --cached --name-only --diff-filter=ACMR
         else
