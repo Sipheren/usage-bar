@@ -20,6 +20,9 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   a first run would add) and `--set-style` (switch the menu bar style).
 
 ### Changed
+- Repository (all platforms): `.gitattributes` marks `*.png` and `*.ico` as binary, for Windows checkouts.
+- Docs: `docs/PORTING.md` records what the Windows build verified on a real machine; the README lists the
+  Windows app.
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
   sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
@@ -39,6 +42,72 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 - macOS: a fresh install without a Safari sign-in no longer shows an empty Work account.
 - macOS: with no account in the menu bar, the label's tooltip and accessibility text were blank; they
   now read "Claude usage", and the label is the spark alone.
+
+## [Windows 0.1.3] - 2026-10-26
+
+### Fixed
+- Windows: a closed Settings window stayed in memory after its Accounts tab was shown (about 7 MB and 40
+  GDI objects each time). The colour swatches used unfrozen brushes, which kept the window reachable.
+- Windows: the flyout finds the taskbar from Windows instead of guessing from the work area, so it opens
+  beside the taskbar when the taskbar auto-hides or an app bar is docked.
+- Windows: with many accounts the flyout scrolls inside the screen height, and the menu rows stay below.
+- Windows: clicking another account's tray icon while the flyout is open moves the flyout to it instead of
+  only closing it.
+- Windows: open windows restyle their title bar and backdrop when Windows switches light or dark.
+- Windows: a long account name wraps instead of running into the cost, and the One at a time title wraps
+  instead of running under the refresh button. With more than four accounts the tabs show badges only,
+  with the name as a tooltip. The badge and cost line up with the name's first line, as on the Mac.
+- Windows: Settings moves up to stay on screen when a taller tab opens.
+- Windows: a settings or cache file that can't be written (access denied) is logged instead of closing the
+  app. Any other unexpected error is logged by type only.
+- Windows: the tray icon size follows the main display's current scale, not the scale at sign-in.
+
+### Added
+- Windows: `--selftest <report>` (a resource-leak run) and `--scenario edge` (eight awkward accounts)
+  for testing; the colour sheet also shows the icons at 16, 24 and 32 px.
+
+## [Windows 0.1.2] - 2026-10-26
+
+### Changed
+- Windows: account colours are ten presets (Orange, Blue, Green, Purple, Pink, Teal, Yellow, Red, Lime,
+  Grey), each with a shade for dark and for light taskbars and a badge shade. The tray and the flyout use
+  the same shade, so the colour you pick is the colour you see. Tests hold every preset to measured contrast
+  and keep them distinct. Colours saved by 0.1.x map to the preset of the same hue (clay stays orange).
+- Windows: the tray bars sit on a neutral track; a track tinted with the account colour made orange read
+  as red.
+- Windows: the colour picker in Settings lists the presets by name with a swatch.
+
+## [Windows 0.1.1] - 2026-10-26
+
+### Changed
+- Windows: tray icons show only an account's bars, or its session and weekly percentages as two numbers,
+  in the account's colour; colour tells the accounts apart (decision 17). The tag badge is gone.
+- Windows: one account by default (Personal, on the Claude Code login). Others are added in Settings, so no
+  account appears without a sign-in behind it. Settings saved by 0.1.0 drop the untouched default Work
+  account.
+- Windows: `--fixtures` adds a Work test account that is never saved, instead of switching a saved account.
+- Windows: the one-at-a-time flyout hides the account tabs when there is only one account.
+
+## [Windows 0.1.0] - 2026-10-26
+
+The first Windows version, in `windows/` (C# on .NET 10 with WPF). Tags for it are `windows-vX.Y.Z`.
+
+### Added
+- Windows: notification-area icons, one per account by default (a tag badge over the account's bars or
+  session percentage) or a single icon (bars, percentage or the spark), drawn at the real pixel size,
+  white on a dark taskbar and black on a light one; tooltips with each limit and its reset.
+- Windows: a flyout with both layouts (both accounts, the default, or one at a time with the 30-day chart)
+  on Windows 11 acrylic, anchored above the tray; a right-click menu with Refresh Now, Settings…, About and
+  Quit.
+- Windows: Settings with General, Accounts and About, as on the Mac: tray style and icons, limits, layout,
+  refresh interval, launch at login (the per-user Run key, off by default) and currency; account names,
+  tags, colours, sign-in sources, add and remove.
+- Windows: the Claude Code source (`.credentials.json`), the Claude app source (DPAPI and AES-256-GCM,
+  read only after Connect…, with the cookie fallback), the cost estimate from Claude Code logs, exchange
+  rates, persisted fetch state and rate-limit handling, all ported from the macOS core with its tests.
+- Windows: parity tests that reproduce the macOS answer sheet from a fixtures folder, a fixture source
+  (`--fixtures`) for testing the Work account without a work sign-in, demo mode (`--demo`), and
+  `install.ps1` / `uninstall.ps1`.
 
 ## [0.2.0] - 2026-10-26
 

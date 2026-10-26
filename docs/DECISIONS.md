@@ -122,3 +122,16 @@ Settings say so. The dropdown, menu bar and Settings work at any count. Several 
 (more Claude Code config folders, several browser sessions) are a separate change.
 **Consequence.** Saved settings load exactly as they are; no migration adds, removes or renames
 accounts. The detection rules are in [DATA-SOURCES.md](DATA-SOURCES.md#first-run-detection).
+
+## 17. Account colours in the Windows tray
+
+**Context.** A Windows tray icon is one small square (20 px at 125% scaling). The Mac label's tag letters
+don't fit beside the bars, and a tag badge over the bars wasn't readable at that size.
+**Decision.** On Windows, each account's tray icon shows only its bars, or its session and weekly
+percentages as numbers, drawn in that account's colour. The colour tells the accounts apart, as other tray
+apps do. Usage still never changes a colour: decision 4's rule for usage stands, and the macOS menu bar stays
+monochrome. The maintainer's call, 2026-10-26.
+**Consequence.** Account colours have to read on both a dark and a light taskbar, so they are ten presets
+rather than a free choice: each has a shade for dark surfaces, one for light ones and a badge shade, used
+the same in the tray and the flyout. Tests hold every preset to measured contrast (at least 6.8:1 on the
+dark taskbar, 4.5:1 elsewhere) and keep any two clearly apart. The Icon only spark stays monochrome.

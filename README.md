@@ -29,7 +29,7 @@ The screenshots come from the macOS app in demo mode, so every number and name i
 | Platform | Status | Folder | Details |
 |---|---|---|---|
 | macOS 26 or later, Apple silicon | Available (0.2.0) | `macos/` | [macos/README.md](macos/README.md) |
-| Windows | Planned | `windows/` (not started) | [docs/PORTING.md](docs/PORTING.md) |
+| Windows 11 | Available (0.1.0) | `windows/` | [windows/README.md](windows/README.md) |
 
 The macOS app is the reference implementation. Every platform follows the same data contract
 ([docs/DATA-SOURCES.md](docs/DATA-SOURCES.md)) and product spec ([docs/SPEC.md](docs/SPEC.md)).
@@ -67,14 +67,20 @@ Claude desktop app. To add a Safari session, or change anything, open the menu b
 
 ### Windows
 
-Not available yet. The port will live in `windows/`; start from [docs/PORTING.md](docs/PORTING.md).
+```powershell
+bash scripts/setup-dev.sh                                              # in Git Bash: git hooks and config/local.env
+powershell -ExecutionPolicy Bypass -File windows\scripts\install.ps1   # tests, build, install, start
+```
+
+Windows 11 puts new tray icons in the overflow (`^`): drag Usage Bar's icons onto the taskbar. Then
+open **Settings… > Accounts** from the flyout. Details and screenshots: [windows/README.md](windows/README.md).
 
 ## Using it with friends
 
 - Each person needs their own Claude account (a Pro or Max plan shows the most limits). Usage Bar
   shows the accounts signed in on that computer; it can't see anyone else's.
 - Each account picks its own sign-in source: the Claude Code login, the Claude desktop app login, or
-  a claude.ai browser session (Safari on macOS).
+  a claude.ai browser session (Safari on macOS; Windows has no browser source yet).
 - No data leaves the computer except requests to Anthropic for usage and profile, and one daily
   exchange-rate request when costs show in a currency other than US dollars. The full list is in
   [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md).
@@ -83,6 +89,7 @@ Not available yet. The port will live in `windows/`; start from [docs/PORTING.md
 
 ```
 macos/             The macOS app: Swift package (Sources/, Tests/), VERSION, scripts/, README.md
+windows/           The Windows app: .NET solution (src/, tests/), VERSION, scripts/, README.md
 docs/              Shared docs: data sources (the cross-platform contract), spec, decisions, porting,
                    devlog, screenshots; docs/macos/ holds the macOS architecture and development notes
 design/            Shared design assets: icon/ (app icon), spark/ (the tray/menu bar spark as SVG),
@@ -98,7 +105,8 @@ config/            local.env.example (copy to local.env, which git ignores)
 - [docs/DATA-SOURCES.md](docs/DATA-SOURCES.md): sign-in sources, endpoints, response shapes, log
   format, prices.
 - [docs/SPEC.md](docs/SPEC.md): the product spec.
-- [docs/PORTING.md](docs/PORTING.md): starting brief for the Windows port.
+- [docs/PORTING.md](docs/PORTING.md): the Windows port's brief, with what was verified on Windows.
+- [windows/README.md](windows/README.md): installing, using and developing the Windows app.
 - [docs/DECISIONS.md](docs/DECISIONS.md): why things are the way they are.
 - [docs/macos/ARCHITECTURE.md](docs/macos/ARCHITECTURE.md) and
   [docs/macos/DEVELOPMENT.md](docs/macos/DEVELOPMENT.md): the macOS app's internals and workflow.

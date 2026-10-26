@@ -34,7 +34,8 @@ and assets stay outside the platform folders.
   sign-in flow of its own.
 - **Data only from Anthropic** (the API and claude.ai), plus the exchange-rate API when costs aren't
   in US dollars. Nothing from CodexBar: no code, data or files (decision 1).
-- **Monochrome menu bar / tray icon.** Usage never changes its colour (decision 4).
+- **Monochrome menu bar / tray icon.** Usage never changes its colour (decision 4). On Windows the tray
+  icons use each account's colour to tell the accounts apart (decision 17).
 - **Bars** is the default label style; **dropdown A** (all accounts) is the default layout.
 - **One or more accounts, up to one per sign-in source.** A first run adds only the sign-ins it finds
   (none is a valid state); saved settings are never given, or stripped of, accounts (decision 16).

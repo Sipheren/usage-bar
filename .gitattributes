@@ -2,3 +2,7 @@
 *.sh text eol=lf
 .githooks/* text eol=lf
 config/local.env.example text eol=lf
+
+# Binary assets: never touch their bytes (Windows checkouts use core.autocrlf).
+*.png binary
+*.ico binary
