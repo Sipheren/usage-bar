@@ -48,8 +48,9 @@ public class SettingsRobustnessTests
     {
         Assert.Equal(new[] { "P" }, AppSettings.FromJson("{}")!.Accounts.Select(a => a.Tag));
         Assert.Empty(AppSettings.FromJson("""{"accounts":[]}""")!.Accounts);
-        // A list it can't read at all (not an array) also falls back, as no account in it could be kept.
-        Assert.Equal(new[] { "P" }, AppSettings.FromJson("""{"accounts":7}""")!.Accounts.Select(a => a.Tag));
+        // Present but not a list, or null: no accounts (Claude Code may not even be signed in), never a made-up Personal.
+        Assert.Empty(AppSettings.FromJson("""{"accounts":7}""")!.Accounts);
+        Assert.Empty(AppSettings.FromJson("""{"accounts":null}""")!.Accounts);
     }
 }
 

@@ -192,6 +192,7 @@ internal sealed class TrayController : IDisposable
         }
         else if (msg == Native.WM_SETTINGCHANGE && Marshal.PtrToStringUni(lParam) == "ImmersiveColorSet")
         {
+            Log.Info("theme: " + (Theme.AppsDark ? "dark" : "light") + " apps, " + (Theme.TaskbarDark ? "dark" : "light") + " taskbar");
             Theme.Apply();
             Update();
             ThemeChanged?.Invoke();

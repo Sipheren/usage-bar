@@ -217,7 +217,13 @@ public sealed class AppSettings
             // Any saved list, an empty one included, is kept, each account on its own: one this build can't read
             // is set aside and written back, never allowed to take the others with it. Every Windows version
             // saved its accounts, so only a file without a list falls back to the account all of them started with.
-            if (r.TryGetProperty("accounts", out var list) && list.ValueKind == JsonValueKind.Array)
+            if (!r.TryGetProperty("accounts", out var list)) s.Accounts = new() { Account.DefaultPersonal() };
+            else if (list.ValueKind != JsonValueKind.Array)
+            {
+                // Not a list: no account to show, but keep the value for whatever wrote it.
+                if (list.ValueKind != JsonValueKind.Null) s.UnreadAccounts.Add(list.GetRawText());
+            }
+            else
             {
                 foreach (var e in list.EnumerateArray())
                 {
@@ -227,7 +233,6 @@ public sealed class AppSettings
                     else if (s.Accounts.All(x => x.Id != a.Id)) s.Accounts.Add(a);   // a duplicated id is dropped
                 }
             }
-            else s.Accounts = new() { Account.DefaultPersonal() };
             if (Get<LabelStyle?>("labelStyle") is { } ls) s.LabelStyle = ls;
             if (Get<TrayIconMode?>("trayIcons") is { } ti) s.TrayIcons = ti;
             if (Get<bool?>("showSession") is { } ss) s.ShowSession = ss;
