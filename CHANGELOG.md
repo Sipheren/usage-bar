@@ -59,8 +59,9 @@ Fixes from the Mac-side review of 0.1.4 (all edge cases).
   back unchanged, and the others load with their ids. Only a file without an account list falls back to
   Personal. A `settings.json` that isn't JSON at all is copied to `settings.unreadable.json` before the
   fresh start replaces it.
-- Windows: reading Claude Code's and the Claude app's files no longer blocks them from rewriting, renaming
-  or deleting those files.
+- Windows: reading Claude Code's and the Claude app's files no longer blocks them from rewriting those
+  files in place, moving them or deleting them. Saving by renaming a new file over one being read still
+  waits for the read, which Windows doesn't let a reader prevent; reads take microseconds.
 - Windows: a login file that can't be read (locked, path too long) or holds an out-of-range expiry shows
   "Couldn't read the Claude Code login" instead of silently doing nothing; any other fetch failure shows
   "Couldn't check this account". A huge Retry-After is capped at a day. One account's cost logs failing no
