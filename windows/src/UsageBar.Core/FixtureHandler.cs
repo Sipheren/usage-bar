@@ -86,6 +86,6 @@ public sealed class FixtureHandler(string dir, Func<DateTimeOffset>? clock = nul
             }
         }
         Walk(node);
-        return node.ToJsonString(new JsonSerializerOptions { WriteIndented = false });
+        return node.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
     }
 }

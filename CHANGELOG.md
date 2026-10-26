@@ -14,16 +14,36 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 ### Added
 - macOS: `--export-fixtures` and `--fixtures-expected` debug commands, which write anonymised API fixtures
   and an answer sheet for testing a port without real accounts (local data, never committed).
-- Windows: `windows/` started (version 0.1.0, C# on .NET 10 with WPF). The core logic is ported from the
-  macOS app with its tests: usage decoding, pace, formatting, currency, fetch policy, the tray label model,
-  settings, pricing, the cost scanner and the claude.ai cookie flow. Parity tests reproduce the macOS
-  answer sheet (`expected.json`) when `USAGEBAR_FIXTURES` points at a fixtures folder.
 
 ### Changed
+- Repository (all platforms): `.gitattributes` marks `*.png` and `*.ico` as binary, for Windows checkouts.
+- Docs: `docs/PORTING.md` records what the Windows build verified on a real machine; the README lists the
+  Windows app.
 - Repository (all platforms): reorganised for more than one platform: the macOS app moved to `macos/` (package,
   sources, tests, `VERSION`, build scripts), its architecture and development notes to `docs/macos/`,
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
   root.
+
+## [Windows 0.1.0] - 2026-10-26
+
+The first Windows version, in `windows/` (C# on .NET 10 with WPF). Tags for it are `windows-vX.Y.Z`.
+
+### Added
+- Windows: notification-area icons, one per account by default (a tag badge over the account's bars or
+  session percentage) or a single icon (bars, percentage or the spark), drawn at the real pixel size,
+  white on a dark taskbar and black on a light one; tooltips with each limit and its reset.
+- Windows: a flyout with both layouts (both accounts, the default, or one at a time with the 30-day chart)
+  on Windows 11 acrylic, anchored above the tray; a right-click menu with Refresh Now, Settings…, About and
+  Quit.
+- Windows: Settings with General, Accounts and About, as on the Mac: tray style and icons, limits, layout,
+  refresh interval, launch at login (the per-user Run key, off by default) and currency; account names,
+  tags, colours, sign-in sources, add and remove.
+- Windows: the Claude Code source (`.credentials.json`), the Claude app source (DPAPI and AES-256-GCM,
+  read only after Connect…, with the cookie fallback), the cost estimate from Claude Code logs, exchange
+  rates, persisted fetch state and rate-limit handling, all ported from the macOS core with its tests.
+- Windows: parity tests that reproduce the macOS answer sheet from a fixtures folder, a fixture source
+  (`--fixtures`) for testing the Work account without a work sign-in, demo mode (`--demo`), and
+  `install.ps1` / `uninstall.ps1`.
 
 ## [0.2.0] - 2026-10-26
 

@@ -114,10 +114,14 @@ public partial class SettingsWindow : Window
         UpdateRateRow();
     }
 
-    void Login_Click(object sender, RoutedEventArgs e)
+    void Login_Changed(object sender, RoutedEventArgs e)
     {
+        if (loading) return;
         StartupRegistry.Set(LoginSwitch.IsChecked == true);
+        // Show what the registry really holds, in case the write was refused.
+        loading = true;
         LoginSwitch.IsChecked = StartupRegistry.IsEnabled;
+        loading = false;
     }
 
     /// <summary>The tray icons as they look now, at their real pixel size, on a taskbar-coloured chip.</summary>

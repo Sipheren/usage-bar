@@ -21,19 +21,19 @@
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Name" Style="{StaticResource RowLabel}"/>
                             <TextBox DockPanel.Dock="Right" Width="220" Style="{StaticResource WinTextBox}" VerticalAlignment="Center"
-                                     Text="{Binding Name, UpdateSourceTrigger=LostFocus}" MaxLength="30"/>
+                                     Text="{Binding Name, UpdateSourceTrigger=LostFocus}" MaxLength="30" AutomationProperties.Name="Name"/>
                         </DockPanel>
                         <Border Style="{StaticResource RowSeparator}"/>
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Tag" Style="{StaticResource RowLabel}"/>
                             <TextBox DockPanel.Dock="Right" Width="46" Style="{StaticResource WinTextBox}" VerticalAlignment="Center" TextAlignment="Center"
-                                     Padding="2,0" Text="{Binding Tag, UpdateSourceTrigger=LostFocus}" MaxLength="2"/>
+                                     Padding="2,0" Text="{Binding Tag, UpdateSourceTrigger=LostFocus}" MaxLength="2" AutomationProperties.Name="Tag"/>
                         </DockPanel>
                         <Border Style="{StaticResource RowSeparator}"/>
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Colour" Style="{StaticResource RowLabel}"/>
                             <Grid DockPanel.Dock="Right" VerticalAlignment="Center">
-                                <Button Style="{StaticResource WinButton}" Width="56" Padding="0" Click="Colour_Click" ToolTip="Choose a colour">
+                                <Button Style="{StaticResource WinButton}" Width="56" Padding="0" Click="Colour_Click" ToolTip="Choose a colour" AutomationProperties.Name="Colour">
                                     <Border Width="40" Height="20" CornerRadius="10" Background="{Binding Color}"/>
                                 </Button>
                                 <Popup Placement="Bottom" StaysOpen="False" AllowsTransparency="True" IsOpen="{Binding PaletteOpen, Mode=TwoWay}">
@@ -66,7 +66,7 @@
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Sign-in source" Style="{StaticResource RowLabel}"/>
                             <ComboBox DockPanel.Dock="Right" MinWidth="170" Style="{StaticResource WinCombo}" VerticalAlignment="Center"
-                                      ItemsSource="{Binding SourceOptions}" SelectedIndex="{Binding SourceIndex}"/>
+                                      ItemsSource="{Binding SourceOptions}" SelectedIndex="{Binding SourceIndex}" AutomationProperties.Name="Sign-in source"/>
                         </DockPanel>
                         <Border Style="{StaticResource RowSeparator}"/>
                         <DockPanel Style="{StaticResource Row}">
@@ -86,7 +86,7 @@
                         <Border Style="{StaticResource RowSeparator}"/>
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Show in tray" Style="{StaticResource RowLabel}"/>
-                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" IsChecked="{Binding ShowInTray}"/>
+                            <CheckBox DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" IsChecked="{Binding ShowInTray}" AutomationProperties.Name="Show in tray"/>
                         </DockPanel>
                         <Border Style="{StaticResource RowSeparator}"/>
                         <DockPanel Style="{StaticResource Row}" MinHeight="52">
@@ -142,12 +142,12 @@
                         <StackPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Style" Style="{StaticResource RowLabel}"/>
-                                <ComboBox x:Name="StyleBox" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
+                                <ComboBox x:Name="StyleBox" AutomationProperties.Name="Style" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
                             </DockPanel>
                             <Border Style="{StaticResource RowSeparator}"/>
                             <DockPanel x:Name="IconsRow" Style="{StaticResource Row}">
                                 <TextBlock Text="Icons" Style="{StaticResource RowLabel}"/>
-                                <ComboBox x:Name="IconsBox" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
+                                <ComboBox x:Name="IconsBox" AutomationProperties.Name="Icons" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
                             </DockPanel>
                             <Border Style="{StaticResource RowSeparator}"/>
                             <DockPanel Style="{StaticResource Row}">
@@ -167,17 +167,17 @@
                             <Border Style="{StaticResource RowSeparator}"/>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="5-hour session" Style="{StaticResource RowLabel}"/>
-                                <CheckBox x:Name="SessionSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="General_Changed"/>
+                                <CheckBox x:Name="SessionSwitch" AutomationProperties.Name="5-hour session" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Checked="General_Changed" Unchecked="General_Changed"/>
                             </DockPanel>
                             <Border Style="{StaticResource RowSeparator}"/>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Weekly" Style="{StaticResource RowLabel}"/>
-                                <CheckBox x:Name="WeeklySwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="General_Changed"/>
+                                <CheckBox x:Name="WeeklySwitch" AutomationProperties.Name="Weekly" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Checked="General_Changed" Unchecked="General_Changed"/>
                             </DockPanel>
                             <Border Style="{StaticResource RowSeparator}"/>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Model weekly (e.g. Fable)" Style="{StaticResource RowLabel}"/>
-                                <CheckBox x:Name="ScopedSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="General_Changed"/>
+                                <CheckBox x:Name="ScopedSwitch" AutomationProperties.Name="Model weekly" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Checked="General_Changed" Unchecked="General_Changed"/>
                             </DockPanel>
                         </StackPanel>
                     </Border>
@@ -186,7 +186,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,0,0,24">
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Layout" Style="{StaticResource RowLabel}"/>
-                            <ComboBox x:Name="LayoutBox" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
+                            <ComboBox x:Name="LayoutBox" AutomationProperties.Name="Layout" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
                         </DockPanel>
                     </Border>
 
@@ -194,7 +194,7 @@
                     <Border Style="{StaticResource Card}" Margin="0,0,0,24">
                         <DockPanel Style="{StaticResource Row}">
                             <TextBlock Text="Refresh every" Style="{StaticResource RowLabel}"/>
-                            <ComboBox x:Name="RefreshBox" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
+                            <ComboBox x:Name="RefreshBox" AutomationProperties.Name="Refresh every" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
                         </DockPanel>
                     </Border>
 
@@ -203,12 +203,12 @@
                         <StackPanel>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Launch at login" Style="{StaticResource RowLabel}"/>
-                                <CheckBox x:Name="LoginSwitch" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Login_Click"/>
+                                <CheckBox x:Name="LoginSwitch" AutomationProperties.Name="Launch at login" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Checked="Login_Changed" Unchecked="Login_Changed"/>
                             </DockPanel>
                             <Border Style="{StaticResource RowSeparator}"/>
                             <DockPanel Style="{StaticResource Row}">
                                 <TextBlock Text="Currency" Style="{StaticResource RowLabel}"/>
-                                <ComboBox x:Name="CurrencyBox" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
+                                <ComboBox x:Name="CurrencyBox" AutomationProperties.Name="Currency" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
                             </DockPanel>
                             <Border x:Name="RateSeparator" Style="{StaticResource RowSeparator}"/>
                             <DockPanel x:Name="RateRow" Style="{StaticResource Row}">
