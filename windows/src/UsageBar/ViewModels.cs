@@ -81,7 +81,8 @@ internal sealed class FlyoutVm
     {
         var st = store.State(a);
         var pres = store.Presentation(a);
-        var color = Hex(a.ColorHex);
+        // The same shade as the tray icon on a taskbar of the same theme, so the chosen colour looks the same everywhere.
+        var color = Hex(a.Preset.For(Theme.AppsDark));
         var greyed = pres.GreysValues || store.IsStale(a);
         var limits = st.Snapshot?.Ordered.Select(l =>
         {
@@ -103,7 +104,7 @@ internal sealed class FlyoutVm
             var foot = "Cost and tokens estimated from this PC's Claude Code logs at API rates.";
             if (s.UnpricedModels.Count > 0)
                 foot += $" Unpriced model{(s.UnpricedModels.Count > 1 ? "s" : "")}: {string.Join(", ", s.UnpricedModels)} (counted as {store.Money(0)}).";
-            var barBrush = Hex(a.ColorHex).Clone();
+            var barBrush = Hex(a.Preset.For(Theme.AppsDark)).Clone();
             barBrush.Opacity = 0.8;
             barBrush.Freeze();
             costVm = new CostVm(store.Money(s.TodayUsd), store.Money(s.Last30Usd), Formatters.Tokens(s.TodayTokens),
@@ -113,7 +114,7 @@ internal sealed class FlyoutVm
 
         return new AccountVm
         {
-            Id = a.Id, Tag = a.Tag, Name = a.Name, Badge = Hex(a.BadgeHex),
+            Id = a.Id, Tag = a.Tag, Name = a.Name, Badge = Hex(a.Preset.Badge),
             HeaderNote = pres.HeaderNote,
             CostLine = costLine,
             Issue = pres.InlineIssue is { } issue ? new IssueVm(issue.Message(), issue.Kind == IssueKind.NotConnected) : null,

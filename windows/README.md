@@ -17,6 +17,11 @@ Run every command below from the repository root.
 Tray icons, one per account in its colour (in the overflow panel at 125% scaling, shown at 2×):
 ![Tray icons](../docs/images/windows-tray.png)
 
+The ten account colours, as the app draws them on a dark and a light taskbar (real size and 3×), on the
+tag badge and in the flyout:
+
+![Account colours](../docs/images/windows-colours.png)
+
 The screenshots come from demo mode, so every number and name in them is made up.
 
 ## Requirements
@@ -63,8 +68,9 @@ and names the exact problem when it doesn't.
 - **Settings… > General**: the tray style (Bars, Percentages or Icon only), **Icons** (one per account,
   the default, or a single icon); bars and numbers are drawn in each account's colour, which limits the bars show, the flyout layout, the refresh interval
   (1, 2, 5 or 10 minutes), Launch at login (off by default, the per-user Run key) and the cost currency.
-- **Settings… > Accounts**: rename accounts, set their tag and colour, pick each sign-in source, hide an
-  account from the tray, add or remove accounts.
+- **Settings… > Accounts**: rename accounts, set their tag and colour (one of ten presets that stay readable
+  as small tray icons on dark and light taskbars), pick each sign-in source, hide an account from the tray,
+  add or remove accounts.
 
 Usage only refreshes when it's due: a launch or a flyout open fetches only if the last attempt is a
 full refresh interval old, and a 429 pauses that account until its Retry-After passes.
@@ -106,6 +112,7 @@ Options for running `src\UsageBar\bin\Debug\net10.0-windows\UsageBar.exe`:
 | `--layout one`, `--style bars\|percentages\|icon`, `--icons single` | Demo mode only: screenshot variants. |
 | `--desktop-shape <file>` | Writes the key names and value types of the Claude app's decrypted token cache, never values. |
 | `--write-icon <file>` | Writes the app icon (`.ico`) from `design/icon` and exits. |
+| `--colour-sheet <file>` | Writes a PNG of every colour preset as the tray and flyout draw it, and exits. |
 
 A second launch opens the running copy's flyout. Judge the UI from real screenshots of the running app;
 images for `docs/images` come from demo mode.

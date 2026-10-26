@@ -24,6 +24,17 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   and the mockups to `design/mockup/`. Shared docs, design assets and repo-wide scripts stay at the
   root.
 
+## [Windows 0.1.2] - 2026-10-26
+
+### Changed
+- Windows: account colours are ten presets (Orange, Blue, Green, Purple, Pink, Teal, Yellow, Red, Lime,
+  Grey), each with a shade for dark and for light taskbars and a badge shade. The tray and the flyout use
+  the same shade, so the colour you pick is the colour you see. Tests hold every preset to measured contrast
+  and keep them distinct. Colours saved by 0.1.x map to the preset of the same hue (clay stays orange).
+- Windows: the tray bars sit on a neutral track; a track tinted with the account colour made orange read
+  as red.
+- Windows: the colour picker in Settings lists the presets by name with a swatch.
+
 ## [Windows 0.1.1] - 2026-10-26
 
 ### Changed

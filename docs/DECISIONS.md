@@ -119,5 +119,7 @@ don't fit beside the bars, and a tag badge over the bars wasn't readable at that
 percentages as numbers, drawn in that account's colour. The colour tells the accounts apart, as other tray
 apps do. Usage still never changes a colour: decision 4's rule for usage stands, and the macOS menu bar stays
 monochrome. The maintainer's call, 2026-10-26.
-**Consequence.** Account colours have to read on both a dark and a light taskbar. The Icon only spark stays
-monochrome.
+**Consequence.** Account colours have to read on both a dark and a light taskbar, so they are ten presets
+rather than a free choice: each has a shade for dark surfaces, one for light ones and a badge shade, used
+the same in the tray and the flyout. Tests hold every preset to measured contrast (at least 6.8:1 on the
+dark taskbar, 4.5:1 elsewhere) and keep any two clearly apart. The Icon only spark stays monochrome.

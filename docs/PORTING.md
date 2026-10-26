@@ -86,8 +86,10 @@ The endpoints, headers, response decoding, 429 handling, log rules and prices in
   icon shows the spark from `design/spark/ClaudeSpark.svg`, or bars for the first account in the Bars
   style. The tooltip carries the numbers (`P 20% / 60% · W 45% / 72%`), and the classic tooltip limit
   is 128 characters.
-- **Colour:** each account's icon is drawn in that account's colour (decision 16); the Icon only spark
-  stays monochrome, white on a dark taskbar and black on a light one. The usual signal is `SystemUsesLightTheme` under
+- **Colour:** each account's icon is drawn in that account's colour (decision 16), one of ten presets with a
+  shade for dark and one for light taskbars; the tray and the flyout use the same shade. The Icon only spark
+  stays monochrome, white on a dark taskbar and black on a light one. A tinted bar track made a clay
+  orange read as red at 20 px, so the track is neutral grey. The usual signal is `SystemUsesLightTheme` under
   `HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize` (not a documented API; white on a
   dark taskbar verified on Windows 11, a light taskbar not yet seen live); redraw on `WM_SETTINGCHANGE`
   with `ImmersiveColorSet`.

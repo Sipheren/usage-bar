@@ -57,15 +57,16 @@ internal static class IconRenderer
         : (Math.Max(4, (int)Math.Round(n * 0.25)), Math.Max(2, (int)Math.Round(n * 0.14)));
 
     /// <summary>
-    /// Stacked bars in the account's colour (decision 16): the track is the same colour faded, the fill full strength,
-    /// at least a dot above 0. The colour says which account; usage never changes it.
+    /// Stacked bars in the account's colour (decision 16) on a neutral track, so the fill shows the chosen colour
+    /// itself (a faded track of the same colour made orange read as red). At least a dot above 0. The colour says
+    /// which account; usage never changes it.
     /// </summary>
     public static void DrawBars(DrawingContext dc, int n, IReadOnlyList<int> values, Color colour, bool dark)
     {
         var vals = values.Count > 0 ? values : new[] { 0, 0 };
         var (h, gap) = BarMetrics(n, vals.Count);
         var y = (n - (vals.Count * h + (vals.Count - 1) * gap)) / 2;
-        var track = Solid(colour, dark ? 0.38 : 0.32);
+        var track = Solid(dark ? Colors.White : Colors.Black, dark ? 0.28 : 0.22);
         var fill = Solid(colour, 1);
         var w = n - 2;
         foreach (var v in vals)

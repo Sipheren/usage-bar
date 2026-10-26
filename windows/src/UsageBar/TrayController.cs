@@ -79,7 +79,7 @@ internal sealed class TrayController : IDisposable
             {
                 var a = shown[i];
                 var item = model.Accounts[i];
-                var colour = Colour(a.ColorHex, fg);
+                var colour = Colour(a.Preset.For(dark), fg);
                 plan.Add(new TrayIconPlan(IconId(a.Id), Draw(n, item.Stale, dc => DrawFor(dc, item.Values, colour, item.Missing)),
                                           TrayModel.AccountTooltip(a.Name, store.State(a).Snapshot, now), a.Id));
             }
@@ -88,7 +88,7 @@ internal sealed class TrayController : IDisposable
         var first = model.Accounts.FirstOrDefault();
         var firstAccount = shown.FirstOrDefault();
         var image = s.LabelStyle != LabelStyle.IconOnly && first is not null && firstAccount is not null
-            ? Draw(n, first.Stale, dc => DrawFor(dc, first.Values, Colour(firstAccount.ColorHex, fg), first.Missing))
+            ? Draw(n, first.Stale, dc => DrawFor(dc, first.Values, Colour(firstAccount.Preset.For(dark), fg), first.Missing))
             : Draw(n, false, dc => IconRenderer.DrawSpark(dc, n, fg));
         plan.Add(new TrayIconPlan(SingleId, image, model.Accounts.Count == 0 ? "Usage Bar" : model.SingleTooltip(), null));
         return plan;

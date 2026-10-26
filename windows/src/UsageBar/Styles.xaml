@@ -229,7 +229,7 @@
                                IsOpen="{TemplateBinding IsDropDownOpen}" MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}">
                             <Border Margin="8,4,8,12" CornerRadius="8" Background="{DynamicResource CardFill}" BorderBrush="{DynamicResource ControlBorder}" BorderThickness="1" Padding="0,2">
                                 <Border.Effect><DropShadowEffect BlurRadius="12" ShadowDepth="3" Opacity="0.3"/></Border.Effect>
-                                <ScrollViewer MaxHeight="320" VerticalScrollBarVisibility="Auto">
+                                <ScrollViewer MaxHeight="480" VerticalScrollBarVisibility="Auto">
                                     <ItemsPresenter/>
                                 </ScrollViewer>
                             </Border>

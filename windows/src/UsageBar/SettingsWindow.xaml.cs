@@ -141,30 +141,6 @@ public partial class SettingsWindow : Window
         AccountsList.ItemsSource = store.Settings.Accounts.Select(a => new AccountEditVm(store, a.Id)).ToList();
     }
 
-    void Colour_Click(object sender, RoutedEventArgs e)
-    {
-        if ((sender as FrameworkElement)?.DataContext is AccountEditVm vm) vm.PaletteOpen = true;
-    }
-
-    void Swatch_Click(object sender, RoutedEventArgs e)
-    {
-        if (sender is FrameworkElement { Tag: string hex } el && FindParentVm(el) is { } vm)
-        {
-            vm.ColorHex = hex;
-            vm.PaletteOpen = false;
-        }
-    }
-
-    static AccountEditVm? FindParentVm(DependencyObject d)
-    {
-        while (d is not null)
-        {
-            if (d is FrameworkElement { DataContext: AccountEditVm vm }) return vm;
-            d = VisualTreeHelper.GetParent(d) ?? LogicalTreeHelper.GetParent(d);
-        }
-        return null;
-    }
-
     void Connect_Click(object sender, RoutedEventArgs e) => store.ConnectDesktop();
 
     void Remove_Click(object sender, RoutedEventArgs e)
@@ -194,7 +170,9 @@ public partial class SettingsWindow : Window
         var account = new Account
         {
             Name = source.Kind == SourceKind.ClaudeCode ? "Claude Code" : "Claude app", Tag = tag,
-            ColorHex = AccountEditVm.Swatches[store.Settings.Accounts.Count % AccountEditVm.Swatches.Length], Source = source,
+            // The first preset no other account uses, so a new account is told apart straight away.
+            Colour = (AccountColours.All.FirstOrDefault(p => store.Settings.Accounts.All(a => a.Colour != p.Id)) ?? AccountColours.All[0]).Id,
+            Source = source,
             LogsDir = source.Kind == SourceKind.ClaudeCode ? Path.Combine(source.Dir ?? Paths.DefaultClaudeConfigDir, "projects") : null,
         };
         store.UpdateSettings(s => s.Accounts.Add(account));
@@ -227,18 +205,15 @@ public partial class SettingsWindow : Window
     }
 }
 
-internal sealed record Swatch(string Hex, Brush Brush);
+internal sealed record PresetItem(string Name, Brush Brush);
 
 internal sealed record PreviewIcon(ImageSource Image, double Size);
 
 /// <summary>One account's card in Settings > Accounts. Every edit is saved straight away, as on the Mac.</summary>
 internal sealed class AccountEditVm : INotifyPropertyChanged
 {
-    public static readonly string[] Swatches = { "#D97757", "#3E7CC4", "#4C9A6A", "#8A6FD1", "#C9A227", "#D1607A", "#3BA3A3", "#7A7A7A" };
-
     readonly AppStore store;
     public Guid Id { get; }
-    bool paletteOpen;
 
     public AccountEditVm(AppStore store, Guid id)
     {
@@ -257,7 +232,6 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
         });
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Badge)));
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Color)));
     }
 
     public string Name
@@ -272,21 +246,20 @@ internal sealed class AccountEditVm : INotifyPropertyChanged
         set { if (!string.IsNullOrWhiteSpace(value) && value != A.Tag) Update(a => a with { Tag = value.Trim().ToUpperInvariant() }); }
     }
 
-    public string ColorHex
+    /// <summary>The ten presets, each shown in the shade the tray and flyout use with the current theme.</summary>
+    public List<PresetItem> Presets => AccountColours.All.Select(p => new PresetItem(p.Name, Brush(p.For(Theme.AppsDark)))).ToList();
+
+    public int ColourIndex
     {
-        get => A.ColorHex;
-        set { if (value != A.ColorHex) Update(a => a with { ColorHex = value }); }
+        get => AccountColours.All.ToList().FindIndex(p => p.Id == A.Preset.Id);
+        set
+        {
+            if (value < 0 || value >= AccountColours.All.Count || AccountColours.All[value].Id == A.Colour) return;
+            Update(a => a with { Colour = AccountColours.All[value].Id });
+        }
     }
 
-    public Brush Badge => Brush(A.BadgeHex);
-    public Brush Color => Brush(A.ColorHex);
-    public List<Swatch> Palette => Swatches.Select(h => new Swatch(h, Brush(h))).ToList();
-
-    public bool PaletteOpen
-    {
-        get => paletteOpen;
-        set { paletteOpen = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(PaletteOpen))); }
-    }
+    public Brush Badge => Brush(A.Preset.Badge);
 
     public bool ShowInTray
     {

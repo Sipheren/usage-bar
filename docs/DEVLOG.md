@@ -4,6 +4,9 @@
 
 ## 2026-10-26 (Windows)
 
+- 0.1.2: account colours became ten tested presets after the maintainer saw orange render as red in the
+  tray. Each preset's dark and light shades were picked by measured contrast and checked on a rendered
+  sheet (`--colour-sheet`), on the real taskbar and in the flyout with lossless captures.
 - 0.1.1: the maintainer's calls after using it. Tray icons are just bars or numbers in the account's
   colour (decision 16), checked at 8× in the overflow and on the taskbar. One account by default: an
   account appears only when there is a sign-in behind it; the fixtures add a test account that's never

@@ -35,6 +35,13 @@ public partial class App : Application
             return;
         }
 
+        if (Arg("--colour-sheet") is { } sheetPath)
+        {
+            ColourSheet.Write(sheetPath);
+            Shutdown();
+            return;
+        }
+
         if (Arg("--desktop-shape") is { } shapePath)
         {
             // Key names and value types of the Claude app's decrypted token cache, never values.

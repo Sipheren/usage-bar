@@ -55,35 +55,29 @@ public sealed record Account
     public Guid Id { get; init; } = Guid.NewGuid();
     public string Name { get; init; } = "Account";
     public string Tag { get; init; } = "A";
-    /// <summary>Bar colour as <c>#RRGGBB</c>.</summary>
-    public string ColorHex { get; init; } = ClayHex;
+    /// <summary>The account's colour preset (<see cref="AccountColours"/>), used in the tray and the flyout alike.</summary>
+    public string Colour { get; init; } = "orange";
+    /// <summary>0.1.x saved a free-form colour; it's read once, mapped to the nearest preset and not written again.</summary>
+    [JsonPropertyName("colorHex")]
+    public string? LegacyColorHex { get; init; }
     public bool ShowInTray { get; init; } = true;
     public AccountSource Source { get; init; } = AccountSource.ClaudeCode();
     /// <summary>Claude Code projects folder for the cost estimate; null means no cost figures.</summary>
     public string? LogsDir { get; init; }
 
-    public const string ClayHex = "#D97757";
-    public const string BlueHex = "#3E7CC4";
-
     public static Account DefaultPersonal() => new()
     {
-        Name = "Personal", Tag = "P", ColorHex = ClayHex, Source = AccountSource.ClaudeCode(),
+        Name = "Personal", Tag = "P", Colour = "orange", Source = AccountSource.ClaudeCode(),
         LogsDir = Path.Combine(Paths.DefaultClaudeConfigDir, "projects"),
     };
 
     public static Account DefaultWork() => new()
     {
-        Name = "Work", Tag = "W", ColorHex = BlueHex, Source = AccountSource.ClaudeDesktop,
+        Name = "Work", Tag = "W", Colour = "blue", Source = AccountSource.ClaudeDesktop,
     };
 
-    /// <summary>Badge colour: the mockup's darker pair for the two defaults, otherwise the bar colour darkened.</summary>
     [JsonIgnore]
-    public string BadgeHex => ColorHex.ToUpperInvariant() switch
-    {
-        ClayHex => "#B4532F",
-        BlueHex => "#2563A8",
-        _ => Rgb.TryParse(ColorHex, out var r, out var g, out var b) ? Rgb.Hex(r * 0.8, g * 0.8, b * 0.8) : ColorHex,
-    };
+    public ColourPreset Preset => AccountColours.Get(Colour);
 }
 
 public static class Rgb
@@ -152,8 +146,7 @@ public sealed class AppSettings
         if (DefaultsVersion >= CurrentDefaultsVersion) return false;
         var work = Account.DefaultWork();
         if (!DesktopConnected)
-            Accounts.RemoveAll(a => a.Source.Kind == SourceKind.ClaudeDesktop && a.Name == work.Name && a.Tag == work.Tag
-                                    && string.Equals(a.ColorHex, work.ColorHex, StringComparison.OrdinalIgnoreCase));
+            Accounts.RemoveAll(a => a.Source.Kind == SourceKind.ClaudeDesktop && a.Name == work.Name && a.Tag == work.Tag && a.Colour == work.Colour);
         if (Accounts.Count == 0) Accounts.Add(Account.DefaultPersonal());
         DefaultsVersion = CurrentDefaultsVersion;
         return true;
@@ -175,7 +168,11 @@ public sealed class AppSettings
                 try { return v.Deserialize<T>(AppJson.Options); }
                 catch (Exception e) when (e is JsonException or NotSupportedException or InvalidOperationException) { return default; }
             }
-            if (Get<List<Account>>("accounts") is { Count: > 0 } accounts) s.Accounts = accounts;
+            if (Get<List<Account>>("accounts") is { Count: > 0 } accounts)
+                // 0.1.x colours were free-form hex: keep the nearest preset.
+                s.Accounts = accounts.Select(a => a.LegacyColorHex is { } hex
+                    ? a with { Colour = AccountColours.Nearest(hex).Id, LegacyColorHex = null }
+                    : a with { Colour = AccountColours.Get(a.Colour).Id }).ToList();
             if (Get<LabelStyle?>("labelStyle") is { } ls) s.LabelStyle = ls;
             if (Get<TrayIconMode?>("trayIcons") is { } ti) s.TrayIcons = ti;
             if (Get<bool?>("showSession") is { } ss) s.ShowSession = ss;

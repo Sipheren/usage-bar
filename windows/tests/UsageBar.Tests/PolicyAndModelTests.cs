@@ -244,7 +244,7 @@ public class SettingsTests
         // One account unless the user adds more: no Work account appears without work details.
         Assert.Equal(new[] { "P" }, s.Accounts.Select(a => a.Tag));
         Assert.Equal(SourceKind.ClaudeCode, s.Accounts[0].Source.Kind);
-        Assert.Equal("#D97757", s.Accounts[0].ColorHex);
+        Assert.Equal("orange", s.Accounts[0].Colour);
     }
 
     const string OldDefaults = """
@@ -305,15 +305,6 @@ public class SettingsTests
         Assert.Equal("Job", back.Accounts[1].Name);
         Assert.False(back.Accounts[1].ShowInTray);
         Assert.Equal(s.Accounts[1].Id, back.Accounts[1].Id);
-    }
-
-    [Fact]
-    public void BadgeColours()
-    {
-        Assert.Equal("#B4532F", new Account { ColorHex = "#D97757" }.BadgeHex);
-        Assert.Equal("#2563A8", new Account { ColorHex = "#3e7cc4" }.BadgeHex);
-        Assert.Equal("#CCCCCC", new Account { ColorHex = "#FFFFFF" }.BadgeHex);
-        Assert.Equal("nope", new Account { ColorHex = "nope" }.BadgeHex);
     }
 
     [Fact]
