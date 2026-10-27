@@ -48,20 +48,63 @@ public sealed record AccountIssue(IssueKind Kind, string? Text = null, int Code 
 public enum FetchTrigger { Launch, Timer, MenuOpen, Manual }
 
 /// <summary>
-/// When an account may call its usage endpoint. Every call costs rate-limit budget, so: nothing fetches inside a
-/// Retry-After window; a launch or a flyout open fetches only when the last attempt is at least one refresh interval
-/// old; the timer and Refresh Now always may.
+/// When an account may call its usage endpoint (decision 18). Every call costs rate-limit budget, and the OAuth usage
+/// endpoint (Claude Code, and the Claude app's token route) allows only about 5 requests every few minutes, shared with
+/// Claude Code's own /usage. claude.ai's cookie endpoint has its own allowance. So:
+/// <list type="bullet">
+/// <item>nothing fetches inside a Retry-After window;</item>
+/// <item>Refresh Now always may;</item>
+/// <item>the timer fetches once the account's background interval has passed, less 30 s of slack for the 60 s tick
+/// (the setting; at least 5 minutes for a sign-in on the OAuth endpoint);</item>
+/// <item>a launch fetches only when the last attempt is a full background interval old;</item>
+/// <item>opening the flyout fetches when the last attempt is 2 minutes old, or the interval if that is shorter.</item>
+/// </list>
 /// </summary>
 public static class FetchPolicy
 {
+    /// <summary>How often the poll timer looks for accounts that are due.</summary>
+    public static readonly TimeSpan Tick = TimeSpan.FromSeconds(60);
+    /// <summary>The timer counts an account due this early, so tick jitter doesn't push the 2-minute setting to 3.</summary>
+    public const double TimerSlack = 30;
+    /// <summary>Opening the flyout refreshes numbers this old, even when the background interval is longer.</summary>
+    public const double MenuOpenAge = 120;
+    /// <summary>The shortest background interval for a sign-in on the OAuth usage endpoint.</summary>
+    public const double TokenMinimumInterval = 300;
+    /// <summary>The wait after a 429 with no usable Retry-After. Anthropic often sends <c>Retry-After: 0</c>.</summary>
+    public const double DefaultRateLimitWait = 300;
+    /// <summary>The longest Retry-After honoured.</summary>
+    public const double MaxRateLimitWait = 3600;
+
+    /// <summary>How long to wait after a 429: Retry-After up to an hour, or 5 minutes when it is missing or 0.</summary>
+    public static double RateLimitWait(double? retryAfter) =>
+        retryAfter is { } ra && ra > 0 ? Math.Min(ra, MaxRateLimitWait) : DefaultRateLimitWait;
+
+    /// <summary>Whether the account calls the OAuth usage endpoint: Claude Code always, the Claude app when its last fetch used the token route.</summary>
+    public static bool IsTokenSource(SourceKind kind, string? lastRoute) => kind switch
+    {
+        SourceKind.ClaudeCode => true,
+        SourceKind.ClaudeDesktop => lastRoute == "token",
+        _ => false,
+    };
+
+    /// <summary>The account's background interval in seconds: the refresh setting (2 minutes if it isn't one of the options), and never under 5 minutes for a token source.</summary>
+    public static double BackgroundInterval(int userMinutes, bool tokenSource)
+    {
+        var interval = (AppSettings.RefreshOptions.Contains(userMinutes) ? userMinutes : 2) * 60.0;
+        return tokenSource ? Math.Max(interval, TokenMinimumInterval) : interval;
+    }
+
     public static bool ShouldFetch(FetchTrigger trigger, DateTimeOffset? lastAttempt, DateTimeOffset? waitUntil,
-                                   double intervalSeconds, DateTimeOffset now)
+                                   double backgroundInterval, DateTimeOffset now)
     {
         if (waitUntil is { } wait && now < wait) return false;
+        if (trigger == FetchTrigger.Manual || lastAttempt is not { } last) return true;
+        var elapsed = (now - last).TotalSeconds;
         return trigger switch
         {
-            FetchTrigger.Timer or FetchTrigger.Manual => true,
-            _ => lastAttempt is not { } last || (now - last).TotalSeconds >= intervalSeconds,
+            FetchTrigger.Timer => elapsed >= backgroundInterval - TimerSlack,
+            FetchTrigger.Launch => elapsed >= backgroundInterval,
+            _ => elapsed >= Math.Min(backgroundInterval, MenuOpenAge),
         };
     }
 }

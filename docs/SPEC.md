@@ -67,8 +67,6 @@ few minutes, shared with Claude Code's own `/usage`. claude.ai's endpoint has it
 - On 429: honour `Retry-After` up to an hour; wait 5 minutes when it is missing or 0. Keep the last
   numbers and show "Paused by rate limit · retrying <time>" in the account header. Show an error only
   when there is no data yet.
-- Windows 0.1.5 doesn't follow these rules yet: it polls every account at the setting, retries straight
-  after `Retry-After: 0`, and tries the Claude app's token before its cookie.
 - Fetch accounts concurrently; timers run in `.common` run-loop mode.
 
 ## Menu bar

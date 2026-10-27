@@ -11,7 +11,26 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 
 ## [Unreleased]
 
+## [Windows 0.1.6] - 2026-10-27
+
+### Fixed
+- Windows: a 429 with `Retry-After: 0` (which Anthropic often sends) now waits 5 minutes instead of
+  retrying straight away. Retry-After is honoured up to an hour (it was a day).
+- Windows: a 429 from claude.ai (the Claude app's cookie) now pauses the account until its Retry-After
+  passes, instead of showing "HTTP 429" and trying again on the next refresh.
+
 ### Changed
+- Windows: Claude Code logins check at most every 5 minutes in the background, whatever the refresh
+  setting (decision 18). A 60-second timer fetches each account once its own interval is due, so changing
+  the setting no longer resets a timer.
+- Windows: the Claude app tries its claude.ai session first and uses its token only when the session
+  doesn't work; on the token it also checks at most every 5 minutes. The cookie is read once per fetch.
+- Windows: opening the flyout checks an account once its last check is 2 minutes old (1 minute for a
+  claude.ai session on the 1-minute setting), whatever the refresh setting.
+- Windows: the Claude app's token route asks for the profile only when it needs the email or has to check
+  the account isn't the personal one, not on every refresh.
+- Windows: Settings > General explains the 5-minute limit under the refresh setting. The log notes each
+  429's Retry-After header and the wait.
 - Windows (tests): the file-sharing control test runs only on Windows, so the Core tests pass on macOS too.
 
 ## [macOS 0.3.1] - 2026-10-27

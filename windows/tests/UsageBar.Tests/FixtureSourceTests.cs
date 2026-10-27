@@ -31,7 +31,12 @@ public class FixtureSourceTests
     {
         Assert.Equal(AccountIssue.NotSignedIn("Fixture sign-in rejected"), (await Fetch("401")).Issue);
         Assert.Equal(AccountIssue.Scope, (await Fetch("403")).Issue);
-        Assert.Equal(AccountIssue.Http(429), (await Fetch("429")).Issue);   // the claude.ai flow, like the Mac, has no 429 pause
+        // The fixture 429 sends Retry-After: 120, and the claude.ai flow pauses for it (decision 18).
+        var before = DateTimeOffset.UtcNow;
+        var limited = await Fetch("429");
+        Assert.Equal(IssueKind.RateLimited, limited.Issue?.Kind);
+        Assert.Equal(120, limited.RetryAfter);
+        Assert.InRange(limited.Issue!.Until!.Value, before.AddSeconds(119), DateTimeOffset.UtcNow.AddSeconds(121));
         Assert.Equal(IssueKind.Cloudflare, (await Fetch("cloudflare")).Issue?.Kind);
     }
 

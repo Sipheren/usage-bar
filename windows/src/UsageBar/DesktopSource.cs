@@ -48,6 +48,24 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
             return report;
         }
 
+        // Cookie first: claude.ai's usage endpoint has its own allowance, while the token route's OAuth endpoint allows
+        // only a few requests, shared with Claude Code (decision 18). The cookie is read once per fetch.
+        AccountIssue? cookieIssue = null;
+        string? sessionKey;
+        try { sessionKey = SessionKeyCookie(); }
+        catch (CredentialException e) { sessionKey = null; Log.Info("desktop: cookie " + e.Error); }
+        if (sessionKey is not null)
+        {
+            report.Route = "cookie";
+            var outcome = await AccountFetcher.ApplyCookieFlowAsync(cookies, new Dictionary<string, string> { ["sessionKey"] = sessionKey },
+                                                                    cli?.OrganizationUuid, report, AccountIssue.ExpiredDesktop,
+                                                                    "the Claude app", "The Claude app", now, ct);
+            if (AccountFetcher.DesktopCookieResultStands(outcome.Kind)) return report;
+            Log.Info($"desktop: cookie {report.Issue?.LogName ?? "noData"}, trying the token");
+            cookieIssue = report.Issue;
+            report.Issue = null;
+        }
+
         var candidates = new List<TokenCandidate>();
         try { candidates = Candidates(config); }
         catch (CredentialException e) { Log.Info("desktop: token cache " + e.Error); }
@@ -76,9 +94,13 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
             await api.CallUsageAsync(chosen.AccessToken, report, AccountIssue.ExpiredDesktop, now, ct);
             if (report.Snapshot is not null)
             {
+                // A trusted pick needs the profile only for a missing email.
                 Profile? profile = null;
-                try { profile = (await api.FetchProfileAsync(chosen.AccessToken, ct)).Profile; }
-                catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { }
+                if (!trusted || report.Email is null)
+                {
+                    try { profile = (await api.FetchProfileAsync(chosen.AccessToken, ct)).Profile; }
+                    catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { }
+                }
                 // A token not matched by uuid could belong to the personal org: check before showing numbers.
                 if (!trusted && cli?.OrganizationUuid is { } po && profile?.OrganizationUuid is { } org
                     && string.Equals(po, org, StringComparison.OrdinalIgnoreCase))
@@ -91,10 +113,11 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
                 report.Email ??= profile?.Email;
                 return report;
             }
-            // Only an unauthorized or scope result falls through to the cookie route.
-            if (report.Issue != AccountIssue.ExpiredDesktop && report.Issue != AccountIssue.Scope) return report;
+            // The token failed too (or there was no cookie): show the token route's issue.
+            return report;
         }
-        await CookieFallbackAsync(cli?.OrganizationUuid, report, ct);
+        // No token to try: show the cookie route's issue (the cookie was already tried above).
+        report.Issue = cookieIssue ?? AccountIssue.NotSignedIn("No Claude app sign-in token found");
         return report;
     }
 
@@ -117,23 +140,6 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
                 && !string.Equals(org, personalOrg, StringComparison.OrdinalIgnoreCase)) notPersonal = c;
         }
         return (notPersonal, false);
-    }
-
-    async Task CookieFallbackAsync(string? personalOrg, FetchReport report, CancellationToken ct)
-    {
-        var previous = report.Issue;
-        string? sessionKey;
-        try { sessionKey = SessionKeyCookie(); }
-        catch (CredentialException) { sessionKey = null; }
-        if (sessionKey is null)
-        {
-            report.Issue = previous ?? AccountIssue.NotSignedIn("No Claude app sign-in token found");
-            return;
-        }
-        report.Route = "cookie";
-        report.Issue = null;
-        await AccountFetcher.ApplyCookieFlowAsync(cookies, new Dictionary<string, string> { ["sessionKey"] = sessionKey }, personalOrg,
-                                                  report, previous ?? AccountIssue.ExpiredDesktop, "the Claude app", "The Claude app", ct);
     }
 
     // MARK: Decryption

@@ -14,6 +14,8 @@ internal sealed class AccountState
     public DateTimeOffset? LastAttempt { get; set; }
     public DateTimeOffset? WaitUntil { get; set; }
     public string? Email { get; set; }
+    /// <summary>The route the last fetch used ("token", "cookie" or "fixture"). A Claude app account on "token" polls no faster than a Claude Code login. Not saved.</summary>
+    public string? LastRoute { get; set; }
     public bool Fetching { get; set; }
 }
 
@@ -43,9 +45,10 @@ internal sealed class AppStore
     readonly AccountFetcher fetcher;
     readonly CostService costService;
     readonly Dispatcher ui;
-    readonly DispatcherTimer refreshTimer;
+    readonly DispatcherTimer pollTimer;
     readonly DispatcherTimer tickTimer;
     DateTimeOffset? lastAnyUpdate;
+    DateTimeOffset? lastLocalRefresh;
 
     static string SettingsPath => Path.Combine(Paths.AppData, "settings.json");
     static string UnreadableSettingsPath => Path.Combine(Paths.AppData, "settings.unreadable.json");
@@ -75,8 +78,9 @@ internal sealed class AppStore
             LoadState();
             LoadRates();
         }
-        refreshTimer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromMinutes(Settings.RefreshMinutes) };
-        refreshTimer.Tick += (_, _) => _ = RefreshAllAsync(FetchTrigger.Timer);
+        // A fixed tick: each account fetches only once its own interval is due (FetchPolicy).
+        pollTimer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = FetchPolicy.Tick };
+        pollTimer.Tick += (_, _) => _ = RefreshAllAsync(FetchTrigger.Timer);
         tickTimer = new DispatcherTimer(DispatcherPriority.Background, ui) { Interval = TimeSpan.FromSeconds(30) };
         tickTimer.Tick += (_, _) => Changed?.Invoke();
     }
@@ -86,7 +90,7 @@ internal sealed class AppStore
     public void Start()
     {
         if (Demo) return;
-        refreshTimer.Start();
+        pollTimer.Start();
         tickTimer.Start();
         _ = RefreshAllAsync(FetchTrigger.Launch);
     }
@@ -125,8 +129,14 @@ internal sealed class AppStore
     {
         if (Demo) return;
         var tasks = Settings.Accounts.Select(a => RefreshAsync(a, trigger)).ToList();
-        tasks.Add(RefreshCostsAsync());
-        tasks.Add(RefreshRatesAsync());
+        // The log scan and the rate check keep the refresh setting's pace; the 60 s tick only looks for due accounts.
+        if (trigger != FetchTrigger.Timer || lastLocalRefresh is not { } last
+            || (Now - last).TotalSeconds >= FetchPolicy.BackgroundInterval(Settings.RefreshMinutes, false) - FetchPolicy.TimerSlack)
+        {
+            lastLocalRefresh = Now;
+            tasks.Add(RefreshCostsAsync());
+            tasks.Add(RefreshRatesAsync());
+        }
         await Task.WhenAll(tasks);
     }
 
@@ -144,7 +154,8 @@ internal sealed class AppStore
         var source = account.Source;
         // Before Connect… the Claude app source reads only its config file and makes no request, so it always runs.
         var localOnly = source.Kind == SourceKind.ClaudeDesktop && !Settings.DesktopConnected;
-        var interval = Settings.RefreshMinutes * 60.0;
+        // The setting, but at least 5 minutes for a sign-in on the OAuth usage endpoint (decision 18).
+        var interval = FetchPolicy.BackgroundInterval(Settings.RefreshMinutes, FetchPolicy.IsTokenSource(source.Kind, st.LastRoute));
         if (!localOnly && !FetchPolicy.ShouldFetch(trigger, st.LastAttempt, st.WaitUntil, interval, Now)) return;
         inFlight.Add(account.Id);
         st.Fetching = true;
@@ -162,7 +173,14 @@ internal sealed class AppStore
                 st.WaitUntil = null;
             }
             st.Issue = report.Issue;
-            if (report.Issue is { Kind: IssueKind.RateLimited, Until: { } until }) st.WaitUntil = until;
+            if (report.Route is not null) st.LastRoute = report.Route;
+            if (report.Issue is { Kind: IssueKind.RateLimited, Until: { } until })
+            {
+                st.WaitUntil = until;
+                var header = report.RetryAfter is { } ra ? $"{ra:0} s" : "none";
+                Log.Info($"fetch {source.Kind}: rate limited (429, Retry-After {header}), waiting {Math.Max(0, (until - Now).TotalSeconds):0} s, " +
+                         $"retrying at {Formatters.ClockTime(until)}");
+            }
             if (report.Email is not null) st.Email = report.Email;
             if (report.DesktopChoice is { } choice) { Settings.DesktopTokenChoice[choice.AccountUuid] = choice.Path; SaveSettings(); }
         }
@@ -236,11 +254,9 @@ internal sealed class AppStore
 
     public void UpdateSettings(Action<AppSettings> change)
     {
-        var oldMinutes = Settings.RefreshMinutes;
         var oldCurrency = Settings.Currency;
         change(Settings);
         SaveSettings();
-        if (oldMinutes != Settings.RefreshMinutes) refreshTimer.Interval = TimeSpan.FromMinutes(Settings.RefreshMinutes);
         if (oldCurrency != Settings.Currency) _ = RefreshRatesAsync();
         Changed?.Invoke();
     }

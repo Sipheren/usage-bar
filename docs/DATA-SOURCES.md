@@ -51,7 +51,6 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
   account" from the cookie stand. A rejected cookie, no organizations, Cloudflare, a scope error or any
   other HTTP error, or no cookie at all, moves on to the token. The cookie is read once per fetch. When
   both fail, the token's problem shows; with no token to try, the cookie's.
-  Windows 0.1.5 still tries the token first and the cookie only after a 401 or scope error.
 - **Choosing the token:** the parser walks the decrypted JSON for objects with an access token and an
   expiry. It prefers one tied to `lastKnownAccountUuid`, then a cached choice (only while unexpired),
   then probes candidates against `/api/oauth/profile` and requires an account uuid match. It accepts a

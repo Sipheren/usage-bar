@@ -53,7 +53,7 @@ Open Usage Bar's flyout, then **Settings… > Accounts**. Each account has a **S
 | Source | What it reads (read-only) | What you do |
 |---|---|---|
 | Claude Code login | `.credentials.json` in Claude Code's config folder (`%USERPROFILE%\.claude`, or `%CLAUDE_CONFIG_DIR%` when set), and its account file `.claude.json` (`%USERPROFILE%\.claude.json`, or inside `%CLAUDE_CONFIG_DIR%`) for the email | Sign in to Claude Code once (`claude`). |
-| Claude app | `%APPDATA%\Claude`: `config.json` (the encrypted token cache), `Local State` (its key, protected by Windows for your user) and, as a fallback, `Network\Cookies` | Click **Connect…**. Before that, each refresh reads only `config.json` (to see whether the app is signed in, and to whom) and Claude Code's `.claude.json`; nothing is decrypted. |
+| Claude app | `%APPDATA%\Claude`: `config.json` (the encrypted token cache), `Local State` (its key, protected by Windows for your user) and `Network\Cookies` (its claude.ai session, tried before the token) | Click **Connect…**. Before that, each refresh reads only `config.json` (to see whether the app is signed in, and to whom) and Claude Code's `.claude.json`; nothing is decrypted. |
 
 The first launch adds an account only for each sign-in it finds, with no prompt and nothing decrypted:
 Personal when Claude Code's `.credentials.json` exists, and a Claude app account when the app's
@@ -77,8 +77,12 @@ and names the exact problem when it doesn't.
   as small tray icons on dark and light taskbars), pick each sign-in source, hide an account from the tray,
   add accounts (one per sign-in source) or remove them.
 
-Usage only refreshes when it's due: a launch or a flyout open fetches only if the last attempt is a
-full refresh interval old, and a 429 pauses that account until its Retry-After passes.
+Usage only refreshes when it's due (decision 18). Claude Code checks at most every 5 minutes in the
+background, whatever the refresh setting, and so does the Claude app when its claude.ai session doesn't
+work: their usage endpoint allows only a few requests, shared with Claude Code's own `/usage`. A
+60-second timer fetches each account once its own interval is due. Opening the flyout checks anything
+last checked over 2 minutes ago; a launch checks only what's a full interval old. A 429 pauses that
+account until its Retry-After passes (at most an hour; 5 minutes when it's missing or 0).
 
 ## Files
 
