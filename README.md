@@ -27,7 +27,7 @@ Windows screenshots are in [windows/README.md](windows/README.md).
 
 | Platform | Status | Folder | Details |
 |---|---|---|---|
-| macOS 26 or later, Apple silicon | Available (0.3.0) | `macos/` | [macos/README.md](macos/README.md) |
+| macOS 26 or later, Apple silicon | Available (0.3.1) | `macos/` | [macos/README.md](macos/README.md) |
 | Windows 11 | Available (0.1.5) | `windows/` | [windows/README.md](windows/README.md) |
 
 The macOS app is the reference implementation. Every platform follows the same data contract

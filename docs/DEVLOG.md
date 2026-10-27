@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-10-27 (macOS 0.3.1)
+
+- The Claude Code account kept hitting 429. Its OAuth usage endpoint allows only about 5 requests every
+  few minutes, shared with Claude Code's own `/usage`, and the app polled every 2 minutes. Anthropic
+  often sends `Retry-After: 0`, which the app read as "no wait": the log showed "retrying at 6:17 pm"
+  written at 18:17. A 429 now waits 5 minutes when Retry-After is missing or 0, and at most an hour.
+- Each account has its own background interval: the setting, but at least 5 minutes on the OAuth
+  endpoint. A 60-second tick fetches whatever is due; opening the menu fetches numbers 2 minutes old.
+  claude.ai's endpoint has its own allowance, so cookie sign-ins keep the setting.
+- The Claude app tries its claude.ai cookie first and its token only when the cookie doesn't work. A
+  claude.ai 429 now pauses the account instead of showing "HTTP 429". The token route asks for the
+  profile only when it needs to.
+- Test-first in `RateLimitTests.swift` (18 new tests). The fetch flows have no stubbed network on macOS,
+  so the cookie-first order is covered only through its decision function, not end to end.
+
 ## 2026-10-26 (macOS 0.3.0)
 
 - Accounts are one or more, up to one per sign-in source; a first run adds only the sign-ins it finds

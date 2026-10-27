@@ -57,8 +57,9 @@ works, and names the exact problem when it doesn't.
 
 - Click the menu bar item for the dropdown. **Refresh Now** (⌘R) fetches immediately.
 - **Settings… > General** sets the menu bar style, which limits it shows, the dropdown layout, the
-  refresh interval (1, 2, 5 or 10 minutes), Launch at login and the cost currency. Extra-usage amounts
-  always stay in the currency your Claude plan bills in.
+  refresh interval (1, 2, 5 or 10 minutes; a Claude Code login checks at most every 5 minutes),
+  Launch at login and the cost currency. Extra-usage amounts always stay in the currency your Claude
+  plan bills in.
 - **Settings… > Accounts** renames accounts, sets their tag and colour, and picks each sign-in source.
 - The pace marker on each bar shows where usage would be if you spread it evenly over the window.
 
@@ -119,8 +120,10 @@ Details: [docs/DATA-SOURCES.md](../docs/DATA-SOURCES.md).
 ## Troubleshooting
 
 **"Paused by rate limit · retrying 6:40 am".** Anthropic answered 429. Usage Bar keeps the last numbers,
-waits for the Retry-After time (5 minutes if none) and tries again. Repeated relaunches and Refresh Now
-clicks cause most 429s; a launch skips any account fetched within the refresh interval.
+waits for the Retry-After time (5 minutes if none or 0, an hour at most) and tries again. The Claude
+Code login's usage endpoint allows only a few requests every few minutes, shared with Claude Code's own
+`/usage`, so Usage Bar checks it at most every 5 minutes in the background. Repeated relaunches and
+Refresh Now clicks cause most other 429s; a launch skips any account that isn't due.
 
 **Safari source still says "Give Usage Bar Full Disk Access" after you granted it.** Quit Usage Bar
 from its menu and open it again. macOS applies the grant on the next launch.

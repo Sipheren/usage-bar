@@ -14,6 +14,27 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 ### Changed
 - Windows (tests): the file-sharing control test runs only on Windows, so the Core tests pass on macOS too.
 
+## [macOS 0.3.1] - 2026-10-27
+
+### Fixed
+- macOS: a 429 with `Retry-After: 0` (which Anthropic often sends) now waits 5 minutes instead of retrying
+  straight away. Retry-After is honoured up to an hour.
+- macOS: a 429 from claude.ai (the Safari session and the Claude app's cookie) now pauses the account
+  until its Retry-After passes, instead of showing "HTTP 429" and trying again on the next refresh.
+
+### Changed
+- macOS: Claude Code logins check at most every 5 minutes in the background, whatever the refresh
+  setting. Their usage endpoint allows only about 5 requests every few minutes, shared with Claude
+  Code's own `/usage`. Safari sessions keep the chosen interval.
+- macOS: the Claude app tries its claude.ai session first (that endpoint has its own allowance) and uses
+  its token only when the session doesn't work. On the token, it also checks at most every 5 minutes.
+- macOS: opening the menu checks an account once its last check is 2 minutes old (1 minute for a
+  claude.ai session on the 1-minute setting), whatever the refresh setting.
+- macOS: the Claude app's token route asks for the profile only when it needs the email or has to
+  check the account isn't the personal one, not on every refresh.
+- macOS: Settings > General explains the 5-minute limit under the refresh setting. The 429 log line
+  shows the Retry-After header and the wait.
+
 ## [macOS 0.3.0] - 2026-10-26
 
 ### Added

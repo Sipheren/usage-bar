@@ -74,6 +74,7 @@ confirms where Safari keeps the live session.
 **Decision.** A launch or menu open fetches only when the last attempt is a full refresh interval old
 (saved to disk). A 429 keeps the last numbers and notes the pause in the header. Nothing fetches inside
 a Retry-After window.
+Decision 18 changes how often each sign-in polls and how a 429 is waited out.
 
 ## 11. One stable signing identity
 
@@ -137,3 +138,23 @@ monochrome. The maintainer's call, 2026-10-26.
 rather than a free choice: each has a shade for dark surfaces, one for light ones and a badge shade, used
 the same in the tray and the flyout. Tests hold every preset to measured contrast (at least 6.8:1 on the
 dark taskbar, 4.5:1 elsewhere) and keep any two clearly apart. The Icon only spark stays monochrome.
+
+## 18. Poll the OAuth usage endpoint sparingly (changes 10)
+
+**Context.** Relaunches, menu opens and debug runs all hit the usage endpoint and caused 429s. The OAuth
+usage endpoint (Claude Code, and the Claude app's token) allows only about 5 requests every few minutes,
+shared with Claude Code's own `/usage`, so a 2-minute poll kept hitting 429. Anthropic often answers
+with `Retry-After: 0`, which the app took as "no wait". claude.ai's usage endpoint (the Safari and
+Claude app cookies) has its own allowance and is fine at 2 minutes.
+**Decision.** Nothing fetches inside a Retry-After window. Retry-After is honoured up to an hour; when
+it is missing or 0 the account waits 5 minutes. A sign-in on the OAuth endpoint polls no faster than
+every 5 minutes, whatever the setting; cookie sign-ins keep the setting. The Claude app tries its
+cookie first and uses its token only when the cookie doesn't work. A 60-second timer fetches each
+account when its own interval is due (less 30 seconds of slack for the tick). Opening the menu fetches
+when the last attempt is 2 minutes old, or the interval if shorter. A launch fetches only when the last
+attempt is a full interval old (saved to disk). A 429 keeps the last numbers and notes the pause in the
+header.
+The maintainer's call, 2026-10-27.
+**Consequence.** In the background, Claude Code numbers can be about 5 minutes old; opening the menu
+refreshes them once they are 2 minutes old. Which route the Claude app last used isn't saved, so after a
+relaunch it counts as a cookie sign-in until its first fetch.

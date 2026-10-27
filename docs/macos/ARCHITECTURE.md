@@ -23,13 +23,13 @@ The app is one SwiftPM package in `macos/` with three targets:
 | `AccountSetup.swift` | `FoundSignIns` and the first-run account list built from it; `DropdownContent` (empty state, stacked, tabs or not) for any number of accounts; the one-account-per-source rule for the Sign-in source picker. |
 | `Usage.swift` | `UsageDecoder` (lenient), `UsageLimit`, `UsageSnapshot`, `ExtraUsage`, `Profile`, ISO-8601 parsing. |
 | `UsageClient.swift` | OAuth usage/profile requests, 429 Retry-After parsing, scope-error detection, exchange rate. |
-| `ClaudeAiCookieClient.swift` | claude.ai organizations + usage with a session cookie; org choice; Cloudflare detection. |
+| `ClaudeAiCookieClient.swift` | claude.ai organizations + usage with a session cookie; org choice; Cloudflare and 429 detection. |
 | `AccountFetcher.swift` | One fetch per account for any source; `AccountIssue` (every failure state and its message). |
 | `Credentials.swift` | Claude Code login via `/usr/bin/security` (and an attributes-only "does the item exist" check); Claude app config, Safe Storage key and cookie store. |
 | `ChromiumCrypto.swift` | Chromium "v10" decryption (PBKDF2 + AES-128-CBC) with strict PKCS7 checks. |
 | `DesktopTokenParser.swift` | Finds access tokens in the Claude app's decrypted token cache; `--dump-desktop-shape`. |
 | `SafariCookieReader.swift` | `Cookies.binarycookies` parser and the Safari file sweep. |
-| `FetchPolicy.swift` | When an account may fetch; how a 429 is presented; the persisted per-account state. |
+| `FetchPolicy.swift` | When an account may fetch and its interval; the 429 wait and how it is presented; the persisted per-account state. |
 | `Pace.swift`, `LimitDisplay.swift` | Pace maths and the text for each limit row. |
 | `Formatters.swift` | Reset times, money, token counts, clock times. |
 | `MenuBarModel.swift` | What the menu bar label shows, as data (rendering lives in the app). |
@@ -73,17 +73,27 @@ The app is one SwiftPM package in `macos/` with three targets:
 
 ## Polling and backoff
 
-- A `.common`-mode timer fetches every refresh interval (1, 2, 5 or 10 minutes; default 2), so it
-  keeps firing while the menu is open.
+- A `.common`-mode timer ticks every 60 seconds, so it keeps firing while the menu is open. Each tick
+  asks every account; each account fetches only when its own interval is due.
+- `FetchPolicy.backgroundInterval` gives each account its interval: the refresh setting (1, 2, 5 or 10
+  minutes; default 2), but at least 5 minutes for a token source. `FetchPolicy.isTokenSource` says which
+  accounts those are: Claude Code always, and the Claude app when `AccountState.lastRoute` is "token".
+  The OAuth usage endpoint allows only about 5 requests every few minutes, shared with Claude Code.
 - `FetchPolicy.shouldFetch` decides every fetch:
   - Nothing fetches inside an account's Retry-After window.
-  - A launch, or opening the menu, fetches an account only when its last attempt is at least one
-    refresh interval old. The last attempt time is saved to disk, so relaunching costs no requests.
-  - The timer and Refresh Now always fetch, outside a Retry-After window.
-- On HTTP 429 the account waits for Retry-After (seconds or an HTTP date), or 5 minutes without one.
-  `AccountPresentation` keeps the last good numbers on screen and puts "Paused by rate limit ·
-  retrying 6:40 am" in the account header. With no data yet, it shows the error instead.
-- Every 429 goes to the log (category `fetch`) with the account tag and the retry time.
+  - Refresh Now always fetches outside that window.
+  - The timer fetches once the interval has passed, less 30 seconds of slack for the tick.
+  - A launch fetches only when the last attempt is a full interval old. The last attempt time is
+    saved to disk, so relaunching costs no requests.
+  - Opening the menu fetches when the last attempt is 2 minutes old, or the interval if shorter.
+- On HTTP 429 (OAuth or claude.ai) the account waits `FetchPolicy.rateLimitWait`: Retry-After (seconds
+  or an HTTP date) up to an hour, or 5 minutes when it is missing or 0. `AccountPresentation` keeps the
+  last good numbers on screen and puts "Paused by rate limit · retrying 6:40 am" in the account header.
+  With no data yet, it shows the error instead.
+- Every 429 goes to the log (category `fetch`) with the account tag, the Retry-After header, the wait
+  and the retry time.
+- The Claude app fetch tries its claude.ai cookie first and its token only when the cookie doesn't
+  work (`AccountFetcher.desktopCookieResultStands`).
 
 ## Cost scanner
 
