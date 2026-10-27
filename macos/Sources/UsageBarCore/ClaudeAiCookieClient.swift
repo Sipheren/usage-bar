@@ -13,13 +13,15 @@ public enum CookieUsageOutcome: Sendable {
     case scopeError
     /// The only organization this session can show is the user's personal org.
     case signedInToPersonal
+    /// HTTP 429 from either request, with its Retry-After (nil when missing).
+    case rateLimited(retryAfter: TimeInterval?)
     case http(Int)
     case undecodable
     case noOrganizations
     case network(String)
 }
 
-/// Fetches claude.ai usage with a browser session cookie (Safari, or the Claude app cookie fallback).
+/// Fetches claude.ai usage with a browser session cookie (Safari's, or the Claude app's).
 /// Read-only: never writes cookies or tokens.
 public struct ClaudeAiCookieClient: Sendable {
     public static let orgsURL = URL(string: "https://claude.ai/api/organizations")!
@@ -75,6 +77,13 @@ public struct ClaudeAiCookieClient: Sendable {
         return false
     }
 
+    /// A Cloudflare challenge, then a 429, ends the flow on either request. Nil for any other response.
+    static func blockedOutcome(_ http: HTTPURLResponse, body: Data, now: Date) -> CookieUsageOutcome? {
+        if isCloudflareChallenge(http, body: body) { return .cloudflare }
+        guard http.statusCode == 429 else { return nil }
+        return .rateLimited(retryAfter: UsageClient.retryAfter(http.value(forHTTPHeaderField: "Retry-After"), now: now))
+    }
+
     private func request(_ url: URL, cookieHeader: String) -> URLRequest {
         var r = URLRequest(url: url)
         r.httpMethod = "GET"
@@ -101,7 +110,9 @@ public struct ClaudeAiCookieClient: Sendable {
         do {
             let (orgData, orgResp) = try await session.data(for: request(ClaudeAiCookieClient.orgsURL, cookieHeader: header))
             guard let orgHTTP = orgResp as? HTTPURLResponse else { return (.http(0), 0) }
-            if ClaudeAiCookieClient.isCloudflareChallenge(orgHTTP, body: orgData) { return (.cloudflare, orgHTTP.statusCode) }
+            if let blocked = ClaudeAiCookieClient.blockedOutcome(orgHTTP, body: orgData, now: Date()) {
+                return (blocked, orgHTTP.statusCode)
+            }
             if orgHTTP.statusCode == 401 || orgHTTP.statusCode == 403 { return (.unauthorized(orgHTTP.statusCode), orgHTTP.statusCode) }
             guard orgHTTP.statusCode == 200 else { return (.http(orgHTTP.statusCode), orgHTTP.statusCode) }
 
@@ -119,7 +130,9 @@ public struct ClaudeAiCookieClient: Sendable {
             }
             let (data, resp) = try await session.data(for: request(usageURL, cookieHeader: header))
             guard let http = resp as? HTTPURLResponse else { return (.http(0), 0) }
-            if ClaudeAiCookieClient.isCloudflareChallenge(http, body: data) { return (.cloudflare, http.statusCode) }
+            if let blocked = ClaudeAiCookieClient.blockedOutcome(http, body: data, now: Date()) {
+                return (blocked, http.statusCode)
+            }
             switch http.statusCode {
             case 200:
                 guard let snap = try? UsageDecoder.decode(data, fetchedAt: Date()) else { return (.undecodable, 200) }

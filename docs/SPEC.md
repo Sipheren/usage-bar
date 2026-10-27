@@ -21,8 +21,8 @@ Sign-in sources (details in [DATA-SOURCES.md](DATA-SOURCES.md)):
 
 1. **Claude Code login.** Reads Claude Code's Keychain item through `/usr/bin/security` on every poll.
    Logs: `~/.claude/projects`.
-2. **Claude app login.** Reads and decrypts the Claude desktop app's saved sign-in, after a one-time
-   Keychain approval for "Claude Safe Storage". Falls back to the app's claude.ai session cookie.
+2. **Claude app login.** After a one-time Keychain approval for "Claude Safe Storage", tries the app's
+   claude.ai session cookie first, then reads and decrypts the app's saved sign-in token.
 3. **Safari session.** Reads the claude.ai session cookie from Safari's cookie files (needs Full Disk
    Access).
 
@@ -54,12 +54,21 @@ unchanged, and no account can be moved onto a source another account already use
 
 ## Polling
 
-- Every refresh interval: 1, 2, 5 or 10 minutes, default 2.
-- A launch or opening the menu fetches an account only when its last attempt is at least one interval
-  old (persisted across launches). Refresh Now always fetches unless the account is inside a
-  Retry-After window.
-- On 429: honour `Retry-After`, else wait 5 minutes; keep the last numbers and show "Paused by rate
-  limit · retrying <time>" in the account header. Show an error only when there is no data yet.
+The OAuth usage endpoint (Claude Code, and the Claude app's token) allows only about 5 requests every
+few minutes, shared with Claude Code's own `/usage`. claude.ai's endpoint has its own allowance.
+
+- Refresh setting: 1, 2, 5 or 10 minutes, default 2. Each account has a background interval: the
+  setting, but at least 5 minutes for Claude Code, and for the Claude app when its last fetch used
+  the token.
+- A 60-second timer fetches each account once its interval has passed, less 30 seconds of slack.
+- A launch fetches an account only when its last attempt is a full interval old (persisted across
+  launches). Opening the menu fetches when the last attempt is 2 minutes old, or the interval if
+  shorter. Refresh Now always fetches unless the account is inside a Retry-After window.
+- On 429: honour `Retry-After` up to an hour; wait 5 minutes when it is missing or 0. Keep the last
+  numbers and show "Paused by rate limit · retrying <time>" in the account header. Show an error only
+  when there is no data yet.
+- Windows 0.1.5 doesn't follow these rules yet: it polls every account at the setting, retries straight
+  after `Retry-After: 0`, and tries the Claude app's token before its cookie.
 - Fetch accounts concurrently; timers run in `.common` run-loop mode.
 
 ## Menu bar
@@ -115,15 +124,15 @@ Per limit:
 A standard toolbar preferences window: General, Accounts, About; fixed width, height fitted per tab;
 title follows the tab; position remembered.
 
-- **General.** Menu bar style with a live preview, metric switches, dropdown layout, refresh interval,
-  Launch at login (off by default), the cost currency (AUD default; USD, EUR, GBP, NZD, CAD, JPY and
+- **General.** Menu bar style with a live preview, metric switches, dropdown layout, refresh interval
+  (with a caption on the 5-minute floor and the 2-minute menu check), Launch at login (off by default), the cost currency (AUD default; USD, EUR, GBP, NZD, CAD, JPY and
   the locale's currency), and, when converting, the exchange rate ("US$1 = A$1.42 · updated 26 Oct").
   JPY shows no decimals. Extra usage stays in the currency the API reports.
 - **Accounts.** One section per account: name, tag, colour, sign-in source, status (green check with
   the email or organization, or the problem with its action button), show in menu bar, Remove
   Account… with confirmation. Add Account at the bottom. With no accounts: "No accounts", a line saying
   no Claude sign-in was found, and Add Account.
-- **About.** Icon, name, version ("Version 0.3.0 (build N · hash)"), build date, signing identity,
+- **About.** Icon, name, version ("Version 0.3.1 (build N · hash)"), build date, signing identity,
   data sources, project folder (the repository root) with Show in Finder, and the authorship and
   licence lines.
 

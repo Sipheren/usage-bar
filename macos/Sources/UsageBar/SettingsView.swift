@@ -204,6 +204,10 @@ struct GeneralTab: View {
                 Picker("Refresh every", selection: $store.settings.refreshMinutes) {
                     ForEach(AppSettings.refreshOptions, id: \.self) { Text("\($0) min").tag($0) }
                 }
+                Text("In the background, Claude Code checks at most every 5 minutes, and so does the Claude app when its claude.ai session doesn't work. Opening the menu checks anything last checked over 2 minutes ago.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             Section("General") {
                 Toggle("Launch at login", isOn: Binding(

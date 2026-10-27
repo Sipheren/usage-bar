@@ -11,8 +11,8 @@ extension DebugCommands {
         let others = NSRunningApplication.runningApplications(withBundleIdentifier: "com.sipheren.usagebar")
             .filter { $0.processIdentifier != me }
         guard others.isEmpty else {
-            print("Usage Bar is running. Quit it first: it polls every refresh interval, so no account is ever due "
-                  + "while it runs, and it would overwrite the saved fetch times this command records.")
+            print("Usage Bar is running. Quit it first: it fetches each account as soon as it is due, "
+                  + "and it would overwrite the saved fetch times this command records.")
             return 1
         }
 
@@ -22,7 +22,6 @@ extension DebugCommands {
             _ = saved.applyMigrations()
             settings = saved
         }
-        let interval = TimeInterval(settings.refreshMinutes * 60)
         let stateURL = Paths.appSupport.appendingPathComponent("state.json")
         var states = (try? Data(contentsOf: stateURL)).flatMap {
             try? JSONDecoder().decode([String: PersistedAccountState].self, from: $0)
@@ -51,8 +50,12 @@ extension DebugCommands {
 
         func due(_ account: Account) -> Bool {
             let st = states[account.id.uuidString]
+            // The export reads the Claude Code login's token and Safari's cookie, never the Claude app.
+            let interval = FetchPolicy.backgroundInterval(
+                userMinutes: settings.refreshMinutes,
+                tokenSource: FetchPolicy.isTokenSource(account.source.kind, lastRoute: nil))
             let ok = FetchPolicy.shouldFetch(.launch, lastAttempt: st?.lastAttempt, waitUntil: st?.waitUntil,
-                                             interval: interval, now: Date())
+                                             backgroundInterval: interval, now: Date())
             if !ok {
                 let next = [st?.waitUntil, st?.lastAttempt.map { $0.addingTimeInterval(interval) }].compactMap { $0 }.max()
                 print("\(account.tag): not due (next allowed \(next.map { Formatters.clockTime($0) } ?? "later")); "
@@ -75,7 +78,7 @@ extension DebugCommands {
                 st.lastSuccess = now
                 st.waitUntil = nil
             } else if r.status == 429 {
-                st.waitUntil = now.addingTimeInterval(UsageClient.retryAfter(r.retryAfter, now: now) ?? 300)
+                st.waitUntil = now.addingTimeInterval(FetchPolicy.rateLimitWait(UsageClient.retryAfter(r.retryAfter, now: now)))
             }
             states[key] = st
         }

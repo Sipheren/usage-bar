@@ -160,12 +160,14 @@ public final class AccountFetcher: @unchecked Sendable {
         let personalOrg = ClaudeCodeAccountInfo.read()?.organizationUuid
         let (outcome, status) = await cookieClient.fetchUsage(cookies: jar, personalOrg: personalOrg)
         report.httpStatus = status
-        applyCookieOutcome(outcome, report: &report,
-                           rejected: .notSignedIn("Safari sign-in rejected — open claude.ai in Safari"))
+        AccountFetcher.applyCookieOutcome(outcome, report: &report,
+                                          rejected: .notSignedIn("Safari sign-in rejected — open claude.ai in Safari"),
+                                          now: Date())
         return report
     }
 
-    private func applyCookieOutcome(_ outcome: CookieUsageOutcome, report: inout FetchReport, rejected: AccountIssue) {
+    static func applyCookieOutcome(_ outcome: CookieUsageOutcome, report: inout FetchReport, rejected: AccountIssue,
+                                   now: Date) {
         switch outcome {
         case .ok(let snap, let org):
             report.snapshot = snap
@@ -183,6 +185,9 @@ public final class AccountFetcher: @unchecked Sendable {
             report.issue = .signedInToPersonal(report.route == "safari" ? "Safari" : "This session")
         case .noOrganizations:
             report.issue = .rejected("No organizations on this claude.ai session")
+        case .rateLimited(let ra):
+            report.retryAfter = ra
+            report.issue = .rateLimited(until: now.addingTimeInterval(FetchPolicy.rateLimitWait(ra)))
         case .http(let code):
             report.issue = .http(code)
         case .undecodable:
@@ -252,6 +257,30 @@ public final class AccountFetcher: @unchecked Sendable {
             return report
         }
 
+        // Cookie first: claude.ai's usage endpoint has its own allowance, while the token route's OAuth
+        // endpoint allows only a few requests, shared with Claude Code. The cookie is read once per fetch.
+        var cookieIssue: AccountIssue?
+        let sessionKey: String?
+        do {
+            sessionKey = try await Task.detached(priority: .utility) { [desktop] in try desktop.sessionKeyCookie() }.value
+        } catch CredentialError.keychainDenied {
+            report.issue = .keychainDenied
+            return report
+        } catch {
+            sessionKey = nil
+        }
+        report.keychainOK = desktop.hasCachedKey
+        if let sessionKey {
+            report.route = "cookie"
+            let (outcome, status) = await cookieClient.fetchUsage(cookies: ["sessionKey": sessionKey],
+                                                                  personalOrg: cli?.organizationUuid)
+            report.httpStatus = status
+            AccountFetcher.applyCookieOutcome(outcome, report: &report, rejected: .expiredDesktop, now: Date())
+            if AccountFetcher.desktopCookieResultStands(outcome) { return report }
+            cookieIssue = report.issue
+            report.issue = nil
+        }
+
         var candidates: [TokenCandidate] = []
         do {
             candidates = try await Task.detached(priority: .utility) { [desktop] in
@@ -265,7 +294,7 @@ public final class AccountFetcher: @unchecked Sendable {
             report.issue = .notSignedIn("Claude Safe Storage not found — open the Claude app once")
             return report
         } catch {
-            // Decrypt failed or unknown shape: try the cookie route before giving up.
+            // Decrypt failed or unknown shape: no token to try.
             report.keychainOK = desktop.hasCachedKey
         }
 
@@ -301,9 +330,13 @@ public final class AccountFetcher: @unchecked Sendable {
             report.route = "token"
             await callUsage(token: c.accessToken, report: &report, rejected: .expiredDesktop)
             if report.snapshot != nil {
-                let profile = (try? await client.fetchProfile(token: c.accessToken))?.0
                 // A non-uuid-matched token (cached path or fallback) could belong to the personal org;
                 // verify its profile before showing numbers, so Personal is never shown under Work.
+                // A trusted pick needs the profile only for a missing email.
+                var profile: Profile?
+                if !trustedChoice || report.email == nil {
+                    profile = (try? await client.fetchProfile(token: c.accessToken))?.0
+                }
                 if !trustedChoice, let personal = cli?.organizationUuid?.lowercased(),
                    let org = profile?.organizationUuid?.lowercased(), org == personal {
                     report.snapshot = nil
@@ -316,11 +349,24 @@ public final class AccountFetcher: @unchecked Sendable {
                 if report.email == nil { report.email = profile?.email }
                 return report
             }
-            // Only an unauthorized/scope result falls through to the cookie route.
-            if report.issue != .expiredDesktop && report.issue != .scope { return report }
+            // The token failed too (or there was no cookie): show the token route's issue.
+            return report
         }
-        await cookieFallback(accountUuid: accountUuid, personalOrg: cli?.organizationUuid, report: &report)
+        // No token to try: show the cookie route's issue (the cookie was already tried above).
+        report.issue = cookieIssue ?? .notSignedIn("No Claude app sign-in token found")
         return report
+    }
+
+    /// Whether a Claude app cookie result stands, or the token route is tried next. Numbers, a 429 (its
+    /// wait applies) and a network error stand, as does "signed in to Personal" (never shown under Work).
+    /// A rejected cookie, Cloudflare, a scope error and anything unexpected try the token.
+    static func desktopCookieResultStands(_ outcome: CookieUsageOutcome) -> Bool {
+        switch outcome {
+        case .ok, .rateLimited, .network, .signedInToPersonal:
+            return true
+        case .unauthorized, .noSession, .noOrganizations, .cloudflare, .scopeError, .http, .undecodable:
+            return false
+        }
     }
 
     /// Picks the candidate whose profile matches the desktop account. Returns whether it matched by uuid.
@@ -340,39 +386,17 @@ public final class AccountFetcher: @unchecked Sendable {
         return (notPersonal, false)
     }
 
-    private func cookieFallback(accountUuid: String?, personalOrg: String?, report: inout FetchReport) async {
-        let previousIssue = report.issue
-        let key: String?
-        do {
-            key = try await Task.detached(priority: .utility) { [desktop] in try desktop.sessionKeyCookie() }.value
-        } catch CredentialError.keychainDenied {
-            report.issue = .keychainDenied
-            return
-        } catch {
-            key = nil
-        }
-        guard let sessionKey = key else {
-            report.issue = previousIssue ?? .notSignedIn("No Claude app sign-in token found")
-            return
-        }
-        report.route = "cookie"
-        report.issue = nil
-        let (outcome, status) = await cookieClient.fetchUsage(cookies: ["sessionKey": sessionKey], personalOrg: personalOrg)
-        report.httpStatus = status
-        applyCookieOutcome(outcome, report: &report, rejected: previousIssue ?? .expiredDesktop)
-    }
-
     private func callUsage(token: String, report: inout FetchReport, rejected: AccountIssue) async {
         do {
             let (outcome, status) = try await client.fetchUsage(token: token)
             report.httpStatus = status
-            apply(outcome, report: &report, rejected: rejected)
+            AccountFetcher.apply(outcome, report: &report, rejected: rejected, now: Date())
         } catch {
             report.issue = .network(AccountFetcher.shortNetworkMessage(error))
         }
     }
 
-    private func apply(_ outcome: FetchOutcome, report: inout FetchReport, rejected: AccountIssue) {
+    static func apply(_ outcome: FetchOutcome, report: inout FetchReport, rejected: AccountIssue, now: Date) {
         switch outcome {
         case .ok(let snap):
             report.snapshot = snap
@@ -383,7 +407,7 @@ public final class AccountFetcher: @unchecked Sendable {
             report.issue = .scope
         case .rateLimited(let ra):
             report.retryAfter = ra
-            report.issue = .rateLimited(until: Date().addingTimeInterval(ra ?? 300))
+            report.issue = .rateLimited(until: now.addingTimeInterval(FetchPolicy.rateLimitWait(ra)))
         case .http(let code):
             report.issue = .http(code)
         case .undecodable:

@@ -8,10 +8,13 @@ struct AccountState: Equatable {
     var lastSuccess: Date?
     var issue: AccountIssue?
     var email: String?
-    /// 429 back-off (Retry-After, else 5 min): no fetches of any kind before this time.
+    /// 429 back-off (Retry-After up to an hour, else 5 min): no fetches of any kind before this time.
     var waitUntil: Date?
     /// Last time a request was made for this account, successful or not.
     var lastAttempt: Date?
+    /// The route the last fetch used ("token", "cookie" or "safari"). A Claude app account on "token"
+    /// polls no faster than a Claude Code login.
+    var lastRoute: String?
     var loading = false
 }
 
@@ -116,7 +119,8 @@ final class AppStore: ObservableObject {
             loadDemoData()
             return
         }
-        schedulePolling()
+        // A fixed tick: each account fetches only once its own interval is due (FetchPolicy).
+        pollTimer = makeTimer(interval: FetchPolicy.tick) { [weak self] in self?.refreshAll(.timer) }
         costTimer = makeTimer(interval: 300) { [weak self] in
             self?.refreshCosts()
             self?.refreshRateIfNeeded()
@@ -136,17 +140,10 @@ final class AppStore: ObservableObject {
         return t
     }
 
-    private func schedulePolling() {
-        pollTimer?.invalidate()
-        let minutes = AppSettings.refreshOptions.contains(settings.refreshMinutes) ? settings.refreshMinutes : 2
-        pollTimer = makeTimer(interval: Double(minutes) * 60) { [weak self] in self?.refreshAll(.timer) }
-    }
-
     private func settingsChanged(from old: AppSettings) {
         if !demo, let data = try? JSONEncoder().encode(settings) {
             UserDefaults.standard.set(data, forKey: AppStore.settingsKey)
         }
-        if old.refreshMinutes != settings.refreshMinutes { schedulePolling() }
         if old.currency != settings.currency { refreshRateIfNeeded() }
         let oldLogs = old.accounts.map { "\($0.id)\($0.logsDir ?? "")" }
         let newLogs = settings.accounts.map { "\($0.id)\($0.logsDir ?? "")" }
@@ -171,8 +168,10 @@ final class AppStore: ObservableObject {
 
     // MARK: Usage
 
-    var refreshInterval: TimeInterval {
-        Double(AppSettings.refreshOptions.contains(settings.refreshMinutes) ? settings.refreshMinutes : 2) * 60
+    /// The setting, but at least 5 minutes for a sign-in on the OAuth usage endpoint.
+    private func backgroundInterval(for account: Account, lastRoute: String?) -> TimeInterval {
+        FetchPolicy.backgroundInterval(userMinutes: settings.refreshMinutes,
+                                       tokenSource: FetchPolicy.isTokenSource(account.source.kind, lastRoute: lastRoute))
     }
 
     func refreshAll(_ trigger: FetchTrigger) {
@@ -183,7 +182,7 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// Menu opened: refresh only accounts whose last attempt is a full refresh interval old.
+    /// Menu opened: refresh accounts whose last attempt is 2 minutes old (or their interval, if shorter).
     func menuWillOpen() {
         now = Date()
         refreshAll(.menuOpen)
@@ -204,7 +203,8 @@ final class AppStore: ObservableObject {
         guard !inFlight.contains(account.id) else { return }
         var st = states[account.id] ?? AccountState()
         guard FetchPolicy.shouldFetch(trigger, lastAttempt: st.lastAttempt, waitUntil: st.waitUntil,
-                                      interval: refreshInterval, now: Date()) else { return }
+                                      backgroundInterval: backgroundInterval(for: account, lastRoute: st.lastRoute),
+                                      now: Date()) else { return }
         inFlight.insert(account.id)
         st.loading = true
         st.lastAttempt = Date()
@@ -224,9 +224,12 @@ final class AppStore: ObservableObject {
         } else {
             st.issue = report.issue
         }
+        if let route = report.route { st.lastRoute = route }
         if case .rateLimited(let until)? = report.issue {
             st.waitUntil = until
-            Log.fetch.notice("\(account.tag, privacy: .public): rate limited (429), retrying at \(Formatters.clockTime(until), privacy: .public)")
+            let header = report.retryAfter.map { "\(Int($0)) s" } ?? "none"
+            let wait = max(0, Int(until.timeIntervalSinceNow.rounded()))
+            Log.fetch.notice("\(account.tag, privacy: .public): rate limited (429, Retry-After \(header, privacy: .public)), waiting \(wait, privacy: .public) s, retrying at \(Formatters.clockTime(until), privacy: .public)")
         }
         let emailChanged = report.email != nil && report.email != st.email
         if let email = report.email { st.email = email }

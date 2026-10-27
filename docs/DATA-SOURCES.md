@@ -43,13 +43,21 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
   (falls back to service only). PBKDF2-HMAC-SHA1 with salt `saltysalt`, 1003 iterations, gives a
   16-byte key; AES-128-CBC with an IV of 16 spaces decrypts. Usage Bar checks PKCS7 padding itself, so
   a wrong key fails instead of producing garbage.
+- **Route order:** the `sessionKey` cookie first, then the token. The cookie route reads the
+  `sessionKey` cookie for claude.ai from the app's Chromium `Cookies` database (read-only,
+  `immutable=1`, never copied to disk), strips the SHA-256 host prefix newer Chromium adds, and uses
+  the claude.ai cookie flow below. claude.ai's usage endpoint has its own allowance, unlike the OAuth
+  endpoint, which Claude Code shares. Numbers, a 429, a network error or "signed in to your Personal
+  account" from the cookie stand. A rejected cookie, no organizations, Cloudflare, a scope error or any
+  other HTTP error, or no cookie at all, moves on to the token. The cookie is read once per fetch. When
+  both fail, the token's problem shows; with no token to try, the cookie's.
+  Windows 0.1.5 still tries the token first and the cookie only after a 401 or scope error.
 - **Choosing the token:** the parser walks the decrypted JSON for objects with an access token and an
   expiry. It prefers one tied to `lastKnownAccountUuid`, then a cached choice (only while unexpired),
   then probes candidates against `/api/oauth/profile` and requires an account uuid match. It accepts a
   "not the personal organization" match only when it knows the personal organization.
-- **Fallback:** if the token route fails with 401/403, it reads the `sessionKey` cookie for claude.ai
-  from the app's Chromium `Cookies` database (read-only, `immutable=1`, never copied to disk), strips
-  the SHA-256 host prefix newer Chromium adds, and uses the claude.ai cookie flow below.
+- **Profile:** after a 200 on the token, `/api/oauth/profile` is asked only when the token isn't tied
+  to the account uuid (to check it isn't the personal organization) or the email isn't known yet.
 - **Permission:** Keychain access to "Claude Safe Storage". Usage Bar never asks until you click
   **Connect…**; macOS then prompts once ("Always Allow" keeps it).
 
@@ -58,7 +66,7 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
 | Not connected yet | "Allow Usage Bar to read Claude Safe Storage" + Connect… |
 | Keychain prompt denied | Same message; Connect… asks again |
 | The app is signed in to the CLI's personal account | "The Claude app is signed in to your Personal account" (no numbers) |
-| Token expired, or 401/403 and no cookie | "Open the Claude app to refresh its sign-in" |
+| Cookie didn't work, and the token expired or got 401/403 | "Open the Claude app to refresh its sign-in" |
 | 403 for scope | "This sign-in can't read usage (scope)" |
 
 ### Safari session
@@ -147,7 +155,9 @@ Response (values made up; unknown keys and nulls are ignored):
   `resets_at` means the window hasn't started ("starts on first use").
 - Extra usage money is in minor units with `decimal_places`.
 - 401 means the token is bad, and 403 with a scope message means the token lacks the scope.
-  429 means wait (`Retry-After`, seconds or an HTTP date).
+  429 means wait (`Retry-After`, seconds or an HTTP date): up to an hour, and 5 minutes when it is
+  missing or 0, which Anthropic often sends. This endpoint allows only about 5 requests every few
+  minutes, shared with Claude Code's own `/usage`, so these sign-ins poll at most every 5 minutes.
 
 ### `GET https://api.anthropic.com/api/oauth/profile`
 
@@ -161,7 +171,8 @@ Headers: `Cookie: sessionKey=…` (plus `lastActiveOrg` when present), `Accept: 
 with `uuid` and `name`. Usage Bar picks the `lastActiveOrg` organization, else the first one that
 isn't the personal organization, else the first. The usage response has the same shape as above. A
 `cf-mitigated: challenge` header, or a 403/503/429 page saying "Just a moment", means Cloudflare
-stepped in.
+stepped in. Any other 429, on either request, means wait, with the same `Retry-After` rules as the OAuth
+endpoint. This endpoint has its own allowance, so cookie sign-ins poll at the chosen interval.
 
 ### `GET https://open.er-api.com/v6/latest/USD`
 
