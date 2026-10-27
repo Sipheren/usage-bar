@@ -11,6 +11,11 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 
 ## [Unreleased]
 
+### Added
+- Repository (all platforms): source release zips, one per platform, made from git by
+  `scripts/release.sh`. Each has `INSTALL.txt` (and `Install.cmd` on Windows) at the top and installs
+  with one command; the README has a Download section.
+
 ## [Windows 0.1.6] - 2026-10-27
 
 ### Fixed

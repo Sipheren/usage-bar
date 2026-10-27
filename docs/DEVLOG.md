@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-10-27 (source releases)
+
+- `scripts/release.sh` builds one source zip per platform with `git archive` from HEAD, so untracked
+  files can't get in, and refuses unless the app's files match the platform's tag. `--publish` uploads
+  the zip and its notes (the changelog section and the install steps) as a draft GitHub release. The
+  Windows zip carries `design/icon` and `design/spark`: `UsageBar.csproj` builds the tray spark and the
+  icon layers from them.
+
 ## 2026-10-27 (Windows 0.1.6)
 
 - Ported macOS 0.3.1's rate-limit fixes (decision 18), test-first: the timer, launch and flyout rules,
