@@ -1,0 +1,25 @@
+Usage Bar for macOS: install from source
+
+You need:
+- macOS 26 or later, on a Mac with Apple silicon.
+- Xcode 26 or later, from the App Store. Open it once and let it finish setting up.
+
+Steps:
+1. Unzip the download (double-click it).
+2. Open Terminal. Type cd and a space, drag the unzipped folder onto the Terminal window, then
+   press Return.
+3. Run:
+
+       bash macos/scripts/install.sh
+
+   It checks the Mac, runs the tests, builds the app, signs it on this Mac, installs it to
+   /Applications and opens it. The "no signing identity configured" warning is expected: the app
+   is signed locally instead of with a developer certificate.
+4. Add your accounts: see "First-run setup" in macos/README.md. The installer also prints the
+   steps when it finishes.
+
+To update, unzip the new version and run step 3 again from its folder.
+
+To uninstall, run this from the folder:
+
+    bash macos/scripts/uninstall.sh

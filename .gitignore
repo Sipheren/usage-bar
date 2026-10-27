@@ -18,6 +18,9 @@ screens/
 # Machine-specific settings (signing identity, private scan words)
 config/local.env
 
+# Release zips and notes from scripts/release.sh
+dist/
+
 # OS clutter
 .DS_Store
 Thumbs.db

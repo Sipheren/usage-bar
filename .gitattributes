@@ -3,6 +3,9 @@
 .githooks/* text eol=lf
 config/local.env.example text eol=lf
 
+# Windows batch files keep CRLF endings, as cmd.exe expects.
+*.cmd text eol=crlf
+
 # Binary assets: never touch their bytes (Windows checkouts use core.autocrlf).
 *.png binary
 *.ico binary

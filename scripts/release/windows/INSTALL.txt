@@ -1,0 +1,28 @@
+Usage Bar for Windows: install from source
+
+You need:
+- Windows 11.
+- The .NET 10 SDK: https://dotnet.microsoft.com/download/dotnet/10.0
+
+Steps:
+1. Right-click the zip, choose Properties, tick Unblock if it's shown, then click OK.
+2. Right-click the zip again and choose Extract All.
+3. Open the extracted folder (the one with Install.cmd in it) and double-click Install.cmd.
+   When it's done, press a key to close its window. Or right-click in that folder, choose Open in
+   Terminal and run:
+
+       powershell -ExecutionPolicy Bypass -File windows\scripts\install.ps1
+
+   Either way it checks for the .NET 10 SDK, runs the tests, builds the app, installs it to
+   %LOCALAPPDATA%\Programs\UsageBar and starts it.
+4. Windows 11 puts new tray icons in the overflow (the ^ next to the clock). Drag Usage Bar's
+   icons onto the taskbar to keep them in view.
+5. Add your accounts: see "First-run setup" in windows/README.md.
+
+To update, extract the new version and run Install.cmd from its folder.
+
+To uninstall, open a terminal in the folder and run:
+
+    powershell -ExecutionPolicy Bypass -File windows\scripts\uninstall.ps1
+
+Add -Purge to that command to delete settings, state, the cost cache and logs too.

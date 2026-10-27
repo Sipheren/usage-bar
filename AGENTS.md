@@ -92,3 +92,7 @@ and assets stay outside the platform folders.
 - Every `CHANGELOG.md` entry names its platform, for example `## [macOS 0.3.0] - 2026-11-02`. Entries
   before this rule are the macOS app. Add a dated line to `docs/DEVLOG.md` for notable work.
 - Git: the maintainer handles commits, tags and pushes. Don't run git unless you're asked to.
+- Cutting a release: once the tag is pushed and the files in `scripts/release/` are committed, run
+  `scripts/release.sh <platform>` to build and check the zip in `dist/`, then
+  `scripts/release.sh <platform> --publish` to upload it as a draft GitHub release. The maintainer
+  publishes the draft.

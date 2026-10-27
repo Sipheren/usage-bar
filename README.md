@@ -49,7 +49,26 @@ The macOS app is the reference implementation. Every platform follows the same d
 - Extra usage (pay-as-you-go credits) when the plan has it.
 - Rate-limit friendly: a 429 pauses one account and keeps its last numbers on screen.
 
-## Quick start
+## Download
+
+Each release on the [Releases page](https://github.com/Sipheren/usage-bar/releases) has a source zip
+for its platform: `usage-bar-macos-<version>.zip` or `usage-bar-windows-<version>.zip`. Unzip it, then
+one command tests, builds and installs the app. `INSTALL.txt` in the zip has the requirements and steps.
+
+macOS (macOS 26 or later, Apple silicon, Xcode 26 or later), in Terminal from the unzipped folder:
+
+```bash
+bash macos/scripts/install.sh
+```
+
+Windows (Windows 11, the .NET 10 SDK): unblock the zip first (right-click > Properties > Unblock),
+extract it, then double-click `Install.cmd` in the extracted folder, or run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File windows\scripts\install.ps1
+```
+
+## Build from a clone
 
 ### macOS
 
@@ -95,7 +114,9 @@ docs/              Shared docs: data sources (the cross-platform contract), spec
                    devlog, screenshots; docs/macos/ holds the macOS architecture and development notes
 design/            Shared design assets: icon/ (app icon), spark/ (the tray/menu bar spark as SVG),
                    mockup/ (the original HTML mockups)
-scripts/           Repository-wide scripts: setup-dev.sh, check-secrets.sh and its allow list
+scripts/           Repository-wide scripts: setup-dev.sh, check-secrets.sh and its allow list,
+                   release.sh (builds a platform's source release zip)
+scripts/release/   Files added to the top of the release zips: INSTALL.txt, and Install.cmd on Windows
 config/            local.env.example (copy to local.env, which git ignores)
 .githooks/         pre-commit: runs scripts/check-secrets.sh on staged files
 ```
