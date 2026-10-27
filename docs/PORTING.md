@@ -53,6 +53,9 @@ it on a Windows machine yet. Confirm every unverified item before relying on it,
   - the cache's keys look like `acct:<account uuid>|<uuid>:<organization uuid>:https://api.anthropic.com:<scopes>`,
     each holding `token`, `refreshToken` and `expiresAt` (milliseconds), so the parser matches the account
     uuid in the key, as on macOS.
+- **Unverified:** a real fetch through the cookie-first route order (Windows 0.1.6). On the test machine
+  the Claude app is signed in to the Claude Code account, so each fetch stops at the Personal check before
+  either route. Only the decision of which cookie results stand is covered, by tests.
 - DPAPI decrypts silently for the same Windows user, so there is no prompt like macOS's Keychain
   "Always Allow". Keep the Connect… step anyway (decision 12): the app shouldn't read another app's
   sign-in until the user asks it to.

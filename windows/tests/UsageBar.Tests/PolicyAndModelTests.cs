@@ -6,11 +6,10 @@ namespace UsageBar.Tests;
 public class FetchPolicyTests
 {
     static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-26T06:30:00Z");
-    const double Interval = 120;
 
-    static bool Should(FetchTrigger t, double? last, double? waitFor = null) =>
+    static bool Should(FetchTrigger t, double? last, double? waitFor = null, double interval = 120) =>
         FetchPolicy.ShouldFetch(t, last is { } l ? Now.AddSeconds(-l) : null,
-                                waitFor is { } w ? Now.AddSeconds(w) : null, Interval, Now);
+                                waitFor is { } w ? Now.AddSeconds(w) : null, interval, Now);
 
     [Fact]
     public void LaunchSkipsAnAccountFetchedWithinTheInterval()
@@ -39,6 +38,110 @@ public class FetchPolicyTests
     {
         foreach (var t in Enum.GetValues<FetchTrigger>()) Assert.False(Should(t, 999, 1));
         Assert.True(Should(FetchTrigger.Timer, 999, -1));   // window passed
+    }
+
+    [Fact]
+    public void RetryAfterZeroOrMissingWaitsFiveMinutesAndLongOnesAreCappedAtAnHour()
+    {
+        Assert.Equal(300, FetchPolicy.RateLimitWait(null));
+        Assert.Equal(300, FetchPolicy.RateLimitWait(0));
+        Assert.Equal(300, FetchPolicy.RateLimitWait(-5));
+        Assert.Equal(30, FetchPolicy.RateLimitWait(30));
+        Assert.Equal(3600, FetchPolicy.RateLimitWait(3600));
+        Assert.Equal(3600, FetchPolicy.RateLimitWait(7200));
+    }
+
+    [Fact]
+    public void TimerFetchesOnlyOnceTheIntervalHasNearlyPassed()
+    {
+        Assert.True(Should(FetchTrigger.Timer, null));
+        Assert.False(Should(FetchTrigger.Timer, 60));
+        Assert.False(Should(FetchTrigger.Timer, 80));
+        Assert.False(Should(FetchTrigger.Timer, 89));
+        // 30 s of slack: the 60 s tick fires a little off, and without it the 2-minute setting fires at 3.
+        Assert.True(Should(FetchTrigger.Timer, 90));
+        Assert.True(Should(FetchTrigger.Timer, 95));
+        Assert.True(Should(FetchTrigger.Timer, 119.5));
+    }
+
+    [Fact]
+    public void TimerAtFiveMinutesSkipsTheEarlierTicks()
+    {
+        foreach (var elapsed in new double[] { 60, 120, 180, 240, 269 })
+            Assert.False(Should(FetchTrigger.Timer, elapsed, interval: 300), elapsed.ToString());
+        Assert.True(Should(FetchTrigger.Timer, 270, interval: 300));
+        Assert.True(Should(FetchTrigger.Timer, 300, interval: 300));
+    }
+
+    [Fact]
+    public void LaunchWaitsForTheWholeIntervalWithNoSlack()
+    {
+        Assert.False(Should(FetchTrigger.Launch, 299, interval: 300));
+        Assert.True(Should(FetchTrigger.Launch, 300, interval: 300));
+    }
+
+    [Fact]
+    public void FlyoutOpenChecksATokenSourceOnceTwoMinutesHavePassed()
+    {
+        foreach (var interval in new double[] { 300, 600 })
+        {
+            Assert.False(Should(FetchTrigger.MenuOpen, 119, interval: interval), interval.ToString());
+            Assert.True(Should(FetchTrigger.MenuOpen, 120, interval: interval), interval.ToString());
+        }
+    }
+
+    [Fact]
+    public void FlyoutOpenChecksACookieSourceAtItsIntervalWhenThatIsShorterThanTwoMinutes()
+    {
+        Assert.False(Should(FetchTrigger.MenuOpen, 59, interval: 60));
+        Assert.True(Should(FetchTrigger.MenuOpen, 60, interval: 60));
+        Assert.False(Should(FetchTrigger.MenuOpen, 119, interval: 120));
+        Assert.True(Should(FetchTrigger.MenuOpen, 120, interval: 120));
+    }
+
+    [Fact]
+    public void TokenSourcesPollNoFasterThanEveryFiveMinutes()
+    {
+        Assert.Equal(300, FetchPolicy.BackgroundInterval(1, tokenSource: true));
+        Assert.Equal(300, FetchPolicy.BackgroundInterval(2, tokenSource: true));
+        Assert.Equal(300, FetchPolicy.BackgroundInterval(5, tokenSource: true));
+        Assert.Equal(600, FetchPolicy.BackgroundInterval(10, tokenSource: true));
+    }
+
+    [Fact]
+    public void CookieSourcesPollAtTheChosenInterval()
+    {
+        Assert.Equal(60, FetchPolicy.BackgroundInterval(1, tokenSource: false));
+        Assert.Equal(120, FetchPolicy.BackgroundInterval(2, tokenSource: false));
+        Assert.Equal(600, FetchPolicy.BackgroundInterval(10, tokenSource: false));
+    }
+
+    [Fact]
+    public void AnIntervalOutsideTheSettingsOptionsCountsAsTwoMinutes()
+    {
+        Assert.Equal(120, FetchPolicy.BackgroundInterval(0, tokenSource: false));
+        Assert.Equal(120, FetchPolicy.BackgroundInterval(3, tokenSource: false));
+        Assert.Equal(300, FetchPolicy.BackgroundInterval(0, tokenSource: true));
+    }
+
+    [Fact]
+    public void ClaudeCodeAndTheClaudeAppOnItsTokenAreTokenSources()
+    {
+        Assert.True(FetchPolicy.IsTokenSource(SourceKind.ClaudeCode, null));
+        Assert.True(FetchPolicy.IsTokenSource(SourceKind.ClaudeDesktop, "token"));
+        Assert.False(FetchPolicy.IsTokenSource(SourceKind.ClaudeDesktop, "cookie"));
+        Assert.False(FetchPolicy.IsTokenSource(SourceKind.ClaudeDesktop, null));
+        Assert.False(FetchPolicy.IsTokenSource(SourceKind.Fixture, "fixture"));
+        Assert.False(FetchPolicy.IsTokenSource(SourceKind.Fixture, null));
+    }
+
+    [Fact]
+    public void ClaudeCodeOnTheTwoMinuteSettingWaitsFiveMinutesBetweenTimerFetches()
+    {
+        var interval = FetchPolicy.BackgroundInterval(2, FetchPolicy.IsTokenSource(SourceKind.ClaudeCode, null));
+        Assert.False(Should(FetchTrigger.Timer, 120, interval: interval));
+        Assert.False(Should(FetchTrigger.Timer, 240, interval: interval));
+        Assert.True(Should(FetchTrigger.Timer, 300, interval: interval));
     }
 }
 

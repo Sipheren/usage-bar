@@ -6,12 +6,15 @@ namespace UsageBar.Core;
 
 public sealed record ClaudeAiOrg(string Uuid, string? Name);
 
-public enum CookieOutcomeKind { Ok, NoSession, Cloudflare, Unauthorized, ScopeError, SignedInToPersonal, Http, Undecodable, NoOrganizations, Network }
+/// <summary><c>RateLimited</c> is HTTP 429 from either request.</summary>
+public enum CookieOutcomeKind { Ok, NoSession, Cloudflare, Unauthorized, ScopeError, SignedInToPersonal, RateLimited, Http, Undecodable, NoOrganizations, Network }
 
-public sealed record CookieUsageOutcome(CookieOutcomeKind Kind, int Status = 0, UsageSnapshot? Snapshot = null, ClaudeAiOrg? Org = null, string? Detail = null);
+/// <summary><paramref name="RetryAfter"/> is a 429's Retry-After in seconds, null when missing.</summary>
+public sealed record CookieUsageOutcome(CookieOutcomeKind Kind, int Status = 0, UsageSnapshot? Snapshot = null, ClaudeAiOrg? Org = null,
+                                        string? Detail = null, double? RetryAfter = null);
 
 /// <summary>
-/// Fetches claude.ai usage with a browser session cookie (the Claude app's cookie fallback, or a browser session).
+/// Fetches claude.ai usage with a browser session cookie (the Claude app's, or a browser session's).
 /// Read-only: never writes cookies or tokens.
 /// </summary>
 public sealed class ClaudeAiCookieClient(HttpClient http)
@@ -63,6 +66,17 @@ public sealed class ClaudeAiCookieClient(HttpClient http)
         return false;
     }
 
+    /// <summary>A Cloudflare challenge, then a 429, ends the flow on either request. Null for any other response.</summary>
+    public static CookieUsageOutcome? BlockedOutcome(int status, string? cfMitigated, string? retryAfter, ReadOnlySpan<byte> body, DateTimeOffset now)
+    {
+        if (IsCloudflareChallenge(status, cfMitigated, body)) return new(CookieOutcomeKind.Cloudflare, status);
+        return status == 429 ? new(CookieOutcomeKind.RateLimited, status, RetryAfter: UsageClient.RetryAfter(retryAfter, now)) : null;
+    }
+
+    static CookieUsageOutcome? Blocked(HttpResponseMessage resp, ReadOnlySpan<byte> body) =>
+        BlockedOutcome((int)resp.StatusCode, UsageClient.HeaderValue(resp, "cf-mitigated"), UsageClient.HeaderValue(resp, "Retry-After"),
+                       body, DateTimeOffset.UtcNow);
+
     public static string CookieHeader(IReadOnlyDictionary<string, string> jar) => string.Join("; ", jar.Select(kv => kv.Key + "=" + kv.Value));
 
     static HttpRequestMessage Request(Uri url, string cookieHeader)
@@ -85,7 +99,7 @@ public sealed class ClaudeAiCookieClient(HttpClient http)
             using var orgResp = await http.SendAsync(Request(OrgsUrl, header), ct).ConfigureAwait(false);
             var orgData = await orgResp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
             var orgStatus = (int)orgResp.StatusCode;
-            if (IsCloudflareChallenge(orgStatus, UsageClient.HeaderValue(orgResp, "cf-mitigated"), orgData)) return new(CookieOutcomeKind.Cloudflare, orgStatus);
+            if (Blocked(orgResp, orgData) is { } orgBlocked) return orgBlocked;
             if (orgStatus is 401 or 403) return new(CookieOutcomeKind.Unauthorized, orgStatus);
             if (orgStatus != 200) return new(CookieOutcomeKind.Http, orgStatus);
 
@@ -99,7 +113,7 @@ public sealed class ClaudeAiCookieClient(HttpClient http)
             using var resp = await http.SendAsync(Request(usageUrl, header), ct).ConfigureAwait(false);
             var data = await resp.Content.ReadAsByteArrayAsync(ct).ConfigureAwait(false);
             var status = (int)resp.StatusCode;
-            if (IsCloudflareChallenge(status, UsageClient.HeaderValue(resp, "cf-mitigated"), data)) return new(CookieOutcomeKind.Cloudflare, status);
+            if (Blocked(resp, data) is { } blocked) return blocked;
             switch (resp.StatusCode)
             {
                 case HttpStatusCode.OK:

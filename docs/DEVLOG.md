@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-10-27 (Windows 0.1.6)
+
+- Ported macOS 0.3.1's rate-limit fixes (decision 18), test-first: the timer, launch and flyout rules,
+  the 5-minute floor for token sign-ins, `RateLimitWait`, the claude.ai 429 (end to end through a stubbed
+  HTTP client) and the table of Claude app cookie results that stand or try the token (19 new tests, two
+  updated). The three timer tests were run against the old rule first and failed.
+- The cost scan and the rate check stay at the refresh setting's pace; only the account fetches moved to
+  the 60-second tick.
+- The cookie-first order in `DesktopSource` is covered only through its decision function. On this PC the
+  Claude app is on the Claude Code account, so it stops before either route.
+
 ## 2026-10-27 (macOS 0.3.1)
 
 - The Claude Code account kept hitting 429. Its OAuth usage endpoint allows only about 5 requests every

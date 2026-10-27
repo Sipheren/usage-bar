@@ -233,12 +233,16 @@ public class FetchTests : IDisposable
     }
 
     [Fact]
-    public async Task RateLimitsPauseFromNowForRetryAfterOrFiveMinutesCappedAtADay()
+    public async Task RateLimitsPauseFromNowForRetryAfterOrFiveMinutesCappedAtAnHour()
     {
         Credentials();
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(120)), (await Fetch(_ => Answer(HttpStatusCode.TooManyRequests, retryAfter: "120"))).Report.Issue);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300)), (await Fetch(_ => Answer(HttpStatusCode.TooManyRequests))).Report.Issue);
-        Assert.Equal(AccountIssue.RateLimited(Now.AddDays(1)), (await Fetch(_ => Answer(HttpStatusCode.TooManyRequests, retryAfter: "1e12"))).Report.Issue);
+        // Anthropic often sends Retry-After: 0 with a 429; it waits 5 minutes, not none.
+        var zero = (await Fetch(_ => Answer(HttpStatusCode.TooManyRequests, retryAfter: "0"))).Report;
+        Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300)), zero.Issue);
+        Assert.Equal(0, zero.RetryAfter);
+        Assert.Equal(AccountIssue.RateLimited(Now.AddHours(1)), (await Fetch(_ => Answer(HttpStatusCode.TooManyRequests, retryAfter: "1e12"))).Report.Issue);
     }
 
     [Fact]

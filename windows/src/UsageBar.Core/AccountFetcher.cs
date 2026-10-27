@@ -27,7 +27,6 @@ public interface IDesktopFetcher
 public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = null, Func<string, HttpClient>? fixtureHttp = null)
 {
     public static readonly AccountIssue ClaudeCodeRejected = AccountIssue.Rejected("Claude Code login rejected — run `claude` once");
-    const double MaxRetryAfter = 24 * 3600;
 
     public static readonly AccountIssue ClaudeCodeMissing = AccountIssue.NotSignedIn("Not signed in to Claude Code — run `claude` once");
 
@@ -38,7 +37,7 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         var report = account.Source.Kind switch
         {
             SourceKind.ClaudeCode => await FetchClaudeCodeAsync(account.Source.Dir ?? Paths.DefaultClaudeConfigDir, now, ct),
-            SourceKind.Fixture => await FetchFixtureAsync(account.Source.Dir ?? "", ct),
+            SourceKind.Fixture => await FetchFixtureAsync(account.Source.Dir ?? "", now, ct),
             _ => desktop is null ? new FetchReport { Issue = AccountIssue.Unsupported("The Claude app source isn't available") }
                                  : await desktop.FetchAsync(ctx, now, ct),
         };
@@ -78,19 +77,7 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         {
             var o = await client.FetchUsageAsync(token, ct);
             report.HttpStatus = o.Status;
-            switch (o.Kind)
-            {
-                case FetchOutcomeKind.Ok: report.Snapshot = o.Snapshot; report.Issue = null; break;
-                case FetchOutcomeKind.Unauthorized: report.Issue = rejected; break;
-                case FetchOutcomeKind.ScopeError: report.Issue = AccountIssue.Scope; break;
-                case FetchOutcomeKind.RateLimited:
-                    report.RetryAfter = o.RetryAfter;
-                    // At most a day: a huge Retry-After would otherwise overflow the date.
-                    report.Issue = AccountIssue.RateLimited(now.AddSeconds(Math.Min(o.RetryAfter ?? 300, MaxRetryAfter)));
-                    break;
-                case FetchOutcomeKind.Http: report.Issue = AccountIssue.Http(o.Status); break;
-                default: report.Issue = AccountIssue.Rejected("Unexpected usage response"); break;
-            }
+            Apply(o, report, rejected, now);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -98,17 +85,42 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         }
     }
 
+    /// <summary>Records an OAuth usage outcome on <paramref name="report"/>. A 429 pauses the account from <paramref name="now"/>.</summary>
+    public static void Apply(FetchOutcome o, FetchReport report, AccountIssue rejected, DateTimeOffset now)
+    {
+        switch (o.Kind)
+        {
+            case FetchOutcomeKind.Ok: report.Snapshot = o.Snapshot; report.Issue = null; break;
+            case FetchOutcomeKind.Unauthorized: report.Issue = rejected; break;
+            case FetchOutcomeKind.ScopeError: report.Issue = AccountIssue.Scope; break;
+            case FetchOutcomeKind.RateLimited:
+                report.RetryAfter = o.RetryAfter;
+                report.Issue = AccountIssue.RateLimited(now.AddSeconds(FetchPolicy.RateLimitWait(o.RetryAfter)));
+                break;
+            case FetchOutcomeKind.Http: report.Issue = AccountIssue.Http(o.Status); break;
+            default: report.Issue = AccountIssue.Rejected("Unexpected usage response"); break;
+        }
+    }
+
     public Task<(Profile? Profile, int Status)> FetchProfileAsync(string token, CancellationToken ct) => client.FetchProfileAsync(token, ct);
 
     /// <summary>
-    /// Runs the claude.ai cookie flow and records the outcome. <paramref name="where"/> names what to open on a
-    /// Cloudflare check; <paramref name="who"/> names the source when it's signed in to the personal account.
+    /// Runs the claude.ai cookie flow, records the outcome and returns it. <paramref name="where"/> names what to open
+    /// on a Cloudflare check; <paramref name="who"/> names the source when it's signed in to the personal account.
     /// </summary>
-    public static async Task ApplyCookieFlowAsync(ClaudeAiCookieClient cookies, IReadOnlyDictionary<string, string> jar, string? personalOrg,
-                                                  FetchReport report, AccountIssue rejected, string where, string who, CancellationToken ct)
+    public static async Task<CookieUsageOutcome> ApplyCookieFlowAsync(ClaudeAiCookieClient cookies, IReadOnlyDictionary<string, string> jar,
+                                                                      string? personalOrg, FetchReport report, AccountIssue rejected,
+                                                                      string where, string who, DateTimeOffset now, CancellationToken ct)
     {
         var o = await cookies.FetchUsageAsync(jar, personalOrg, ct);
         report.HttpStatus = o.Status;
+        ApplyCookieOutcome(o, report, rejected, where, who, now);
+        return o;
+    }
+
+    /// <summary>Records a claude.ai outcome on <paramref name="report"/>. A 429 pauses the account from <paramref name="now"/>.</summary>
+    public static void ApplyCookieOutcome(CookieUsageOutcome o, FetchReport report, AccountIssue rejected, string where, string who, DateTimeOffset now)
+    {
         report.Issue = o.Kind switch
         {
             CookieOutcomeKind.Ok => null,
@@ -118,10 +130,12 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
             CookieOutcomeKind.ScopeError => AccountIssue.Scope,
             CookieOutcomeKind.SignedInToPersonal => AccountIssue.SignedInToPersonal(who),
             CookieOutcomeKind.NoOrganizations => AccountIssue.Rejected("No organizations on this claude.ai session"),
+            CookieOutcomeKind.RateLimited => AccountIssue.RateLimited(now.AddSeconds(FetchPolicy.RateLimitWait(o.RetryAfter))),
             CookieOutcomeKind.Http => AccountIssue.Http(o.Status),
             CookieOutcomeKind.Undecodable => AccountIssue.Rejected("Unexpected usage response"),
             _ => AccountIssue.Network(o.Detail ?? "request failed"),
         };
+        if (o.Kind == CookieOutcomeKind.RateLimited) report.RetryAfter = o.RetryAfter;
         if (o.Kind == CookieOutcomeKind.Ok)
         {
             report.Snapshot = o.Snapshot;
@@ -129,8 +143,16 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         }
     }
 
+    /// <summary>
+    /// Whether a Claude app cookie result stands, or the token route is tried next. Numbers, a 429 (its wait applies)
+    /// and a network error stand, as does "signed in to Personal" (never shown under Work). A rejected cookie,
+    /// Cloudflare, a scope error and anything unexpected try the token.
+    /// </summary>
+    public static bool DesktopCookieResultStands(CookieOutcomeKind kind) =>
+        kind is CookieOutcomeKind.Ok or CookieOutcomeKind.RateLimited or CookieOutcomeKind.Network or CookieOutcomeKind.SignedInToPersonal;
+
     /// <summary>Test data: the claude.ai flow answered from a fixtures folder, never the network.</summary>
-    async Task<FetchReport> FetchFixtureAsync(string dir, CancellationToken ct)
+    async Task<FetchReport> FetchFixtureAsync(string dir, DateTimeOffset now, CancellationToken ct)
     {
         var report = new FetchReport { Route = "fixture" };
         if (!Directory.Exists(dir))
@@ -142,7 +164,7 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         var personalOrg = ClaudeCodeAccountInfo.Read()?.OrganizationUuid;
         var jar = new Dictionary<string, string> { ["sessionKey"] = "fixture" };
         await ApplyCookieFlowAsync(cookies, jar, personalOrg, report, AccountIssue.NotSignedIn("Fixture sign-in rejected"),
-                                   "your browser", "This session", ct);
+                                   "your browser", "This session", now, ct);
         return report;
     }
 }
