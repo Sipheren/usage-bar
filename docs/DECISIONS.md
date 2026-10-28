@@ -187,6 +187,8 @@ are saved with the other fetch state. A wait saved by 0.3.1 gets the jitter on t
 counts as one 429. Cookie sign-ins keep the setting and decision 18's menu rule.
 The maintainer's call, 2026-10-28.
 **Consequence.** Claude Code numbers can be 15 minutes old, and up to an hour after repeated 429s, so
-each account in the dropdown says how old its numbers are. Numbers older than 15 minutes still draw at
-half opacity, so a backed-off account greys out between checks. A 429 costs at least its Retry-After
-plus 2 minutes.
+each account in the dropdown says how old its numbers are. Greying follows each account's schedule:
+numbers draw at half opacity only when they are older than the longest of 15 minutes, two of the
+account's current intervals and, after a 429, the time from the last good read to the end of the wait
+plus 15 minutes, so an account checking on schedule never greys. A 429 costs at least its Retry-After
+plus 2 minutes. When Refresh Now or Connect skips an account, its header says when the next check is.

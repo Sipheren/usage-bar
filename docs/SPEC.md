@@ -65,10 +65,12 @@ for waits of up to an hour (decision 19). claude.ai's endpoint has its own allow
 - A launch fetches an account only when its last attempt is a full interval old. Opening the menu
   never fetches a token sign-in; it fetches a cookie sign-in when the last attempt is 2 minutes old,
   or the interval if shorter. Refresh Now fetches outside a Retry-After window, and for a token
-  sign-in only once the last attempt is 5 minutes old.
+  sign-in only once the last attempt is 5 minutes old. When Refresh Now (or Connect) skips an
+  account, its header says "Next check <time>": when the timer will fetch it next.
 - On 429: wait `Retry-After` (seconds or an HTTP date; 5 minutes when it is missing, 0 or negative;
-  at most an hour) plus a random 2 to 10 minutes. Keep the last numbers and show "Paused by rate
-  limit · retrying <time>" in the account header. Show an error only when there is no data yet.
+  at most an hour) plus a random 2 to 10 minutes. Keep the last numbers and show "Rate limited · next
+  check <time>" in the account header, with no-break spaces so the time never wraps away from its
+  phrase. Show an error only when there is no data yet.
 - Backoff: each 429 doubles the account's background interval, up to an hour (15, 30, 60 minutes for a
   token sign-in). Three good reads in a row step it back one level; any failed read restarts the count.
 - The last attempt, the wait, the backoff level and the last route are saved across launches. A wait
@@ -90,7 +92,11 @@ every style.
 | Icon only | the glyph alone |
 
 Metrics (Settings): 5-hour session (on), weekly (on), model weekly such as Fable (off), always in that
-order. An account with no data shows its tag and "–". Data older than 15 minutes draws at 50% opacity.
+order. An account with no data shows its tag and "–". Stale data draws at 50% opacity, here and in the
+dropdown: data is stale when it is older than the longest of 15 minutes, two of the account's current
+background intervals (backoff included) and, after a 429, the time from its last good read to the end
+of the wait plus 15 minutes. An account checking on schedule never greys; one that has missed checks
+does.
 
 ## Dropdown
 

@@ -96,7 +96,7 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
 
 | State | Shown as |
 |---|---|
-| 429 with numbers on screen | Numbers stay; header shows "Paused by rate limit · retrying 6:40 am" |
+| 429 with numbers on screen | Numbers stay; header shows "Rate limited · next check 6:40 am" |
 | 429 with no numbers yet | "Rate limited — retrying after 6:40 am" |
 | Network error | "Network error: …" with the last numbers greyed |
 | Other HTTP error | "Usage request failed (HTTP n)" |

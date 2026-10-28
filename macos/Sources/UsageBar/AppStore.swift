@@ -17,6 +17,8 @@ struct AccountState: Equatable {
     var lastRoute: String?
     /// 429 backoff level and the run of good reads since (FetchBackoff).
     var backoff = FetchBackoff()
+    /// Set when Refresh Now or Connect was skipped: the next check, shown in the account header.
+    var skippedUntil: Date?
     var loading = false
 }
 
@@ -211,9 +213,18 @@ final class AppStore: ObservableObject {
         guard FetchPolicy.shouldFetch(trigger, lastAttempt: st.lastAttempt, waitUntil: st.waitUntil,
                                       backgroundInterval: interval, tokenSource: token, now: Date()) else {
             if trigger == .launch { logNotDue(account, st, interval: interval) }
+            if trigger == .manual {
+                let next = FetchPolicy.nextCheck(lastAttempt: st.lastAttempt, waitUntil: st.waitUntil,
+                                                 backgroundInterval: interval, now: Date())
+                st.skippedUntil = next
+                states[account.id] = st
+                now = Date()
+                Log.fetch.info("\(account.source.kind.rawValue, privacy: .public): Refresh Now skipped, next check \(Formatters.clockTime(next), privacy: .public)")
+            }
             return
         }
         inFlight.insert(account.id)
+        st.skippedUntil = nil
         st.loading = true
         st.lastAttempt = Date()
         states[account.id] = st
@@ -377,12 +388,21 @@ final class AppStore: ObservableObject {
     /// How a 429 or other issue should show for this account (see AccountPresentation).
     func presentation(for account: Account) -> AccountPresentation {
         let st = state(for: account)
-        return AccountPresentation(issue: st.issue, hasData: st.snapshot != nil)
+        let skipped = st.skippedUntil.flatMap { $0 > now ? $0 : nil }
+        return AccountPresentation(issue: st.issue, hasData: st.snapshot != nil, nextCheck: skipped)
     }
 
+    /// The account's current interval, backoff included, for staleness.
+    private func currentInterval(_ account: Account) -> TimeInterval {
+        let st = state(for: account)
+        return backgroundInterval(for: account, lastRoute: st.lastRoute, backoffLevel: st.backoff.level)
+    }
+
+    /// Greyed only when the account has missed checks by its own schedule (MenuBarModel.isStale).
     func isStale(_ account: Account) -> Bool {
-        guard let last = states[account.id]?.lastSuccess else { return false }
-        return now.timeIntervalSince(last) > MenuBarModel.staleAfter
+        let st = state(for: account)
+        return MenuBarModel.isStale(lastSuccess: st.lastSuccess, backgroundInterval: currentInterval(account),
+                                    waitUntil: st.waitUntil, now: now)
     }
 
     // MARK: Menu bar
@@ -403,7 +423,8 @@ final class AppStore: ObservableObject {
 
     func menuBarModel() -> MenuBarModel {
         let inputs = settings.accounts.filter(\.showInMenuBar).map { a in
-            MenuBarInput(tag: a.tag, snapshot: states[a.id]?.snapshot, lastSuccess: states[a.id]?.lastSuccess)
+            MenuBarInput(tag: a.tag, snapshot: states[a.id]?.snapshot, lastSuccess: states[a.id]?.lastSuccess,
+                         backgroundInterval: currentInterval(a), waitUntil: states[a.id]?.waitUntil)
         }
         return MenuBarModel.build(inputs: inputs, style: settings.menuBarStyle, metrics: settings.metrics, now: now)
     }

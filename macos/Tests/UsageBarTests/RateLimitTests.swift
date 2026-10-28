@@ -269,10 +269,12 @@ final class BackoffTests: XCTestCase {
 final class RateLimitPresentationTests: XCTestCase {
     let utc = TimeZone(identifier: "UTC")!
     let until = ISO8601DateFormatter().date(from: "2026-10-26T06:40:00Z")!
+    /// No-break spaces keep the time with its phrase when the header wraps.
+    let nb = "\u{00A0}"
 
     func testRateLimitWithDataKeepsNumbersAndNotesItInTheHeader() {
         let p = AccountPresentation(issue: .rateLimited(until: until), hasData: true, timeZone: utc)
-        XCTAssertEqual(p.headerNote, "Paused by rate limit · retrying 6:40 am")
+        XCTAssertEqual(p.headerNote, "Rate limited · next check\(nb)6:40\(nb)am")
         XCTAssertNil(p.inlineIssue)
         XCTAssertFalse(p.greysValues)
     }
@@ -296,6 +298,93 @@ final class RateLimitPresentationTests: XCTestCase {
         XCTAssertNil(p.headerNote)
         XCTAssertNil(p.inlineIssue)
         XCTAssertFalse(p.greysValues)
+    }
+
+    func testASkippedRefreshNowSaysWhenTheNextCheckIs() {
+        let p = AccountPresentation(issue: nil, hasData: true, nextCheck: until, timeZone: utc)
+        XCTAssertEqual(p.headerNote, "Next check\(nb)6:40\(nb)am")
+        XCTAssertFalse(p.greysValues)
+        let noData = AccountPresentation(issue: nil, hasData: false, nextCheck: until, timeZone: utc)
+        XCTAssertEqual(noData.headerNote, "Next check\(nb)6:40\(nb)am")
+        // Inside a wait the rate-limit note already gives the next check.
+        let waiting = AccountPresentation(issue: .rateLimited(until: until), hasData: true, nextCheck: until, timeZone: utc)
+        XCTAssertEqual(waiting.headerNote, "Rate limited · next check\(nb)6:40\(nb)am")
+    }
+}
+
+final class NextCheckTests: XCTestCase {
+    let now = ISO8601DateFormatter().date(from: "2026-10-26T06:30:00Z")!
+
+    func testTheNextCheckIsTheLastAttemptPlusTheInterval() {
+        XCTAssertEqual(FetchPolicy.nextCheck(lastAttempt: now.addingTimeInterval(-120), waitUntil: nil,
+                                             backgroundInterval: 900, now: now), now.addingTimeInterval(780))
+    }
+
+    func testTheNextCheckWaitsForARateLimitWait() {
+        XCTAssertEqual(FetchPolicy.nextCheck(lastAttempt: now.addingTimeInterval(-120), waitUntil: now.addingTimeInterval(1800),
+                                             backgroundInterval: 900, now: now), now.addingTimeInterval(1800))
+    }
+
+    func testTheNextCheckIsNeverInThePast() {
+        XCTAssertEqual(FetchPolicy.nextCheck(lastAttempt: now.addingTimeInterval(-5000), waitUntil: now.addingTimeInterval(-10),
+                                             backgroundInterval: 900, now: now), now)
+        XCTAssertEqual(FetchPolicy.nextCheck(lastAttempt: nil, waitUntil: nil, backgroundInterval: 900, now: now), now)
+    }
+}
+
+final class StalenessTests: XCTestCase {
+    let now = ISO8601DateFormatter().date(from: "2026-10-26T06:30:00Z")!
+
+    func stale(age: TimeInterval?, interval: TimeInterval, waitEndsIn: TimeInterval? = nil) -> Bool {
+        MenuBarModel.isStale(lastSuccess: age.map { now.addingTimeInterval(-$0) }, backgroundInterval: interval,
+                             waitUntil: waitEndsIn.map { now.addingTimeInterval($0) }, now: now)
+    }
+
+    func testAHealthyTokenAccountNeverGreysBetweenChecks() {
+        // Checks every 15 minutes (up to a minute late on the tick): never more than about 16 minutes old.
+        for age: TimeInterval in [0, 14 * 60, 16 * 60, 29 * 60, 30 * 60] {
+            XCTAssertFalse(stale(age: age, interval: 900), "\(age)")
+        }
+        XCTAssertTrue(stale(age: 30 * 60 + 1, interval: 900), "two missed checks")
+    }
+
+    func testABackedOffAccountGreysOnlyAfterTwoMissedIntervals() {
+        XCTAssertFalse(stale(age: 61 * 60, interval: 3600))
+        XCTAssertFalse(stale(age: 120 * 60, interval: 3600))
+        XCTAssertTrue(stale(age: 121 * 60, interval: 3600))
+        XCTAssertFalse(stale(age: 59 * 60, interval: 1800))
+        XCTAssertTrue(stale(age: 61 * 60, interval: 1800))
+    }
+
+    func testAFastCookieAccountStillGreysAfterFifteenMinutes() {
+        XCTAssertFalse(stale(age: 15 * 60, interval: 120))
+        XCTAssertTrue(stale(age: 15 * 60 + 1, interval: 120))
+        XCTAssertTrue(stale(age: 16 * 60, interval: 60))
+    }
+
+    func testARateLimitWaitDoesNotGreyUntilFifteenMinutesAfterItEnds() {
+        // Last good read 70 minutes ago; the wait ends in 10 minutes.
+        XCTAssertFalse(stale(age: 70 * 60, interval: 900, waitEndsIn: 10 * 60))
+        // The wait ended 14 minutes ago and nothing has worked since: not yet.
+        XCTAssertFalse(stale(age: 70 * 60, interval: 900, waitEndsIn: -14 * 60))
+        // 16 minutes after the wait ended: the retry plainly failed.
+        XCTAssertTrue(stale(age: 70 * 60, interval: 900, waitEndsIn: -16 * 60))
+    }
+
+    func testNoDataIsNeverStale() {
+        XCTAssertFalse(stale(age: nil, interval: 900))
+    }
+
+    func testTheMenuBarGreysByEachAccountsOwnSchedule() {
+        let snap = UsageSnapshot(limits: [UsageLimit(kind: .session, percent: 20, resetsAt: nil)], extra: nil, fetchedAt: now)
+        let ago = now.addingTimeInterval(-25 * 60)
+        let m = MenuBarModel.build(inputs: [
+            MenuBarInput(tag: "P", snapshot: snap, lastSuccess: ago, backgroundInterval: 900),
+            MenuBarInput(tag: "W", snapshot: snap, lastSuccess: ago, backgroundInterval: 120),
+            MenuBarInput(tag: "C", snapshot: snap, lastSuccess: now.addingTimeInterval(-80 * 60), backgroundInterval: 900,
+                         waitUntil: now.addingTimeInterval(60)),
+        ], style: .compact, metrics: MetricSelection(session: true, weekly: true, scoped: false), now: now)
+        XCTAssertEqual(m.accounts.map(\.stale), [false, true, false])
     }
 }
 

@@ -83,6 +83,15 @@ public enum FetchPolicy {
         return level
     }
 
+    /// When the timer will next fetch the account on its own: after any wait, once the interval has
+    /// passed since the last attempt (the 60 s tick can add up to a minute). Never before now.
+    public static func nextCheck(lastAttempt: Date?, waitUntil: Date?, backgroundInterval: TimeInterval, now: Date) -> Date {
+        var next = now
+        if let last = lastAttempt { next = max(next, last.addingTimeInterval(backgroundInterval)) }
+        if let wait = waitUntil { next = max(next, wait) }
+        return next
+    }
+
     public static func shouldFetch(_ trigger: FetchTrigger, lastAttempt: Date?, waitUntil: Date?,
                                    backgroundInterval: TimeInterval, tokenSource: Bool = false, now: Date) -> Bool {
         if let wait = waitUntil, now < wait { return false }
@@ -134,16 +143,30 @@ public struct AccountPresentation: Equatable {
     public var greysValues: Bool
     /// A 429 with numbers already on screen is a pause, not an error: keep the numbers as they are and
     /// say so in the account header. Without numbers, or for any other issue, show the issue inline.
-    public init(issue: AccountIssue?, hasData: Bool, timeZone: TimeZone = .current) {
+    /// `nextCheck` is set when Refresh Now (or Connect) was skipped: the header says when the next check
+    /// is, unless a rate-limit note already does. No-break spaces keep the time with its phrase.
+    public init(issue: AccountIssue?, hasData: Bool, nextCheck: Date? = nil, timeZone: TimeZone = .current) {
         if case .rateLimited(let until)? = issue, hasData {
-            headerNote = "Paused by rate limit · retrying \(Formatters.clockTime(until, timeZone: timeZone))"
+            headerNote = "Rate limited · next check" + AccountPresentation.nbsp + AccountPresentation.time(until, timeZone)
             inlineIssue = nil
             greysValues = false
         } else {
-            headerNote = nil
             inlineIssue = issue
             greysValues = issue?.greysValues ?? false
+            var rateLimited = false
+            if case .rateLimited? = issue { rateLimited = true }
+            if let next = nextCheck, !rateLimited {
+                headerNote = "Next check" + AccountPresentation.nbsp + AccountPresentation.time(next, timeZone)
+            } else {
+                headerNote = nil
+            }
         }
+    }
+
+    static let nbsp = "\u{00A0}"
+
+    static func time(_ date: Date, _ timeZone: TimeZone) -> String {
+        Formatters.clockTime(date, timeZone: timeZone).replacingOccurrences(of: " ", with: nbsp)
     }
 }
 

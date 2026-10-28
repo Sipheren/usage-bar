@@ -18,6 +18,11 @@
   with an injected generator, backoff doubling, its cap and step-down, and the state file old and new.
   `Double.random(in:using:)` rejects draws, so a constant test generator hung it; the jitter takes one
   draw instead.
+- Follow-ups from the first real screenshot: the flat 15-minute greying made a healthy Claude Code
+  account look broken between its 15 to 60-minute checks, so staleness now follows the account's own
+  schedule and wait (`MenuBarModel.isStale`). "Paused by rate limit · retrying 3:02 pm" wrapped with the
+  time alone on the next line; it is now "Rate limited · next check 3:02 pm" with no-break spaces. A
+  skipped Refresh Now or Connect sets a "Next check" note in the account header.
 
 ## 2026-10-27 (source releases)
 

@@ -30,6 +30,12 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
 - macOS: each 429 doubles that account's background interval, up to an hour (15, 30, 60 minutes for
   Claude Code). Three good checks in a row step it back one level.
 - macOS: each account in the dropdown shows its own "Updated N min ago" (layout A had one line for all).
+- macOS: numbers grey out by each account's own schedule, not after a flat 15 minutes: only when older
+  than the longest of 15 minutes, two of its current intervals and, after a 429, the wait plus 15
+  minutes. An account checking on schedule never greys.
+- macOS: the 429 header note is "Rate limited · next check 3:02 pm" and keeps the time on one line.
+- macOS: when Refresh Now or Connect skips an account (inside a wait, or a token sign-in checked under
+  5 minutes ago), its header says "Next check" and the time instead of doing nothing visible.
 - macOS: the log notes the app version at launch and why a launch skipped each account.
 
 ### Fixed

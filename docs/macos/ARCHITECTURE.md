@@ -90,8 +90,10 @@ The app is one SwiftPM package in `macos/` with three targets:
 - On HTTP 429 (OAuth or claude.ai) the account waits `FetchPolicy.rateLimitWait` (Retry-After, seconds
   or an HTTP date, up to an hour, or 5 minutes when it is missing, 0 or negative) plus
   `FetchPolicy.rateLimitJitter`, a random 2 to 10 minutes (the generator can be injected for tests).
-  `AccountPresentation` keeps the last good numbers on screen and puts "Paused by rate limit ·
-  retrying 6:40 am" in the account header. With no data yet, it shows the error instead.
+  `AccountPresentation` keeps the last good numbers on screen and puts "Rate limited · next check
+  6:40 am" in the account header (no-break spaces keep the time with its phrase). With no data yet, it
+  shows the error instead. When Refresh Now or Connect is skipped, `AccountState.skippedUntil` holds
+  `FetchPolicy.nextCheck` and the header says "Next check 6:40 am" until a fetch starts.
 - `FetchBackoff` holds each account's level: a 429 raises it (doubling the interval, at most to an
   hour), 3 good reads in a row lower it by one, and any other failed read restarts the count.
 - `PersistedAccountState` saves the last attempt, the wait, the backoff and the last route to
@@ -134,8 +136,10 @@ an outlined tag and either text or stacked bars.
 
 The image is always a template image, so macOS tints it for light and dark menu bars. The status item
 redraws only when the label's content changes; it doesn't observe its own appearance (that caused a
-redraw loop). Data older than 15 minutes draws at 50% opacity; an account with no data shows its tag
-and "–".
+redraw loop). Stale data draws at 50% opacity (`MenuBarModel.isStale`, also used by the dropdown): older
+than the longest of 15 minutes, two of the account's current background intervals and, after a 429,
+the time from its last good read to the end of the wait plus 15 minutes. An account with no data shows
+its tag and "–".
 
 ## Settings storage
 
