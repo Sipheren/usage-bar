@@ -76,7 +76,8 @@ internal sealed class TrayController : IDisposable
         var s = store.Settings;
         var shown = s.Accounts.Where(a => a.ShowInTray).ToList();
         var now = store.Now;
-        var inputs = shown.Select(a => new TrayInput(a.Tag, a.Name, store.State(a).Snapshot, store.State(a).LastSuccess)).ToList();
+        var inputs = shown.Select(a => new TrayInput(a.Tag, a.Name, store.State(a).Snapshot, store.State(a).LastSuccess,
+                                                     store.CurrentInterval(a), store.State(a).WaitUntil)).ToList();
         var model = TrayModel.Build(inputs, s.LabelStyle, s.Metrics, now);
         var fg = dark ? Colors.White : Colors.Black;
         var plan = new List<TrayIconPlan>();

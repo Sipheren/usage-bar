@@ -104,6 +104,7 @@ public partial class App : Application
         var selfTest = Arg("--selftest");
         store = new AppStore(demo, fixtures is { Length: > 0 } && Directory.Exists(fixtures) ? fixtures : null,
                              Arg("--scenario"), int.TryParse(Arg("--demo-accounts"), out var n) ? n : 2);
+        Log.Info($"started, {store.Settings.Accounts.Count} account(s)");
         if (demo)
         {
             // Screenshot switches for demo mode only; real settings are never touched.

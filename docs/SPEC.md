@@ -74,7 +74,7 @@ for waits of up to an hour (decision 19). claude.ai's endpoint has its own allow
 - Backoff: each 429 doubles the account's background interval, up to an hour (15, 30, 60 minutes for a
   token sign-in). Three good reads in a row step it back one level; any failed read restarts the count.
 - The last attempt, the wait, the backoff level and the last route are saved across launches. A wait
-  saved by 0.3.1 or earlier gets the jitter and counts as one 429.
+  saved by 0.3.1 or earlier (Windows: 0.1.6 or earlier) gets the jitter and counts as one 429.
 - Fetch accounts concurrently; timers run in `.common` run-loop mode.
 
 ## Menu bar

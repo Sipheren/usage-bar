@@ -80,7 +80,9 @@
                                Typography.NumeralAlignment="Tabular" Visibility="{Binding CostLine, Converter={StaticResource NotNull}}"/>
                     <StackPanel Margin="8,0,0,0" VerticalAlignment="Top">
                         <TextBlock Text="{Binding Name}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"/>
-                        <TextBlock Text="{Binding HeaderNote}" FontSize="11" Foreground="{DynamicResource Secondary}" Visibility="{Binding HeaderNote, Converter={StaticResource NotNull}}"/>
+                        <!-- Each account's own age: sign-ins poll at different rates (decision 19). -->
+                        <TextBlock Text="{Binding UpdatedText}" FontSize="11" Foreground="{DynamicResource Secondary}"/>
+                        <TextBlock Text="{Binding HeaderNote}" FontSize="11" Foreground="{DynamicResource Secondary}" TextWrapping="Wrap" Visibility="{Binding HeaderNote, Converter={StaticResource NotNull}}"/>
                     </StackPanel>
                 </DockPanel>
                 <Border Margin="0,0,0,12" Visibility="{Binding Issue, Converter={StaticResource NotNull}}"><ContentPresenter Content="{Binding Issue}" ContentTemplate="{StaticResource Issue}"/></Border>
@@ -183,10 +185,7 @@
                     <Button DockPanel.Dock="Right" Style="{StaticResource IconButton}" Click="Refresh_Click" ToolTip="Refresh now" VerticalAlignment="Top">
                         <Path Data="{StaticResource IconRefresh}" Style="{StaticResource IconPath}" StrokeThickness="1.5"/>
                     </Button>
-                    <StackPanel>
-                        <TextBlock Text="Claude" FontSize="17" FontWeight="SemiBold"/>
-                        <TextBlock Text="{Binding UpdatedText}" FontSize="12" Foreground="{DynamicResource Secondary}" Margin="0,2,0,0"/>
-                    </StackPanel>
+                    <TextBlock Text="Claude" FontSize="17" FontWeight="SemiBold"/>
                 </DockPanel>
                 <ItemsControl ItemsSource="{Binding Accounts}" ItemTemplate="{StaticResource AccountA}" Focusable="False"/>
             </StackPanel>
@@ -208,7 +207,7 @@
                     <StackPanel>
                         <TextBlock FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,8,0"><Run Text="Claude · "/><Run Text="{Binding Name, Mode=OneWay}"/></TextBlock>
                         <TextBlock Text="{Binding UpdatedText}" FontSize="12" Foreground="{DynamicResource Secondary}" Margin="0,2,0,0"/>
-                        <TextBlock Text="{Binding HeaderNote}" FontSize="11" Foreground="{DynamicResource Secondary}" Visibility="{Binding HeaderNote, Converter={StaticResource NotNull}}"/>
+                        <TextBlock Text="{Binding HeaderNote}" FontSize="11" Foreground="{DynamicResource Secondary}" TextWrapping="Wrap" Visibility="{Binding HeaderNote, Converter={StaticResource NotNull}}"/>
                     </StackPanel>
                 </DockPanel>
                 <Border Height="1" Background="{DynamicResource Separator}" Margin="0,0,0,14"/>

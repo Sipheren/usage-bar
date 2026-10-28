@@ -1,7 +1,11 @@
 namespace UsageBar.Core;
 
-/// <summary>What one account contributes to the tray.</summary>
-public sealed record TrayInput(string Tag, string Name, UsageSnapshot? Snapshot, DateTimeOffset? LastSuccess);
+/// <summary>
+/// What one account contributes to the tray. <paramref name="BackgroundInterval"/> (backoff included, seconds) and
+/// <paramref name="WaitUntil"/> decide staleness; the defaults keep the flat 15 minutes.
+/// </summary>
+public sealed record TrayInput(string Tag, string Name, UsageSnapshot? Snapshot, DateTimeOffset? LastSuccess,
+                               double BackgroundInterval = 0, DateTimeOffset? WaitUntil = null);
 
 public sealed record TrayAccountItem(string Tag, string Name, List<int> Values, bool Missing, bool Stale,
                                      int? SessionPercent = null, int? WeeklyPercent = null);
@@ -15,7 +19,21 @@ public sealed class TrayModel
 {
     /// <summary>NOTIFYICONDATA.szTip holds 128 characters including the terminator.</summary>
     public const int MaxTooltip = 127;
+    /// <summary>Nothing greys sooner than this, however short the account's interval.</summary>
     public static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(15);
+
+    /// <summary>
+    /// Stale means the account has missed checks, not just that it checks rarely (decision 19). The data may be as old
+    /// as the longest of: 15 minutes; two of the account's current background intervals (backoff included); or, after a
+    /// 429, the time from the last good read to the end of the wait plus 15 minutes.
+    /// </summary>
+    public static bool IsStale(DateTimeOffset? lastSuccess, double backgroundInterval, DateTimeOffset? waitUntil, DateTimeOffset now)
+    {
+        if (lastSuccess is not { } last) return false;
+        var allowed = Math.Max(StaleAfter.TotalSeconds, 2 * backgroundInterval);
+        if (waitUntil is { } wait) allowed = Math.Max(allowed, (wait - last).TotalSeconds + StaleAfter.TotalSeconds);
+        return (now - last).TotalSeconds > allowed;
+    }
 
     public LabelStyle Style { get; }
     public List<TrayAccountItem> Accounts { get; }
@@ -37,7 +55,7 @@ public sealed class TrayModel
                 if (metrics.Scoped && snap.Scoped.OrderByDescending(l => l.Percent).FirstOrDefault() is { } sc) picked.Add(sc);
                 values = picked.Select(l => (int)Formatters.Round(Math.Max(0, l.Percent))).ToList();
             }
-            var stale = input.LastSuccess is { } last && now - last > StaleAfter;
+            var stale = IsStale(input.LastSuccess, input.BackgroundInterval, input.WaitUntil, now);
             int? Pct(UsageLimit? l) => l is null ? null : (int)Formatters.Round(Math.Max(0, l.Percent));
             items.Add(new TrayAccountItem(input.Tag, input.Name, values, values.Count == 0, input.Snapshot is not null && stale,
                                           Pct(input.Snapshot?.Session), Pct(input.Snapshot?.Weekly)));

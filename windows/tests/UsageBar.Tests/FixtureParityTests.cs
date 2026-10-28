@@ -206,7 +206,7 @@ public class FixtureParityTests
         Num(ra, "Mon, 02 Mar 2026 05:02:00 GMT", UsageClient.RetryAfter("Mon, 02 Mar 2026 05:02:00 GMT", Now));
 
         var until = Now.AddSeconds(120);
-        Assert.Equal(Str(e, "rateLimitedWithNumbers"), new AccountPresentation(AccountIssue.RateLimited(until), true, Tz).HeaderNote);
+        Assert.Equal(Str(e, "rateLimitedWithNumbers"), new AccountPresentation(AccountIssue.RateLimited(until), true, timeZone: Tz).HeaderNote);
         Assert.Equal(Str(e, "rateLimitedWithoutNumbers"), AccountIssue.RateLimited(until).Message(Tz));
 
         var e401 = e.GetProperty("error401");

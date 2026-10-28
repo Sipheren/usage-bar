@@ -16,6 +16,33 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   `scripts/release.sh`. Each has `INSTALL.txt` (and `Install.cmd` on Windows) at the top and installs
   with one command; the README has a Download section.
 
+## [Windows 0.1.7] - 2026-10-28
+
+### Changed
+- Windows: Claude Code logins, and the Claude app on its token, check at most every 15 minutes (was 5).
+  Anthropic publishes no limits for their usage endpoint, which Claude Code's own `/usage` and anything
+  else watching the account share (decision 19).
+- Windows: opening the flyout no longer checks those sign-ins, and Refresh Now checks them only once the
+  last check is 5 minutes old. The Claude app on its claude.ai session keeps the refresh setting and the
+  2-minute flyout check.
+- Windows: every 429 waits its Retry-After plus a random 2 to 10 minutes, so the retry never lands on the
+  moment the block ends. The log line shows the jitter and the backoff level.
+- Windows: each 429 doubles that account's background interval, up to an hour (15, 30, 60 minutes for
+  Claude Code). Three good checks in a row step it back one level.
+- Windows: each account in the flyout shows its own "Updated N min ago" (layout A had one line for all).
+- Windows: numbers grey out, in the flyout and the tray, by each account's own schedule, not after a flat
+  15 minutes: only when older than the longest of 15 minutes, two of its current intervals and, after a
+  429, the wait plus 15 minutes. An account checking on schedule never greys.
+- Windows: the 429 header note is "Rate limited · next check 3:02 pm" and keeps the time on one line.
+- Windows: when Refresh Now or Connect skips an account (inside a wait, or a token sign-in checked under
+  5 minutes ago), its header says "Next check" and the time instead of doing nothing visible.
+- Windows: the log notes the account count at launch and why a launch skipped each account.
+- Windows: Settings > General explains the new rules under the refresh setting.
+
+### Fixed
+- Windows: the 429 wait, the backoff level and the Claude app's last route survive a relaunch. A wait
+  saved by 0.1.6 gets the jitter on the first launch and counts as one 429.
+
 ## [macOS 0.3.2] - 2026-10-28
 
 ### Changed

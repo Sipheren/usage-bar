@@ -77,19 +77,26 @@ and names the exact problem when it doesn't.
   as small tray icons on dark and light taskbars), pick each sign-in source, hide an account from the tray,
   add accounts (one per sign-in source) or remove them.
 
-Usage only refreshes when it's due (decision 18). Claude Code checks at most every 5 minutes in the
-background, whatever the refresh setting, and so does the Claude app when its claude.ai session doesn't
-work: their usage endpoint allows only a few requests, shared with Claude Code's own `/usage`. A
-60-second timer fetches each account once its own interval is due. Opening the flyout checks anything
-last checked over 2 minutes ago; a launch checks only what's a full interval old. A 429 pauses that
-account until its Retry-After passes (at most an hour; 5 minutes when it's missing or 0).
+Usage only refreshes when it's due (decision 19). Claude Code checks at most every 15 minutes, whatever
+the refresh setting, and so does the Claude app when its claude.ai session doesn't work. Anthropic
+publishes no limit for their usage endpoint, and Claude Code's own `/usage` and anything else watching
+the account share it. Opening the flyout doesn't check them, and Refresh Now does only once 5 minutes
+have passed; when it skips an account, the account's header says when the next check is. Opening the
+flyout checks other sign-ins last checked over 2 minutes ago. A 60-second timer fetches each account
+once its own interval is due; a launch checks only what's a full interval old.
+
+A 429 pauses that account until its Retry-After passes (at most an hour; 5 minutes when it's missing or
+0), plus a random 2 to 10 minutes, and the header says "Rate limited · next check" and the time. Each
+429 also doubles the account's interval, up to an hour (15, 30, 60 minutes for Claude Code); three good
+checks in a row step it back. Each account shows its own "Updated N min ago", and its numbers grey out
+only once it has missed checks by its own schedule.
 
 ## Files
 
 | Path | What |
 |---|---|
 | `%APPDATA%\UsageBar\settings.json` | Settings |
-| `%APPDATA%\UsageBar\state.json` | Each account's last numbers, fetch times and the email or organization shown in Settings, so relaunches don't refetch |
+| `%APPDATA%\UsageBar\state.json` | Each account's last numbers, fetch times, rate-limit wait, backoff level, last route and the email or organization shown in Settings, so relaunches don't refetch |
 | `%APPDATA%\UsageBar\rates.json` | The day's exchange rates |
 | `%LOCALAPPDATA%\UsageBar\cost-cache.json` | The cost scanner's incremental cache: token counts and id hashes, no content |
 | `%LOCALAPPDATA%\UsageBar\logs\usagebar.log` | Statuses and counts only: never tokens, cookies, emails or organization names |

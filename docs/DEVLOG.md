@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-10-28 (Windows 0.1.7)
+
+- Ported macOS 0.3.2 (decision 19), test-first from `RateLimitTests.swift`: the 15-minute floor, the
+  flyout and Refresh Now rules, the jitter with an injected generator (`Func<ulong>`, one draw), backoff
+  doubling, its cap and step-down, the next-check time, staleness by schedule, the new header notes and
+  the state file old and new (27 new tests, 226 in all, none skipped with the fixtures folder). The
+  local fixtures' answer sheet was 0.3.0's; the Mac sent 0.3.2's one changed field
+  (`rateLimitedWithNumbers`), and the parity test passes against it.
+- `PersistedAccountState` gains `Backoff` and `LastRoute` as optional constructor parameters, so a 0.1.6
+  `state.json` still loads (tested with 0.1.6's date format). The cost scan and the rate check keep the
+  refresh setting's pace, as in 0.1.6.
+- Installed over 0.1.6 on this PC: the launch logged "not fetched at launch, next due 3:30 pm (every 15
+  min)"; opening the flyout 4 minutes after a check didn't fetch; Refresh Now logged "Refresh Now
+  skipped, next check 3:30 pm" and the account header showed "Next check 3:30 pm"; the timer then
+  fetched 14 min 45 s after the previous check, and `state.json` gained `backoff` and `lastRoute`. No
+  429 came during the check, so the jitter, backoff and the 0.1.6-wait upgrade are covered by tests only.
+
 ## 2026-10-28 (macOS 0.3.2)
 
 - The Claude Code account still got 429s on 0.3.1: Retry-After 3471 s, then a retry on the boundary
