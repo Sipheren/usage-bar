@@ -7,9 +7,9 @@ public class FetchPolicyTests
 {
     static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-26T06:30:00Z");
 
-    static bool Should(FetchTrigger t, double? last, double? waitFor = null, double interval = 120) =>
+    static bool Should(FetchTrigger t, double? last, double? waitFor = null, double interval = 120, bool token = false) =>
         FetchPolicy.ShouldFetch(t, last is { } l ? Now.AddSeconds(-l) : null,
-                                waitFor is { } w ? Now.AddSeconds(w) : null, interval, Now);
+                                waitFor is { } w ? Now.AddSeconds(w) : null, interval, Now, token);
 
     [Fact]
     public void LaunchSkipsAnAccountFetchedWithinTheInterval()
@@ -81,13 +81,49 @@ public class FetchPolicyTests
     }
 
     [Fact]
-    public void FlyoutOpenChecksATokenSourceOnceTwoMinutesHavePassed()
+    public void FlyoutOpenNeverFetchesATokenSource()
     {
-        foreach (var interval in new double[] { 300, 600 })
+        foreach (var last in new double?[] { null, 0, 119, 120, 900, 3600, 86_400 })
+            Assert.False(Should(FetchTrigger.MenuOpen, last, interval: 900, token: true), last?.ToString() ?? "null");
+    }
+
+    [Fact]
+    public void FlyoutOpenStillChecksACookieSourceOnceTwoMinutesHavePassed()
+    {
+        foreach (var interval in new double[] { 300, 600, 1200 })
         {
             Assert.False(Should(FetchTrigger.MenuOpen, 119, interval: interval), interval.ToString());
             Assert.True(Should(FetchTrigger.MenuOpen, 120, interval: interval), interval.ToString());
         }
+        Assert.True(Should(FetchTrigger.MenuOpen, null, interval: 120));
+    }
+
+    [Fact]
+    public void RefreshNowOnATokenSourceWaitsFiveMinutesAfterTheLastAttempt()
+    {
+        Assert.True(Should(FetchTrigger.Manual, null, interval: 900, token: true));
+        Assert.False(Should(FetchTrigger.Manual, 5, interval: 900, token: true));
+        Assert.False(Should(FetchTrigger.Manual, 299, interval: 900, token: true));
+        Assert.True(Should(FetchTrigger.Manual, 300, interval: 900, token: true));
+        Assert.False(Should(FetchTrigger.Manual, 999, waitFor: 60, interval: 900, token: true));
+    }
+
+    [Fact]
+    public void RefreshNowOnACookieSourceStillFetchesOutsideAWait()
+    {
+        Assert.True(Should(FetchTrigger.Manual, 1, interval: 120));
+        Assert.False(Should(FetchTrigger.Manual, 1, waitFor: 60, interval: 120));
+    }
+
+    [Fact]
+    public void ATokenSourceTimerAndLaunchUseTheFifteenMinuteFloor()
+    {
+        var interval = FetchPolicy.BackgroundInterval(2, tokenSource: true);
+        Assert.False(Should(FetchTrigger.Timer, 840, interval: interval, token: true));
+        Assert.True(Should(FetchTrigger.Timer, 870, interval: interval, token: true));
+        Assert.False(Should(FetchTrigger.Launch, 899, interval: interval, token: true));
+        Assert.True(Should(FetchTrigger.Launch, 900, interval: interval, token: true));
+        Assert.True(Should(FetchTrigger.Launch, null, interval: interval, token: true));
     }
 
     [Fact]
@@ -100,12 +136,11 @@ public class FetchPolicyTests
     }
 
     [Fact]
-    public void TokenSourcesPollNoFasterThanEveryFiveMinutes()
+    public void TokenSourcesPollNoFasterThanEveryFifteenMinutes()
     {
-        Assert.Equal(300, FetchPolicy.BackgroundInterval(1, tokenSource: true));
-        Assert.Equal(300, FetchPolicy.BackgroundInterval(2, tokenSource: true));
-        Assert.Equal(300, FetchPolicy.BackgroundInterval(5, tokenSource: true));
-        Assert.Equal(600, FetchPolicy.BackgroundInterval(10, tokenSource: true));
+        Assert.Equal(900, FetchPolicy.TokenMinimumInterval);
+        foreach (var minutes in new[] { 1, 2, 5, 10 })
+            Assert.Equal(900, FetchPolicy.BackgroundInterval(minutes, tokenSource: true));
     }
 
     [Fact]
@@ -121,7 +156,7 @@ public class FetchPolicyTests
     {
         Assert.Equal(120, FetchPolicy.BackgroundInterval(0, tokenSource: false));
         Assert.Equal(120, FetchPolicy.BackgroundInterval(3, tokenSource: false));
-        Assert.Equal(300, FetchPolicy.BackgroundInterval(0, tokenSource: true));
+        Assert.Equal(900, FetchPolicy.BackgroundInterval(0, tokenSource: true));
     }
 
     [Fact]
@@ -136,12 +171,234 @@ public class FetchPolicyTests
     }
 
     [Fact]
-    public void ClaudeCodeOnTheTwoMinuteSettingWaitsFiveMinutesBetweenTimerFetches()
+    public void ClaudeCodeOnTheTwoMinuteSettingWaitsFifteenMinutesBetweenTimerFetches()
     {
-        var interval = FetchPolicy.BackgroundInterval(2, FetchPolicy.IsTokenSource(SourceKind.ClaudeCode, null));
-        Assert.False(Should(FetchTrigger.Timer, 120, interval: interval));
-        Assert.False(Should(FetchTrigger.Timer, 240, interval: interval));
-        Assert.True(Should(FetchTrigger.Timer, 300, interval: interval));
+        var token = FetchPolicy.IsTokenSource(SourceKind.ClaudeCode, null);
+        var interval = FetchPolicy.BackgroundInterval(2, token);
+        foreach (var elapsed in new double[] { 120, 300, 600, 869 })
+            Assert.False(Should(FetchTrigger.Timer, elapsed, interval: interval, token: token), elapsed.ToString());
+        Assert.True(Should(FetchTrigger.Timer, 900, interval: interval, token: token));
+    }
+}
+
+public class RateLimitJitterTests
+{
+    static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-26T06:30:00Z");
+
+    /// <summary>SplitMix64: a small seeded generator, so the jitter tests are repeatable.</summary>
+    static Func<ulong> Seeded(ulong state) => () =>
+    {
+        unchecked
+        {
+            state += 0x9E3779B97F4A7C15;
+            var z = state;
+            z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9;
+            z = (z ^ (z >> 27)) * 0x94D049BB133111EB;
+            return z ^ (z >> 31);
+        }
+    };
+
+    [Fact]
+    public void JitterIsTwoToTenMinutes()
+    {
+        Assert.Equal(120, FetchPolicy.RateLimitJitterMin);
+        Assert.Equal(600, FetchPolicy.RateLimitJitterMax);
+        Assert.Equal(120, FetchPolicy.RateLimitJitter(() => 0));
+        var top = FetchPolicy.RateLimitJitter(() => ulong.MaxValue);
+        Assert.True(top > 599 && top <= 600, top.ToString());
+    }
+
+    [Fact]
+    public void SeededJitterStaysInRangeAndSpreadsOut()
+    {
+        var rng = Seeded(42);
+        var draws = Enumerable.Range(0, 2000).Select(_ => FetchPolicy.RateLimitJitter(rng)).ToList();
+        Assert.All(draws, d => Assert.InRange(d, 120, 600));
+        Assert.True(draws.Min() < 150);
+        Assert.True(draws.Max() > 570);
+    }
+
+    [Fact]
+    public void TheWaitIsRetryAfterPlusTheJitter()
+    {
+        var report = new FetchReport();
+        AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429, RetryAfter: 3402), report, AccountIssue.ExpiredCli, Now, jitter: 245);
+        Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(3402 + 245)), report.Issue);
+        Assert.Equal(245, report.RateLimitJitter);
+        AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429, RetryAfter: 7200), report, AccountIssue.ExpiredCli, Now, jitter: 600);
+        Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(3600 + 600)), report.Issue);
+        AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 0), report, AccountIssue.ExpiredDesktop,
+                                          "the Claude app", "The Claude app", Now, jitter: 120);
+        Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300 + 120)), report.Issue);
+        Assert.Equal(120, report.RateLimitJitter);
+    }
+
+    [Fact]
+    public void AnUnsetJitterIsDrawnFromTheRange()
+    {
+        for (var i = 0; i < 50; i++)
+        {
+            var report = new FetchReport();
+            AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429, RetryAfter: 100), report, AccountIssue.ExpiredCli, Now);
+            var j = Assert.NotNull(report.RateLimitJitter);
+            Assert.InRange(j, 120, 600);
+            Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(100 + j)), report.Issue);
+        }
+    }
+}
+
+public class BackoffTests
+{
+    [Fact]
+    public void Each429DoublesATokenSourceUpToAnHour()
+    {
+        var b = new FetchBackoff();
+        Assert.Equal(900, FetchPolicy.BackgroundInterval(2, true, b.Level));
+        b.RateLimited(900);
+        Assert.Equal(1, b.Level);
+        Assert.Equal(1800, FetchPolicy.BackgroundInterval(2, true, b.Level));
+        b.RateLimited(900);
+        Assert.Equal(3600, FetchPolicy.BackgroundInterval(2, true, b.Level));
+        b.RateLimited(900);
+        Assert.Equal(2, b.Level);   // no level past the hour, so one step down is felt
+        Assert.Equal(3600, FetchPolicy.BackgroundInterval(2, true, b.Level));
+    }
+
+    [Fact]
+    public void Each429DoublesACookieSourceUpToAnHour()
+    {
+        var b = new FetchBackoff();
+        var seen = new List<double>();
+        for (var i = 0; i < 8; i++)
+        {
+            b.RateLimited(120);
+            seen.Add(FetchPolicy.BackgroundInterval(2, false, b.Level));
+        }
+        Assert.Equal(new double[] { 240, 480, 960, 1920, 3600, 3600, 3600, 3600 }, seen);
+        Assert.Equal(5, b.Level);
+        Assert.Equal(3600, FetchPolicy.BackgroundInterval(10, false, 3));
+        Assert.Equal(1200, FetchPolicy.BackgroundInterval(10, false, 1));
+    }
+
+    [Fact]
+    public void ThreeGoodReadsStepBackOneLevel()
+    {
+        var b = new FetchBackoff(2, 0);
+        b.Succeeded(); b.Succeeded();
+        Assert.Equal(2, b.Level);
+        b.Succeeded();
+        Assert.Equal(1, b.Level);
+        Assert.Equal(0, b.Successes);
+        b.Succeeded(); b.Succeeded(); b.Succeeded();
+        Assert.Equal(0, b.Level);
+        b.Succeeded(); b.Succeeded(); b.Succeeded();
+        Assert.Equal(new FetchBackoff(0, 0), b);
+    }
+
+    [Fact]
+    public void A429OrAnyOtherFailureRestartsTheCount()
+    {
+        var b = new FetchBackoff(1, 0);
+        b.Succeeded(); b.Succeeded();
+        b.Failed();
+        b.Succeeded(); b.Succeeded();
+        Assert.Equal(1, b.Level);   // the failure broke the run of good reads
+        b.RateLimited(900);
+        Assert.Equal(new FetchBackoff(2, 0), b);
+    }
+
+    [Fact]
+    public void TheHighestLevelIsTheOneThatReachesAnHour()
+    {
+        Assert.Equal(2, FetchPolicy.MaxBackoffLevel(900));
+        Assert.Equal(5, FetchPolicy.MaxBackoffLevel(120));
+        Assert.Equal(6, FetchPolicy.MaxBackoffLevel(60));
+        Assert.Equal(4, FetchPolicy.MaxBackoffLevel(300));
+        Assert.Equal(3, FetchPolicy.MaxBackoffLevel(600));
+        Assert.Equal(0, FetchPolicy.MaxBackoffLevel(0));
+    }
+}
+
+public class NextCheckTests
+{
+    static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-26T06:30:00Z");
+
+    [Fact]
+    public void TheNextCheckIsTheLastAttemptPlusTheInterval() =>
+        Assert.Equal(Now.AddSeconds(780), FetchPolicy.NextCheck(Now.AddSeconds(-120), null, 900, Now));
+
+    [Fact]
+    public void TheNextCheckWaitsForARateLimitWait() =>
+        Assert.Equal(Now.AddSeconds(1800), FetchPolicy.NextCheck(Now.AddSeconds(-120), Now.AddSeconds(1800), 900, Now));
+
+    [Fact]
+    public void TheNextCheckIsNeverInThePast()
+    {
+        Assert.Equal(Now, FetchPolicy.NextCheck(Now.AddSeconds(-5000), Now.AddSeconds(-10), 900, Now));
+        Assert.Equal(Now, FetchPolicy.NextCheck(null, null, 900, Now));
+    }
+}
+
+public class StalenessTests
+{
+    static readonly DateTimeOffset Now = DateTimeOffset.Parse("2026-10-26T06:30:00Z");
+
+    static bool Stale(double? age, double interval, double? waitEndsIn = null) =>
+        TrayModel.IsStale(age is { } a ? Now.AddSeconds(-a) : null, interval, waitEndsIn is { } w ? Now.AddSeconds(w) : null, Now);
+
+    [Fact]
+    public void AHealthyTokenAccountNeverGreysBetweenChecks()
+    {
+        // Checks every 15 minutes (up to a minute late on the tick): never more than about 16 minutes old.
+        foreach (var age in new double[] { 0, 14 * 60, 16 * 60, 29 * 60, 30 * 60 })
+            Assert.False(Stale(age, 900), age.ToString());
+        Assert.True(Stale(30 * 60 + 1, 900));   // two missed checks
+    }
+
+    [Fact]
+    public void ABackedOffAccountGreysOnlyAfterTwoMissedIntervals()
+    {
+        Assert.False(Stale(61 * 60, 3600));
+        Assert.False(Stale(120 * 60, 3600));
+        Assert.True(Stale(121 * 60, 3600));
+        Assert.False(Stale(59 * 60, 1800));
+        Assert.True(Stale(61 * 60, 1800));
+    }
+
+    [Fact]
+    public void AFastCookieAccountStillGreysAfterFifteenMinutes()
+    {
+        Assert.False(Stale(15 * 60, 120));
+        Assert.True(Stale(15 * 60 + 1, 120));
+        Assert.True(Stale(16 * 60, 60));
+    }
+
+    [Fact]
+    public void ARateLimitWaitDoesNotGreyUntilFifteenMinutesAfterItEnds()
+    {
+        // Last good read 70 minutes ago; the wait ends in 10 minutes.
+        Assert.False(Stale(70 * 60, 900, 10 * 60));
+        // The wait ended 14 minutes ago and nothing has worked since: not yet.
+        Assert.False(Stale(70 * 60, 900, -14 * 60));
+        // 16 minutes after the wait ended: the retry plainly failed.
+        Assert.True(Stale(70 * 60, 900, -16 * 60));
+    }
+
+    [Fact]
+    public void NoDataIsNeverStale() => Assert.False(Stale(null, 900));
+
+    [Fact]
+    public void TheTrayGreysByEachAccountsOwnSchedule()
+    {
+        var snap = new UsageSnapshot(new List<UsageLimit> { new(LimitKind.Session, 20, null) }, null, Now);
+        var ago = Now.AddMinutes(-25);
+        var m = TrayModel.Build(new List<TrayInput>
+        {
+            new("P", "Personal", snap, ago, 900),
+            new("W", "Work", snap, ago, 120),
+            new("C", "Claude app", snap, Now.AddMinutes(-80), 900, Now.AddSeconds(60)),
+        }, LabelStyle.Compact, new MetricSelection(true, true, false), Now);
+        Assert.Equal(new[] { false, true, false }, m.Accounts.Select(a => a.Stale));
     }
 }
 
@@ -149,12 +406,14 @@ public class RateLimitPresentationTests
 {
     static readonly TimeZoneInfo Utc = TimeZoneInfo.Utc;
     static readonly DateTimeOffset Until = DateTimeOffset.Parse("2026-10-26T06:40:00Z");
+    /// <summary>No-break spaces keep the time with its phrase when the header wraps.</summary>
+    const string Nb = "\u00A0";
 
     [Fact]
     public void RateLimitWithDataKeepsNumbersAndNotesItInTheHeader()
     {
-        var p = new AccountPresentation(AccountIssue.RateLimited(Until), true, Utc);
-        Assert.Equal("Paused by rate limit · retrying 6:40 am", p.HeaderNote);
+        var p = new AccountPresentation(AccountIssue.RateLimited(Until), true, timeZone: Utc);
+        Assert.Equal($"Rate limited · next check{Nb}6:40{Nb}am", p.HeaderNote);
         Assert.Null(p.InlineIssue);
         Assert.False(p.GreysValues);
     }
@@ -162,7 +421,7 @@ public class RateLimitPresentationTests
     [Fact]
     public void RateLimitWithoutDataIsShownAsAnError()
     {
-        var p = new AccountPresentation(AccountIssue.RateLimited(Until), false, Utc);
+        var p = new AccountPresentation(AccountIssue.RateLimited(Until), false, timeZone: Utc);
         Assert.Null(p.HeaderNote);
         Assert.Equal(AccountIssue.RateLimited(Until), p.InlineIssue);
         Assert.Equal("Rate limited — retrying after 6:40 am", AccountIssue.RateLimited(Until).Message(Utc));
@@ -171,7 +430,7 @@ public class RateLimitPresentationTests
     [Fact]
     public void OtherIssuesStillShowInlineAndGreyOldNumbers()
     {
-        var p = new AccountPresentation(AccountIssue.Network("offline"), true, Utc);
+        var p = new AccountPresentation(AccountIssue.Network("offline"), true, timeZone: Utc);
         Assert.Null(p.HeaderNote);
         Assert.Equal(AccountIssue.Network("offline"), p.InlineIssue);
         Assert.True(p.GreysValues);
@@ -180,10 +439,22 @@ public class RateLimitPresentationTests
     [Fact]
     public void NoIssueShowsNothing()
     {
-        var p = new AccountPresentation(null, true, Utc);
+        var p = new AccountPresentation(null, true, timeZone: Utc);
         Assert.Null(p.HeaderNote);
         Assert.Null(p.InlineIssue);
         Assert.False(p.GreysValues);
+    }
+
+    [Fact]
+    public void ASkippedRefreshNowSaysWhenTheNextCheckIs()
+    {
+        var p = new AccountPresentation(null, true, Until, Utc);
+        Assert.Equal($"Next check{Nb}6:40{Nb}am", p.HeaderNote);
+        Assert.False(p.GreysValues);
+        Assert.Equal($"Next check{Nb}6:40{Nb}am", new AccountPresentation(null, false, Until, Utc).HeaderNote);
+        // Inside a wait the rate-limit note already gives the next check.
+        Assert.Equal($"Rate limited · next check{Nb}6:40{Nb}am",
+                     new AccountPresentation(AccountIssue.RateLimited(Until), true, Until, Utc).HeaderNote);
     }
 
     [Fact]
@@ -215,6 +486,69 @@ public class PersistedStateTests
         var state = new PersistedAccountState(snap, now, now, now.AddSeconds(60), "personal@example.com");
         var back = JsonSerializer.Deserialize<PersistedAccountState>(JsonSerializer.Serialize(state, AppJson.Options), AppJson.Options);
         Assert.Equal(state, back);
+    }
+
+    [Fact]
+    public void TheWaitBackoffAndRouteSurviveARelaunch()
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds(1_790_000_000);
+        var state = new PersistedAccountState(null, now.AddSeconds(-300), now, now.AddSeconds(3647), null, new FetchBackoff(2, 1), "token");
+        var json = JsonSerializer.Serialize(new Dictionary<Guid, PersistedAccountState> { [Guid.Empty] = state }, AppJson.Options);
+        var back = JsonSerializer.Deserialize<Dictionary<Guid, PersistedAccountState>>(json, AppJson.Options)![Guid.Empty];
+        Assert.Equal(state, back);
+        Assert.Equal(new FetchBackoff(2, 1), back.Backoff);
+        Assert.Equal("token", back.LastRoute);
+        // And the restored wait still blocks every trigger.
+        foreach (var t in Enum.GetValues<FetchTrigger>())
+            Assert.False(FetchPolicy.ShouldFetch(t, back.LastAttempt, back.WaitUntil, 900, now.AddSeconds(3600), tokenSource: true), t.ToString());
+    }
+
+    [Fact]
+    public void StateSavedByAnEarlierVersionStillLoads()
+    {
+        // 0.1.6 wrote only these keys, with dates in this form; a missing key must not drop the file.
+        const string json = """
+            {
+              "00000000-0000-4000-8000-0000000000aa": {
+                "lastSuccess": "2026-10-27T18:28:37.1234567+10:00",
+                "lastAttempt": "2026-10-27T18:28:37.123456+10:00",
+                "waitUntil": "2026-10-27T19:28:37.123456+10:00"
+              },
+              "00000000-0000-4000-8000-0000000000bb": { "lastAttempt": "2026-10-27T18:30:46.5+10:00" }
+            }
+            """;
+        var saved = JsonSerializer.Deserialize<Dictionary<Guid, PersistedAccountState>>(json, AppJson.Options)!;
+        Assert.Equal(2, saved.Count);
+        var a = saved[Guid.Parse("00000000-0000-4000-8000-0000000000aa")];
+        Assert.Null(a.Backoff);
+        Assert.Null(a.LastRoute);
+        Assert.Equal(DateTimeOffset.Parse("2026-10-27T19:28:37.123456+10:00"), a.WaitUntil);
+        Assert.Null(saved[Guid.Parse("00000000-0000-4000-8000-0000000000bb")].WaitUntil);
+    }
+
+    [Fact]
+    public void AWaitSavedByAnEarlierVersionGetsAJitterAndCountsAsOne429()
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds(1_790_000_000);
+        var until = now.AddSeconds(2700);
+        var st = new PersistedAccountState(null, null, now.AddSeconds(-700), until, null);
+        Assert.True(st.UpgradeEarlierWait(900, 300, now, out var upgraded));
+        Assert.Equal(until.AddSeconds(300), upgraded.WaitUntil);
+        Assert.Equal(new FetchBackoff(1, 0), upgraded.Backoff);
+        // Once upgraded (the backoff is saved with it), it is never moved again.
+        Assert.False(upgraded.UpgradeEarlierWait(900, 300, now, out var again));
+        Assert.Equal(until.AddSeconds(300), again.WaitUntil);
+    }
+
+    [Fact]
+    public void APassedWaitFromAnEarlierVersionIsLeftAlone()
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds(1_790_000_000);
+        var passed = new PersistedAccountState(null, null, null, now.AddSeconds(-1), null);
+        Assert.False(passed.UpgradeEarlierWait(900, 300, now, out var same));
+        Assert.Equal(now.AddSeconds(-1), same.WaitUntil);
+        Assert.Null(same.Backoff);
+        Assert.False(new PersistedAccountState(null, null, null, null, null).UpgradeEarlierWait(900, 300, now, out _));
     }
 }
 

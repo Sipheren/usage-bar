@@ -203,7 +203,7 @@ public class FetchTests : IDisposable
     async Task<(FetchReport Report, Stub Stub)> Fetch(Func<HttpRequestMessage, HttpResponseMessage> answer)
     {
         var stub = new Stub(answer);
-        var report = await new AccountFetcher(new HttpClient(stub)).FetchClaudeCodeAsync(dir, Now, default);
+        var report = await new AccountFetcher(new HttpClient(stub), jitter: () => 0).FetchClaudeCodeAsync(dir, Now, default);
         return (report, stub);
     }
 

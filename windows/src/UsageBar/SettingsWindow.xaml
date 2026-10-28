@@ -185,9 +185,9 @@
                                 <TextBlock Text="Refresh every" Style="{StaticResource RowLabel}"/>
                                 <ComboBox x:Name="RefreshBox" AutomationProperties.Name="Refresh every" DockPanel.Dock="Right" Style="{StaticResource WinCombo}" VerticalAlignment="Center" SelectionChanged="General_Changed"/>
                             </DockPanel>
-                            <!-- Decision 18: the OAuth usage endpoint allows only a few requests, so token sign-ins poll at most every 5 minutes. -->
+                            <!-- Decision 19: the OAuth usage endpoint has no published limit and is shared, so token sign-ins poll sparingly and back off. -->
                             <TextBlock x:Name="RefreshCaption" Style="{StaticResource SecondaryText}" Margin="16,0,16,12"
-                                       Text="In the background, Claude Code checks at most every 5 minutes, and so does the Claude app when its claude.ai session doesn't work. Opening the flyout checks anything last checked over 2 minutes ago."/>
+                                       Text="Claude Code checks at most every 15 minutes, and so does the Claude app when its claude.ai session doesn't work. Opening the flyout doesn't check them, and Refresh Now does only once 5 minutes have passed. After a rate limit, an account checks less often for a while. Opening the flyout checks other sign-ins last checked over 2 minutes ago."/>
                         </StackPanel>
                     </Border>
 

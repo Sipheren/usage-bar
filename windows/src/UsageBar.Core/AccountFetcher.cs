@@ -7,6 +7,8 @@ public sealed class FetchReport
     /// <summary>Last HTTP status from the usage endpoint, if a request was made.</summary>
     public int? HttpStatus { get; set; }
     public double? RetryAfter { get; set; }
+    /// <summary>The random part of a 429 wait (2 to 10 minutes), for the log.</summary>
+    public double? RateLimitJitter { get; set; }
     /// <summary>What Settings shows as the account's identity: an email or an organization name.</summary>
     public string? Email { get; set; }
     /// <summary>Claude app: key path of the chosen token-cache entry (no secrets), kept per account uuid.</summary>
@@ -23,8 +25,12 @@ public interface IDesktopFetcher
     Task<FetchReport> FetchAsync(DesktopContext ctx, DateTimeOffset now, CancellationToken ct);
 }
 
-/// <summary>One fetch per account. Never refreshes or writes any app's credentials.</summary>
-public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = null, Func<string, HttpClient>? fixtureHttp = null)
+/// <summary>
+/// One fetch per account. Never refreshes or writes any app's credentials. <paramref name="jitter"/> gives the random part
+/// of a 429 wait (tests pin it); null draws one.
+/// </summary>
+public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = null, Func<string, HttpClient>? fixtureHttp = null,
+                                   Func<double>? jitter = null)
 {
     public static readonly AccountIssue ClaudeCodeRejected = AccountIssue.Rejected("Claude Code login rejected — run `claude` once");
 
@@ -77,7 +83,7 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         {
             var o = await client.FetchUsageAsync(token, ct);
             report.HttpStatus = o.Status;
-            Apply(o, report, rejected, now);
+            Apply(o, report, rejected, now, jitter?.Invoke());
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or IOException)
         {
@@ -86,17 +92,14 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
     }
 
     /// <summary>Records an OAuth usage outcome on <paramref name="report"/>. A 429 pauses the account from <paramref name="now"/>.</summary>
-    public static void Apply(FetchOutcome o, FetchReport report, AccountIssue rejected, DateTimeOffset now)
+    public static void Apply(FetchOutcome o, FetchReport report, AccountIssue rejected, DateTimeOffset now, double? jitter = null)
     {
         switch (o.Kind)
         {
             case FetchOutcomeKind.Ok: report.Snapshot = o.Snapshot; report.Issue = null; break;
             case FetchOutcomeKind.Unauthorized: report.Issue = rejected; break;
             case FetchOutcomeKind.ScopeError: report.Issue = AccountIssue.Scope; break;
-            case FetchOutcomeKind.RateLimited:
-                report.RetryAfter = o.RetryAfter;
-                report.Issue = AccountIssue.RateLimited(now.AddSeconds(FetchPolicy.RateLimitWait(o.RetryAfter)));
-                break;
+            case FetchOutcomeKind.RateLimited: RateLimited(o.RetryAfter, report, now, jitter); break;
             case FetchOutcomeKind.Http: report.Issue = AccountIssue.Http(o.Status); break;
             default: report.Issue = AccountIssue.Rejected("Unexpected usage response"); break;
         }
@@ -110,16 +113,18 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
     /// </summary>
     public static async Task<CookieUsageOutcome> ApplyCookieFlowAsync(ClaudeAiCookieClient cookies, IReadOnlyDictionary<string, string> jar,
                                                                       string? personalOrg, FetchReport report, AccountIssue rejected,
-                                                                      string where, string who, DateTimeOffset now, CancellationToken ct)
+                                                                      string where, string who, DateTimeOffset now, CancellationToken ct,
+                                                                      double? jitter = null)
     {
         var o = await cookies.FetchUsageAsync(jar, personalOrg, ct);
         report.HttpStatus = o.Status;
-        ApplyCookieOutcome(o, report, rejected, where, who, now);
+        ApplyCookieOutcome(o, report, rejected, where, who, now, jitter);
         return o;
     }
 
     /// <summary>Records a claude.ai outcome on <paramref name="report"/>. A 429 pauses the account from <paramref name="now"/>.</summary>
-    public static void ApplyCookieOutcome(CookieUsageOutcome o, FetchReport report, AccountIssue rejected, string where, string who, DateTimeOffset now)
+    public static void ApplyCookieOutcome(CookieUsageOutcome o, FetchReport report, AccountIssue rejected, string where, string who,
+                                          DateTimeOffset now, double? jitter = null)
     {
         report.Issue = o.Kind switch
         {
@@ -130,17 +135,26 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
             CookieOutcomeKind.ScopeError => AccountIssue.Scope,
             CookieOutcomeKind.SignedInToPersonal => AccountIssue.SignedInToPersonal(who),
             CookieOutcomeKind.NoOrganizations => AccountIssue.Rejected("No organizations on this claude.ai session"),
-            CookieOutcomeKind.RateLimited => AccountIssue.RateLimited(now.AddSeconds(FetchPolicy.RateLimitWait(o.RetryAfter))),
+            CookieOutcomeKind.RateLimited => null,   // set below, with the wait
             CookieOutcomeKind.Http => AccountIssue.Http(o.Status),
             CookieOutcomeKind.Undecodable => AccountIssue.Rejected("Unexpected usage response"),
             _ => AccountIssue.Network(o.Detail ?? "request failed"),
         };
-        if (o.Kind == CookieOutcomeKind.RateLimited) report.RetryAfter = o.RetryAfter;
+        if (o.Kind == CookieOutcomeKind.RateLimited) RateLimited(o.RetryAfter, report, now, jitter);
         if (o.Kind == CookieOutcomeKind.Ok)
         {
             report.Snapshot = o.Snapshot;
             report.Email ??= o.Org?.Name;
         }
+    }
+
+    /// <summary>A 429 waits Retry-After (<see cref="FetchPolicy.RateLimitWait"/>) plus a jitter; null draws one from the range.</summary>
+    static void RateLimited(double? retryAfter, FetchReport report, DateTimeOffset now, double? jitter)
+    {
+        var j = jitter ?? FetchPolicy.RateLimitJitter();
+        report.RetryAfter = retryAfter;
+        report.RateLimitJitter = j;
+        report.Issue = AccountIssue.RateLimited(now.AddSeconds(FetchPolicy.RateLimitWait(retryAfter) + j));
     }
 
     /// <summary>
@@ -164,7 +178,7 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
         var personalOrg = ClaudeCodeAccountInfo.Read()?.OrganizationUuid;
         var jar = new Dictionary<string, string> { ["sessionKey"] = "fixture" };
         await ApplyCookieFlowAsync(cookies, jar, personalOrg, report, AccountIssue.NotSignedIn("Fixture sign-in rejected"),
-                                   "your browser", "This session", now, ct);
+                                   "your browser", "This session", now, ct, jitter?.Invoke());
         return report;
     }
 }

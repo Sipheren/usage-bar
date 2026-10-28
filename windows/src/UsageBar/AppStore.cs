@@ -14,8 +14,12 @@ internal sealed class AccountState
     public DateTimeOffset? LastAttempt { get; set; }
     public DateTimeOffset? WaitUntil { get; set; }
     public string? Email { get; set; }
-    /// <summary>The route the last fetch used ("token", "cookie" or "fixture"). A Claude app account on "token" polls no faster than a Claude Code login. Not saved.</summary>
+    /// <summary>The route the last fetch used ("token", "cookie" or "fixture"). A Claude app account on "token" follows the Claude Code login's rules.</summary>
     public string? LastRoute { get; set; }
+    /// <summary>429 backoff level and the run of good reads since (decision 19).</summary>
+    public FetchBackoff Backoff { get; set; } = new();
+    /// <summary>Set when Refresh Now or Connect was skipped: the next check, shown in the account header. Not saved.</summary>
+    public DateTimeOffset? SkippedUntil { get; set; }
     public bool Fetching { get; set; }
 }
 
@@ -47,7 +51,6 @@ internal sealed class AppStore
     readonly Dispatcher ui;
     readonly DispatcherTimer pollTimer;
     readonly DispatcherTimer tickTimer;
-    DateTimeOffset? lastAnyUpdate;
     DateTimeOffset? lastLocalRefresh;
 
     static string SettingsPath => Path.Combine(Paths.AppData, "settings.json");
@@ -99,17 +102,31 @@ internal sealed class AppStore
 
     public CostState? Cost(Account a) => costs.TryGetValue(a.Id, out var c) ? c : null;
 
-    public DateTimeOffset? LastUpdated => states.Values.Select(s => s.LastSuccess).Where(d => d is not null).DefaultIfEmpty().Max() ?? lastAnyUpdate;
-
     static readonly Guid FixtureAccountId = Guid.Parse("00000000-0000-4000-8000-0000000000cc");
 
     public AccountPresentation Presentation(Account a)
     {
         var st = State(a);
-        return new AccountPresentation(st.Issue, st.Snapshot is not null);
+        return new AccountPresentation(st.Issue, st.Snapshot is not null, st.SkippedUntil is { } next && next > Now ? next : null);
     }
 
-    public bool IsStale(Account a) => State(a).LastSuccess is { } t && Now - t > TrayModel.StaleAfter;
+    /// <summary>The setting (at least 15 minutes on the OAuth usage endpoint), doubled for each backoff level (decision 19).</summary>
+    double BackgroundInterval(Account a, string? lastRoute, int backoffLevel = 0) =>
+        FetchPolicy.BackgroundInterval(Settings.RefreshMinutes, FetchPolicy.IsTokenSource(a.Source.Kind, lastRoute), backoffLevel);
+
+    /// <summary>The account's current interval, backoff included, for staleness.</summary>
+    public double CurrentInterval(Account a)
+    {
+        var st = State(a);
+        return BackgroundInterval(a, st.LastRoute, st.Backoff.Level);
+    }
+
+    /// <summary>Greyed only when the account has missed checks by its own schedule (<see cref="TrayModel.IsStale"/>).</summary>
+    public bool IsStale(Account a)
+    {
+        var st = State(a);
+        return TrayModel.IsStale(st.LastSuccess, CurrentInterval(a), st.WaitUntil, Now);
+    }
 
     public string Money(double usd)
     {
@@ -154,10 +171,23 @@ internal sealed class AppStore
         var source = account.Source;
         // Before Connect… the Claude app source reads only its config file and makes no request, so it always runs.
         var localOnly = source.Kind == SourceKind.ClaudeDesktop && !Settings.DesktopConnected;
-        // The setting, but at least 5 minutes for a sign-in on the OAuth usage endpoint (decision 18).
-        var interval = FetchPolicy.BackgroundInterval(Settings.RefreshMinutes, FetchPolicy.IsTokenSource(source.Kind, st.LastRoute));
-        if (!localOnly && !FetchPolicy.ShouldFetch(trigger, st.LastAttempt, st.WaitUntil, interval, Now)) return;
+        var interval = BackgroundInterval(account, st.LastRoute, st.Backoff.Level);
+        var token = FetchPolicy.IsTokenSource(source.Kind, st.LastRoute);
+        if (!localOnly && !FetchPolicy.ShouldFetch(trigger, st.LastAttempt, st.WaitUntil, interval, Now, token))
+        {
+            if (trigger == FetchTrigger.Launch) LogNotDue(account, st, interval);
+            if (trigger == FetchTrigger.Manual)
+            {
+                // Say when the next check is, rather than ignoring the click (decision 19).
+                var next = FetchPolicy.NextCheck(st.LastAttempt, st.WaitUntil, interval, Now);
+                st.SkippedUntil = next;
+                Log.Info($"fetch {source.Kind}: Refresh Now skipped, next check {Formatters.ClockTime(next)}");
+                Changed?.Invoke();
+            }
+            return;
+        }
         inFlight.Add(account.Id);
+        st.SkippedUntil = null;
         st.Fetching = true;
         if (!localOnly) st.LastAttempt = Now;
         Changed?.Invoke();
@@ -174,13 +204,24 @@ internal sealed class AppStore
             }
             st.Issue = report.Issue;
             if (report.Route is not null) st.LastRoute = report.Route;
+            var levelBefore = st.Backoff.Level;
+            // Backoff counts requests only: before Connect the Claude app source makes none.
+            if (!localOnly)
+            {
+                if (report.Snapshot is not null) st.Backoff.Succeeded();
+                else if (report.Issue is { Kind: IssueKind.RateLimited }) st.Backoff.RateLimited(BackgroundInterval(account, st.LastRoute));
+                else st.Backoff.Failed();
+            }
+            var every = BackgroundInterval(account, st.LastRoute, st.Backoff.Level) / 60;
             if (report.Issue is { Kind: IssueKind.RateLimited, Until: { } until })
             {
                 st.WaitUntil = until;
                 var header = report.RetryAfter is { } ra ? $"{ra:0} s" : "none";
-                Log.Info($"fetch {source.Kind}: rate limited (429, Retry-After {header}), waiting {Math.Max(0, (until - Now).TotalSeconds):0} s, " +
-                         $"retrying at {Formatters.ClockTime(until)}");
+                Log.Info($"fetch {source.Kind}: rate limited (429, Retry-After {header}), waiting {FetchPolicy.RateLimitWait(report.RetryAfter):0} s " +
+                         $"+ jitter {report.RateLimitJitter ?? 0:0} s, retrying at {Formatters.ClockTime(until)}; backoff level {st.Backoff.Level}, every {every:0} min");
             }
+            else if (st.Backoff.Level < levelBefore)
+                Log.Info($"fetch {source.Kind}: {FetchBackoff.SuccessesToStepDown} good reads, backoff level {st.Backoff.Level}, every {every:0} min");
             if (report.Email is not null) st.Email = report.Email;
             if (report.DesktopChoice is { } choice) { Settings.DesktopTokenChoice[choice.AccountUuid] = choice.Path; SaveSettings(); }
         }
@@ -188,6 +229,7 @@ internal sealed class AppStore
         {
             // Anything the fetch didn't turn into an issue itself: say so on the account, log the type only.
             st.Issue = AccountIssue.Rejected("Couldn't check this account");
+            if (!localOnly) st.Backoff.Failed();
             Log.Info($"fetch {source.Kind}: failed, {e.GetType().Name}");
         }
         finally
@@ -199,6 +241,17 @@ internal sealed class AppStore
             if (fetchAgain.Remove(account.Id) && Settings.Accounts.FirstOrDefault(a => a.Id == account.Id) is { } current)
                 _ = RefreshAsync(current, FetchTrigger.Manual);
         }
+    }
+
+    /// <summary>Why a launch skipped an account: no request is spent, and the log says when the next one is due.</summary>
+    void LogNotDue(Account account, AccountState st, double interval)
+    {
+        var kind = account.Source.Kind;
+        if (st.WaitUntil is { } wait && wait > Now)
+            Log.Info($"fetch {kind}: not fetched at launch, rate-limit wait until {Formatters.ClockTime(wait)}; backoff level {st.Backoff.Level}");
+        else
+            Log.Info($"fetch {kind}: not fetched at launch, next due {(st.LastAttempt is { } last ? Formatters.ClockTime(last.AddSeconds(interval)) : "now")} " +
+                     $"(every {interval / 60:0} min); backoff level {st.Backoff.Level}");
     }
 
     /// <summary>Redraws everything bound to the store, for a change it doesn't see itself (the theme).</summary>
@@ -331,15 +384,29 @@ internal sealed class AppStore
         {
             if (!File.Exists(StatePath)) return;
             var saved = JsonSerializer.Deserialize<Dictionary<Guid, PersistedAccountState>>(File.ReadAllText(StatePath), AppJson.Options);
+            var upgraded = false;
             // Only accounts that still exist, so state for removed accounts is dropped on the next save.
-            foreach (var (id, p) in saved ?? new())
-                if (Settings.Accounts.Any(a => a.Id == id))
-                    states[id] = new AccountState
-                    {
-                        Snapshot = p.Snapshot, LastSuccess = p.LastSuccess, LastAttempt = p.LastAttempt, WaitUntil = p.WaitUntil, Email = p.Email,
-                        // Still paused by a rate limit: show it again, as before the relaunch.
-                        Issue = p.WaitUntil is { } until && until > Now ? AccountIssue.RateLimited(until) : null,
-                    };
+            foreach (var (id, entry) in saved ?? new())
+            {
+                if (Settings.Accounts.FirstOrDefault(a => a.Id == id) is not { } account) continue;
+                var p = entry;
+                // A wait saved by 0.1.6 or earlier ends on the Retry-After boundary: add the jitter once (decision 19).
+                if (p.UpgradeEarlierWait(BackgroundInterval(account, p.LastRoute), FetchPolicy.RateLimitJitter(), Now, out var newer))
+                {
+                    p = newer;
+                    upgraded = true;
+                    Log.Info($"fetch {account.Source.Kind}: wait saved by an earlier version, now until {Formatters.ClockTime(p.WaitUntil!.Value)} " +
+                             $"with jitter; backoff level {p.Backoff?.Level ?? 0}");
+                }
+                states[id] = new AccountState
+                {
+                    Snapshot = p.Snapshot, LastSuccess = p.LastSuccess, LastAttempt = p.LastAttempt, WaitUntil = p.WaitUntil, Email = p.Email,
+                    LastRoute = p.LastRoute, Backoff = p.Backoff is { } b ? b with { } : new FetchBackoff(),
+                    // Still paused by a rate limit: show it again, as before the relaunch.
+                    Issue = p.WaitUntil is { } until && until > Now ? AccountIssue.RateLimited(until) : null,
+                };
+            }
+            if (upgraded) SaveState();
         }
         catch (Exception e) when (e is IOException or JsonException) { Log.Info("state: unreadable, starting fresh"); }
     }
@@ -348,7 +415,8 @@ internal sealed class AppStore
     {
         if (Demo) return;
         var data = states.ToDictionary(kv => kv.Key, kv => new PersistedAccountState(kv.Value.Snapshot, kv.Value.LastSuccess,
-                                                                                         kv.Value.LastAttempt, kv.Value.WaitUntil, kv.Value.Email));
+                                                                                         kv.Value.LastAttempt, kv.Value.WaitUntil, kv.Value.Email,
+                                                                                         kv.Value.Backoff with { }, kv.Value.LastRoute));
         Write(StatePath, JsonSerializer.Serialize(data, AppJson.Options));
     }
 
@@ -394,7 +462,6 @@ internal sealed class AppStore
         var cost = DemoData.PersonalCost(Rates.Rates["AUD"]);
         cost.UnpricedModels = new List<string> { "example-model-1", "another-example-model" };
         costs[a[0].Id] = new CostState(cost);
-        lastAnyUpdate = now;
     }
 
     void LoadDemo()
@@ -409,6 +476,5 @@ internal sealed class AppStore
         }
         if (a.Count > 1)
             states[a[1].Id] = new AccountState { Snapshot = DemoData.Work(now), LastSuccess = now, Email = DemoData.WorkOrganization };
-        lastAnyUpdate = now;
     }
 }

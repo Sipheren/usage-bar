@@ -10,7 +10,8 @@ public class FixtureSourceTests
 
     static Task<FetchReport> Fetch(string? errorMode)
     {
-        var fetcher = new AccountFetcher(new HttpClient(), null, dir => new HttpClient(new FixtureHandler(dir, null, errorMode ?? "")));
+        // No jitter, so the 429 wait is the fixture's Retry-After alone.
+        var fetcher = new AccountFetcher(new HttpClient(), null, dir => new HttpClient(new FixtureHandler(dir, null, errorMode ?? "")), jitter: () => 0);
         return fetcher.FetchAsync(Work, Ctx, DateTimeOffset.UtcNow);
     }
 

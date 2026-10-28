@@ -36,7 +36,6 @@ internal sealed class AccountVm
 
 internal sealed class FlyoutVm
 {
-    public string UpdatedText { get; init; } = "";
     public List<AccountVm> Accounts { get; init; } = new();
     public AccountVm? Selected { get; init; }
     /// <summary>The empty state, layout A or layout B (with tabs only when there is another account to switch to).</summary>
@@ -64,7 +63,6 @@ internal sealed class FlyoutVm
         accounts = accounts.Select(a => a.Id == selectedId ? Clone(a, true) : a).ToList();
         return new FlyoutVm
         {
-            UpdatedText = Formatters.UpdatedAgo(store.LastUpdated, now),
             Accounts = accounts,
             Selected = accounts.FirstOrDefault(a => a.Selected),
             Content = DropdownContent.For(store.Settings.DropdownLayout, accounts.Count),

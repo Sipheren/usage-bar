@@ -79,12 +79,13 @@ public class RateLimitResponseTests
         Assert.Equal(CookieOutcomeKind.Ok, ok.Kind);
     }
 
+    // These pin the jitter to 0 to check the Retry-After part of the wait on its own.
     [Fact]
     public void Cookie429WaitsFiveMinutesWhenRetryAfterIsZero()
     {
         var report = new FetchReport();
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 0), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now);
+                                          "the Claude app", "The Claude app", Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300)), report.Issue);
         Assert.Equal(0, report.RetryAfter);
     }
@@ -94,10 +95,10 @@ public class RateLimitResponseTests
     {
         var report = new FetchReport();
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 90), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now);
+                                          "the Claude app", "The Claude app", Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(90)), report.Issue);
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 7200), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now);
+                                          "the Claude app", "The Claude app", Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddHours(1)), report.Issue);
     }
 
@@ -105,10 +106,10 @@ public class RateLimitResponseTests
     public void OAuth429WithRetryAfterZeroOrMissingWaitsFiveMinutes()
     {
         var report = new FetchReport();
-        AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429, RetryAfter: 0), report, AccountIssue.ExpiredCli, Now);
+        AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429, RetryAfter: 0), report, AccountIssue.ExpiredCli, Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300)), report.Issue);
         Assert.Equal(0, report.RetryAfter);
-        AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429), report, AccountIssue.ExpiredCli, Now);
+        AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429), report, AccountIssue.ExpiredCli, Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300)), report.Issue);
     }
 
