@@ -57,7 +57,7 @@ works, and names the exact problem when it doesn't.
 
 - Click the menu bar item for the dropdown. **Refresh Now** (⌘R) fetches immediately.
 - **Settings… > General** sets the menu bar style, which limits it shows, the dropdown layout, the
-  refresh interval (1, 2, 5 or 10 minutes; a Claude Code login checks at most every 5 minutes),
+  refresh interval (1, 2, 5 or 10 minutes; a Claude Code login checks at most every 15 minutes),
   Launch at login and the cost currency. Extra-usage amounts always stay in the currency your Claude
   plan bills in.
 - **Settings… > Accounts** renames accounts, sets their tag and colour, and picks each sign-in source.
@@ -119,11 +119,14 @@ Details: [docs/DATA-SOURCES.md](../docs/DATA-SOURCES.md).
 
 ## Troubleshooting
 
-**"Paused by rate limit · retrying 6:40 am".** Anthropic answered 429. Usage Bar keeps the last numbers,
-waits for the Retry-After time (5 minutes if none or 0, an hour at most) and tries again. The Claude
-Code login's usage endpoint allows only a few requests every few minutes, shared with Claude Code's own
-`/usage`, so Usage Bar checks it at most every 5 minutes in the background. Repeated relaunches and
-Refresh Now clicks cause most other 429s; a launch skips any account that isn't due.
+**"Rate limited · next check 6:40 am".** Anthropic answered 429. Usage Bar keeps the last numbers,
+waits for the Retry-After time (5 minutes if none or 0, an hour at most) plus 2 to 10 minutes, and tries
+again. Each 429 also makes that account check half as often, down to once an hour, until 3 checks in a
+row work. Anthropic publishes no limit for the Claude Code login's usage endpoint, and Claude Code's own
+`/usage` and anything else watching the account share it, so Usage Bar checks it at most every 15
+minutes, never just because the menu opened, and Refresh Now waits 5 minutes after the last check (the
+account then shows "Next check" and a time). Each account in the menu shows how old its numbers are;
+they grey out only once the account has missed its checks.
 
 **Safari source still says "Give Usage Bar Full Disk Access" after you granted it.** Quit Usage Bar
 from its menu and open it again. macOS applies the grant on the next launch.

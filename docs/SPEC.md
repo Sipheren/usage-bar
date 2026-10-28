@@ -54,19 +54,27 @@ unchanged, and no account can be moved onto a source another account already use
 
 ## Polling
 
-The OAuth usage endpoint (Claude Code, and the Claude app's token) allows only about 5 requests every
-few minutes, shared with Claude Code's own `/usage`. claude.ai's endpoint has its own allowance.
+Anthropic publishes no limits for the OAuth usage endpoint (Claude Code, and the Claude app's token).
+It is shared with Claude Code's own `/usage` and anything else polling the account, and its 429s ask
+for waits of up to an hour (decision 19). claude.ai's endpoint has its own allowance.
 
 - Refresh setting: 1, 2, 5 or 10 minutes, default 2. Each account has a background interval: the
-  setting, but at least 5 minutes for Claude Code, and for the Claude app when its last fetch used
-  the token.
+  setting, but at least 15 minutes for a token sign-in (Claude Code, and the Claude app when its last
+  fetch used the token).
 - A 60-second timer fetches each account once its interval has passed, less 30 seconds of slack.
-- A launch fetches an account only when its last attempt is a full interval old (persisted across
-  launches). Opening the menu fetches when the last attempt is 2 minutes old, or the interval if
-  shorter. Refresh Now always fetches unless the account is inside a Retry-After window.
-- On 429: honour `Retry-After` up to an hour; wait 5 minutes when it is missing or 0. Keep the last
-  numbers and show "Paused by rate limit · retrying <time>" in the account header. Show an error only
-  when there is no data yet.
+- A launch fetches an account only when its last attempt is a full interval old. Opening the menu
+  never fetches a token sign-in; it fetches a cookie sign-in when the last attempt is 2 minutes old,
+  or the interval if shorter. Refresh Now fetches outside a Retry-After window, and for a token
+  sign-in only once the last attempt is 5 minutes old. When Refresh Now (or Connect) skips an
+  account, its header says "Next check <time>": when the timer will fetch it next.
+- On 429: wait `Retry-After` (seconds or an HTTP date; 5 minutes when it is missing, 0 or negative;
+  at most an hour) plus a random 2 to 10 minutes. Keep the last numbers and show "Rate limited · next
+  check <time>" in the account header, with no-break spaces so the time never wraps away from its
+  phrase. Show an error only when there is no data yet.
+- Backoff: each 429 doubles the account's background interval, up to an hour (15, 30, 60 minutes for a
+  token sign-in). Three good reads in a row step it back one level; any failed read restarts the count.
+- The last attempt, the wait, the backoff level and the last route are saved across launches. A wait
+  saved by 0.3.1 or earlier gets the jitter and counts as one 429.
 - Fetch accounts concurrently; timers run in `.common` run-loop mode.
 
 ## Menu bar
@@ -84,15 +92,19 @@ every style.
 | Icon only | the glyph alone |
 
 Metrics (Settings): 5-hour session (on), weekly (on), model weekly such as Fable (off), always in that
-order. An account with no data shows its tag and "–". Data older than 15 minutes draws at 50% opacity.
+order. An account with no data shows its tag and "–". Stale data draws at 50% opacity, here and in the
+dropdown: data is stale when it is older than the longest of 15 minutes, two of the account's current
+background intervals (backoff included) and, after a 429, the time from its last good read to the end
+of the wait plus 15 minutes. An account checking on schedule never greys; one that has missed checks
+does.
 
 ## Dropdown
 
 An `NSMenu` with one SwiftUI view (360 pt wide) that updates live, then native items with SF Symbols:
 Refresh Now (⌘R), About Usage Bar, Settings… (⌘,), Quit Usage Bar (⌘Q).
 
-- **Layout A, all accounts (default).** Header "Claude" and "Updated N min ago". Per account, one under
-  the other with a rule between: badge, name and "Today A$x"; compact limit rows (name, "% · resets …",
+- **Layout A, all accounts (default).** Header "Claude". Per account, one under the other with a rule
+  between: badge, name, "Updated N min ago" (that account's own age) and "Today A$x"; compact limit rows (name, "% · resets …",
   bar with pace marker, pace line); extra usage; "30 days A$x · N tokens".
 - **Layout B, one at a time.** A tab per account (names truncate with "…"; no tab strip when there is
   only one account), then large limit rows; a 2×2 grid (Today, 30 days,
@@ -130,7 +142,7 @@ title follows the tab; position remembered.
   the email or organization, or the problem with its action button), show in menu bar, Remove
   Account… with confirmation. Add Account at the bottom. With no accounts: "No accounts", a line saying
   no Claude sign-in was found, and Add Account.
-- **About.** Icon, name, version ("Version 0.3.1 (build N · hash)"), build date, signing identity,
+- **About.** Icon, name, version ("Version 0.3.2 (build N · hash)"), build date, signing identity,
   data sources, project folder (the repository root) with Show in Finder, and the authorship and
   licence lines.
 

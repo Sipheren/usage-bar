@@ -8,13 +8,17 @@ struct AccountState: Equatable {
     var lastSuccess: Date?
     var issue: AccountIssue?
     var email: String?
-    /// 429 back-off (Retry-After up to an hour, else 5 min): no fetches of any kind before this time.
+    /// 429 wait (Retry-After up to an hour, else 5 min, plus 2 to 10 min of jitter): no fetches before this.
     var waitUntil: Date?
     /// Last time a request was made for this account, successful or not.
     var lastAttempt: Date?
     /// The route the last fetch used ("token", "cookie" or "safari"). A Claude app account on "token"
-    /// polls no faster than a Claude Code login.
+    /// follows the Claude Code login's rules.
     var lastRoute: String?
+    /// 429 backoff level and the run of good reads since (FetchBackoff).
+    var backoff = FetchBackoff()
+    /// Set when Refresh Now or Connect was skipped: the next check, shown in the account header.
+    var skippedUntil: Date?
     var loading = false
 }
 
@@ -168,10 +172,11 @@ final class AppStore: ObservableObject {
 
     // MARK: Usage
 
-    /// The setting, but at least 5 minutes for a sign-in on the OAuth usage endpoint.
-    private func backgroundInterval(for account: Account, lastRoute: String?) -> TimeInterval {
+    /// The setting (at least 15 minutes on the OAuth usage endpoint), doubled for each backoff level.
+    private func backgroundInterval(for account: Account, lastRoute: String?, backoffLevel: Int = 0) -> TimeInterval {
         FetchPolicy.backgroundInterval(userMinutes: settings.refreshMinutes,
-                                       tokenSource: FetchPolicy.isTokenSource(account.source.kind, lastRoute: lastRoute))
+                                       tokenSource: FetchPolicy.isTokenSource(account.source.kind, lastRoute: lastRoute),
+                                       backoffLevel: backoffLevel)
     }
 
     func refreshAll(_ trigger: FetchTrigger) {
@@ -182,7 +187,8 @@ final class AppStore: ObservableObject {
         }
     }
 
-    /// Menu opened: refresh accounts whose last attempt is 2 minutes old (or their interval, if shorter).
+    /// Menu opened: refresh cookie sign-ins whose last attempt is 2 minutes old (or their interval, if
+    /// shorter). Token sign-ins never fetch on a menu open.
     func menuWillOpen() {
         now = Date()
         refreshAll(.menuOpen)
@@ -202,10 +208,23 @@ final class AppStore: ObservableObject {
         guard !demo else { return }
         guard !inFlight.contains(account.id) else { return }
         var st = states[account.id] ?? AccountState()
+        let interval = backgroundInterval(for: account, lastRoute: st.lastRoute, backoffLevel: st.backoff.level)
+        let token = FetchPolicy.isTokenSource(account.source.kind, lastRoute: st.lastRoute)
         guard FetchPolicy.shouldFetch(trigger, lastAttempt: st.lastAttempt, waitUntil: st.waitUntil,
-                                      backgroundInterval: backgroundInterval(for: account, lastRoute: st.lastRoute),
-                                      now: Date()) else { return }
+                                      backgroundInterval: interval, tokenSource: token, now: Date()) else {
+            if trigger == .launch { logNotDue(account, st, interval: interval) }
+            if trigger == .manual {
+                let next = FetchPolicy.nextCheck(lastAttempt: st.lastAttempt, waitUntil: st.waitUntil,
+                                                 backgroundInterval: interval, now: Date())
+                st.skippedUntil = next
+                states[account.id] = st
+                now = Date()
+                Log.fetch.info("\(account.source.kind.rawValue, privacy: .public): Refresh Now skipped, next check \(Formatters.clockTime(next), privacy: .public)")
+            }
+            return
+        }
         inFlight.insert(account.id)
+        st.skippedUntil = nil
         st.loading = true
         st.lastAttempt = Date()
         states[account.id] = st
@@ -225,11 +244,23 @@ final class AppStore: ObservableObject {
             st.issue = report.issue
         }
         if let route = report.route { st.lastRoute = route }
+        let levelBefore = st.backoff.level
+        if report.snapshot != nil {
+            st.backoff.succeeded()
+        } else if case .rateLimited = report.issue {
+            st.backoff.rateLimited(baseInterval: backgroundInterval(for: account, lastRoute: st.lastRoute))
+        } else {
+            st.backoff.failed()
+        }
+        let every = Int(backgroundInterval(for: account, lastRoute: st.lastRoute, backoffLevel: st.backoff.level) / 60)
         if case .rateLimited(let until)? = report.issue {
             st.waitUntil = until
             let header = report.retryAfter.map { "\(Int($0)) s" } ?? "none"
-            let wait = max(0, Int(until.timeIntervalSinceNow.rounded()))
-            Log.fetch.notice("\(account.tag, privacy: .public): rate limited (429, Retry-After \(header, privacy: .public)), waiting \(wait, privacy: .public) s, retrying at \(Formatters.clockTime(until), privacy: .public)")
+            let wait = Int(FetchPolicy.rateLimitWait(report.retryAfter))
+            let jitter = Int((report.rateLimitJitter ?? 0).rounded())
+            Log.fetch.notice("\(account.tag, privacy: .public): rate limited (429, Retry-After \(header, privacy: .public)), waiting \(wait, privacy: .public) s + jitter \(jitter, privacy: .public) s, retrying at \(Formatters.clockTime(until), privacy: .public); backoff level \(st.backoff.level, privacy: .public), every \(every, privacy: .public) min")
+        } else if st.backoff.level < levelBefore {
+            Log.fetch.notice("\(account.tag, privacy: .public): \(FetchBackoff.successesToStepDown, privacy: .public) good reads, backoff level \(st.backoff.level, privacy: .public), every \(every, privacy: .public) min")
         }
         let emailChanged = report.email != nil && report.email != st.email
         if let email = report.email { st.email = email }
@@ -248,6 +279,17 @@ final class AppStore: ObservableObject {
         now = Date()
     }
 
+    /// Why a launch skipped an account: no request is spent, and the log says when the next one is due.
+    private func logNotDue(_ account: Account, _ st: AccountState, interval: TimeInterval) {
+        let kind = account.source.kind.rawValue
+        if let wait = st.waitUntil, wait > Date() {
+            Log.fetch.info("\(kind, privacy: .public): not fetched at launch, rate-limit wait until \(Formatters.clockTime(wait), privacy: .public); backoff level \(st.backoff.level, privacy: .public)")
+        } else {
+            let next = st.lastAttempt.map { Formatters.clockTime($0.addingTimeInterval(interval)) } ?? "now"
+            Log.fetch.info("\(kind, privacy: .public): not fetched at launch, next due \(next, privacy: .public) (every \(Int(interval / 60), privacy: .public) min); backoff level \(st.backoff.level, privacy: .public)")
+        }
+    }
+
     // MARK: Persisted per-account state (so a relaunch doesn't spend a request)
 
     private static var stateURL: URL { Paths.appSupport.appendingPathComponent("state.json") }
@@ -255,17 +297,27 @@ final class AppStore: ObservableObject {
     private func loadPersistedStates() {
         guard let data = try? Data(contentsOf: AppStore.stateURL),
               let saved = try? JSONDecoder().decode([String: PersistedAccountState].self, from: data) else { return }
+        var upgraded = false
         for account in settings.accounts {
-            guard let p = saved[account.id.uuidString] else { continue }
+            guard var p = saved[account.id.uuidString] else { continue }
+            let base = backgroundInterval(for: account, lastRoute: p.lastRoute)
+            if p.upgradeEarlierWait(baseInterval: base, jitter: FetchPolicy.rateLimitJitter(), now: Date()),
+               let until = p.waitUntil {
+                upgraded = true
+                Log.fetch.notice("\(account.tag, privacy: .public): wait saved by an earlier version, now until \(Formatters.clockTime(until), privacy: .public) with jitter; backoff level \(p.backoff?.level ?? 0, privacy: .public)")
+            }
             var st = states[account.id] ?? AccountState()
             st.snapshot = p.snapshot
             st.lastSuccess = p.lastSuccess
             st.lastAttempt = p.lastAttempt
             st.waitUntil = p.waitUntil
+            st.lastRoute = p.lastRoute
+            st.backoff = p.backoff ?? FetchBackoff()
             if let until = p.waitUntil, until > Date() { st.issue = .rateLimited(until: until) }
             if st.email == nil { st.email = p.email }
             states[account.id] = st
         }
+        if upgraded { savePersistedStates() }
     }
 
     private func savePersistedStates() {
@@ -275,7 +327,8 @@ final class AppStore: ObservableObject {
             guard let st = states[account.id] else { continue }
             out[account.id.uuidString] = PersistedAccountState(snapshot: st.snapshot, lastSuccess: st.lastSuccess,
                                                                lastAttempt: st.lastAttempt, waitUntil: st.waitUntil,
-                                                               email: st.email)
+                                                               email: st.email, backoff: st.backoff,
+                                                               lastRoute: st.lastRoute)
         }
         do {
             try FileManager.default.createDirectory(at: Paths.appSupport, withIntermediateDirectories: true)
@@ -291,8 +344,6 @@ final class AppStore: ObservableObject {
         for a in settings.accounts { if let e = states[a.id]?.email { map[a.id.uuidString] = e } }
         UserDefaults.standard.set(map, forKey: AppStore.emailsKey)
     }
-
-    var lastUpdated: Date? { states.values.compactMap(\.lastSuccess).max() }
 
     private func loadDemoData() {
         let now = Date()
@@ -337,12 +388,21 @@ final class AppStore: ObservableObject {
     /// How a 429 or other issue should show for this account (see AccountPresentation).
     func presentation(for account: Account) -> AccountPresentation {
         let st = state(for: account)
-        return AccountPresentation(issue: st.issue, hasData: st.snapshot != nil)
+        let skipped = st.skippedUntil.flatMap { $0 > now ? $0 : nil }
+        return AccountPresentation(issue: st.issue, hasData: st.snapshot != nil, nextCheck: skipped)
     }
 
+    /// The account's current interval, backoff included, for staleness.
+    private func currentInterval(_ account: Account) -> TimeInterval {
+        let st = state(for: account)
+        return backgroundInterval(for: account, lastRoute: st.lastRoute, backoffLevel: st.backoff.level)
+    }
+
+    /// Greyed only when the account has missed checks by its own schedule (MenuBarModel.isStale).
     func isStale(_ account: Account) -> Bool {
-        guard let last = states[account.id]?.lastSuccess else { return false }
-        return now.timeIntervalSince(last) > MenuBarModel.staleAfter
+        let st = state(for: account)
+        return MenuBarModel.isStale(lastSuccess: st.lastSuccess, backgroundInterval: currentInterval(account),
+                                    waitUntil: st.waitUntil, now: now)
     }
 
     // MARK: Menu bar
@@ -363,7 +423,8 @@ final class AppStore: ObservableObject {
 
     func menuBarModel() -> MenuBarModel {
         let inputs = settings.accounts.filter(\.showInMenuBar).map { a in
-            MenuBarInput(tag: a.tag, snapshot: states[a.id]?.snapshot, lastSuccess: states[a.id]?.lastSuccess)
+            MenuBarInput(tag: a.tag, snapshot: states[a.id]?.snapshot, lastSuccess: states[a.id]?.lastSuccess,
+                         backgroundInterval: currentInterval(a), waitUntil: states[a.id]?.waitUntil)
         }
         return MenuBarModel.build(inputs: inputs, style: settings.menuBarStyle, metrics: settings.metrics, now: now)
     }

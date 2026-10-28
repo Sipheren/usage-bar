@@ -76,22 +76,33 @@ The app is one SwiftPM package in `macos/` with three targets:
 - A `.common`-mode timer ticks every 60 seconds, so it keeps firing while the menu is open. Each tick
   asks every account; each account fetches only when its own interval is due.
 - `FetchPolicy.backgroundInterval` gives each account its interval: the refresh setting (1, 2, 5 or 10
-  minutes; default 2), but at least 5 minutes for a token source. `FetchPolicy.isTokenSource` says which
-  accounts those are: Claude Code always, and the Claude app when `AccountState.lastRoute` is "token".
-  The OAuth usage endpoint allows only about 5 requests every few minutes, shared with Claude Code.
+  minutes; default 2), but at least 15 minutes for a token source, doubled for each backoff level up
+  to an hour. `FetchPolicy.isTokenSource` says which accounts are token sources: Claude Code always,
+  and the Claude app when `AccountState.lastRoute` is "token". Anthropic publishes no limits for the
+  OAuth usage endpoint, which Claude Code and anything else polling the account share (decision 19).
 - `FetchPolicy.shouldFetch` decides every fetch:
   - Nothing fetches inside an account's Retry-After window.
-  - Refresh Now always fetches outside that window.
+  - Refresh Now fetches outside that window; a token source also needs its last attempt 5 minutes old.
   - The timer fetches once the interval has passed, less 30 seconds of slack for the tick.
-  - A launch fetches only when the last attempt is a full interval old. The last attempt time is
-    saved to disk, so relaunching costs no requests.
-  - Opening the menu fetches when the last attempt is 2 minutes old, or the interval if shorter.
-- On HTTP 429 (OAuth or claude.ai) the account waits `FetchPolicy.rateLimitWait`: Retry-After (seconds
-  or an HTTP date) up to an hour, or 5 minutes when it is missing or 0. `AccountPresentation` keeps the
-  last good numbers on screen and puts "Paused by rate limit · retrying 6:40 am" in the account header.
-  With no data yet, it shows the error instead.
-- Every 429 goes to the log (category `fetch`) with the account tag, the Retry-After header, the wait
-  and the retry time.
+  - A launch fetches only when the last attempt is a full interval old.
+  - Opening the menu never fetches a token source. A cookie source fetches when its last attempt is 2
+    minutes old, or the interval if shorter.
+- On HTTP 429 (OAuth or claude.ai) the account waits `FetchPolicy.rateLimitWait` (Retry-After, seconds
+  or an HTTP date, up to an hour, or 5 minutes when it is missing, 0 or negative) plus
+  `FetchPolicy.rateLimitJitter`, a random 2 to 10 minutes (the generator can be injected for tests).
+  `AccountPresentation` keeps the last good numbers on screen and puts "Rate limited · next check
+  6:40 am" in the account header (no-break spaces keep the time with its phrase). With no data yet, it
+  shows the error instead. When Refresh Now or Connect is skipped, `AccountState.skippedUntil` holds
+  `FetchPolicy.nextCheck` and the header says "Next check 6:40 am" until a fetch starts.
+- `FetchBackoff` holds each account's level: a 429 raises it (doubling the interval, at most to an
+  hour), 3 good reads in a row lower it by one, and any other failed read restarts the count.
+- `PersistedAccountState` saves the last attempt, the wait, the backoff and the last route to
+  `state.json`, so a relaunch neither fetches inside a wait nor forgets the backoff. Keys added after
+  0.3.1 are optional, so older files still load; `upgradeEarlierWait` adds the jitter to a wait saved
+  by 0.3.1 and counts it as one 429.
+- Every 429 goes to the log (category `fetch`) with the account tag, the Retry-After header, the wait,
+  the jitter, the retry time and the new backoff level. A launch logs why it skipped each account, and
+  the app logs its version when it starts.
 - The Claude app fetch tries its claude.ai cookie first and its token only when the cookie doesn't
   work (`AccountFetcher.desktopCookieResultStands`).
 
@@ -125,8 +136,10 @@ an outlined tag and either text or stacked bars.
 
 The image is always a template image, so macOS tints it for light and dark menu bars. The status item
 redraws only when the label's content changes; it doesn't observe its own appearance (that caused a
-redraw loop). Data older than 15 minutes draws at 50% opacity; an account with no data shows its tag
-and "–".
+redraw loop). Stale data draws at 50% opacity (`MenuBarModel.isStale`, also used by the dropdown): older
+than the longest of 15 minutes, two of the account's current background intervals and, after a 429,
+the time from its last good read to the end of the wait plus 15 minutes. An account with no data shows
+its tag and "–".
 
 ## Settings storage
 

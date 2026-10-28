@@ -1,5 +1,29 @@
 # Devlog
 
+## 2026-10-28 (macOS 0.3.2)
+
+- The Claude Code account still got 429s on 0.3.1: Retry-After 3471 s, then a retry on the boundary
+  that got 3600 s, one good read, and another 429 (3402 s) on the next 5-minute check. Claude Code's own
+  `/usage` and other pollers share the endpoint, and Anthropic publishes no limits for it (decision 19
+  has the reports). The "about 5 requests every few minutes" in the docs was our guess; corrected.
+- Token sign-ins now poll every 15 minutes at most, never on a menu open, and Refresh Now needs a
+  5-minute gap. Every 429 adds 2 to 10 minutes of jitter and doubles the account's interval (to an hour
+  at most); 3 good reads step it back. Cookie sign-ins keep their setting.
+- `state.json` now also holds the backoff and the last route, as optional keys so 0.3.1's file loads. A
+  wait 0.3.1 saved ends exactly on the boundary, so the first launch adds the jitter and counts it as one
+  429. Installing over 0.3.1 inside a wait logged "wait saved by an earlier version" and "not fetched at
+  launch, rate-limit wait until …" for the Claude Code account, and the Safari account kept fetching.
+- Layout A's single "Updated N min ago" showed the newest account's age; each account now has its own.
+- Test-first in `RateLimitTests.swift`: the 15-minute floor, the menu and Refresh Now rules, the jitter
+  with an injected generator, backoff doubling, its cap and step-down, and the state file old and new.
+  `Double.random(in:using:)` rejects draws, so a constant test generator hung it; the jitter takes one
+  draw instead.
+- Follow-ups from the first real screenshot: the flat 15-minute greying made a healthy Claude Code
+  account look broken between its 15 to 60-minute checks, so staleness now follows the account's own
+  schedule and wait (`MenuBarModel.isStale`). "Paused by rate limit · retrying 3:02 pm" wrapped with the
+  time alone on the next line; it is now "Rate limited · next check 3:02 pm" with no-break spaces. A
+  skipped Refresh Now or Connect sets a "Next check" note in the account header.
+
 ## 2026-10-27 (source releases)
 
 - `scripts/release.sh` builds one source zip per platform with `git archive` from HEAD, so untracked
