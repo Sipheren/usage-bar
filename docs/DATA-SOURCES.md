@@ -155,8 +155,13 @@ Response (values made up; unknown keys and nulls are ignored):
 - Extra usage money is in minor units with `decimal_places`.
 - 401 means the token is bad, and 403 with a scope message means the token lacks the scope.
   429 means wait (`Retry-After`, seconds or an HTTP date): up to an hour, and 5 minutes when it is
-  missing or 0, which Anthropic often sends. This endpoint allows only about 5 requests every few
-  minutes, shared with Claude Code's own `/usage`, so these sign-ins poll at most every 5 minutes.
+  missing, 0 or negative (Anthropic often sends 0), plus a random 2 to 10 minutes so the retry doesn't
+  land on the boundary. Anthropic publishes no limits for this endpoint. What is known comes from
+  429s: Retry-After values from 0 (while still blocked) to 3600 seconds, blocks of up to an hour,
+  retries inside the window keeping the block alive, and an allowance shared with Claude Code's own
+  `/usage` and everything else polling the account. Whether it is per account or per token is
+  unknown. So these sign-ins poll at most every 15 minutes, never when the menu opens, and back off
+  after each 429 (decision 19 lists the reports).
 
 ### `GET https://api.anthropic.com/api/oauth/profile`
 
@@ -170,8 +175,9 @@ Headers: `Cookie: sessionKey=…` (plus `lastActiveOrg` when present), `Accept: 
 with `uuid` and `name`. Usage Bar picks the `lastActiveOrg` organization, else the first one that
 isn't the personal organization, else the first. The usage response has the same shape as above. A
 `cf-mitigated: challenge` header, or a 403/503/429 page saying "Just a moment", means Cloudflare
-stepped in. Any other 429, on either request, means wait, with the same `Retry-After` rules as the OAuth
-endpoint. This endpoint has its own allowance, so cookie sign-ins poll at the chosen interval.
+stepped in. Any other 429, on either request, means wait, with the same `Retry-After` rules and jitter
+as the OAuth endpoint. This endpoint has its own allowance, so cookie sign-ins poll at the chosen
+interval, doubled after each 429 and stepped back after 3 good reads in a row (decision 19).
 
 ### `GET https://open.er-api.com/v6/latest/USD`
 

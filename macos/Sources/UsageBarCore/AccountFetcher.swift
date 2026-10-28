@@ -81,6 +81,8 @@ public struct FetchReport: Sendable {
     /// Last HTTP status from the usage endpoint, if a request was made.
     public var httpStatus: Int?
     public var retryAfter: TimeInterval?
+    /// The random part of a 429 wait (FetchPolicy.rateLimitJitterRange), for the log.
+    public var rateLimitJitter: TimeInterval?
     public var email: String?
     /// Desktop: key path of the chosen token-cache entry (no secrets), to cache per account uuid.
     public var desktopChoice: (accountUuid: String, path: String)?
@@ -167,7 +169,7 @@ public final class AccountFetcher: @unchecked Sendable {
     }
 
     static func applyCookieOutcome(_ outcome: CookieUsageOutcome, report: inout FetchReport, rejected: AccountIssue,
-                                   now: Date) {
+                                   now: Date, jitter: TimeInterval? = nil) {
         switch outcome {
         case .ok(let snap, let org):
             report.snapshot = snap
@@ -186,8 +188,7 @@ public final class AccountFetcher: @unchecked Sendable {
         case .noOrganizations:
             report.issue = .rejected("No organizations on this claude.ai session")
         case .rateLimited(let ra):
-            report.retryAfter = ra
-            report.issue = .rateLimited(until: now.addingTimeInterval(FetchPolicy.rateLimitWait(ra)))
+            rateLimited(ra, report: &report, now: now, jitter: jitter)
         case .http(let code):
             report.issue = .http(code)
         case .undecodable:
@@ -396,7 +397,8 @@ public final class AccountFetcher: @unchecked Sendable {
         }
     }
 
-    static func apply(_ outcome: FetchOutcome, report: inout FetchReport, rejected: AccountIssue, now: Date) {
+    static func apply(_ outcome: FetchOutcome, report: inout FetchReport, rejected: AccountIssue, now: Date,
+                      jitter: TimeInterval? = nil) {
         switch outcome {
         case .ok(let snap):
             report.snapshot = snap
@@ -406,13 +408,20 @@ public final class AccountFetcher: @unchecked Sendable {
         case .scopeError:
             report.issue = .scope
         case .rateLimited(let ra):
-            report.retryAfter = ra
-            report.issue = .rateLimited(until: now.addingTimeInterval(FetchPolicy.rateLimitWait(ra)))
+            rateLimited(ra, report: &report, now: now, jitter: jitter)
         case .http(let code):
             report.issue = .http(code)
         case .undecodable:
             report.issue = .rejected("Unexpected usage response")
         }
+    }
+
+    /// A 429 waits Retry-After (FetchPolicy.rateLimitWait) plus a jitter; nil draws one from the range.
+    static func rateLimited(_ retryAfter: TimeInterval?, report: inout FetchReport, now: Date, jitter: TimeInterval?) {
+        let j = jitter ?? FetchPolicy.rateLimitJitter()
+        report.retryAfter = retryAfter
+        report.rateLimitJitter = j
+        report.issue = .rateLimited(until: now.addingTimeInterval(FetchPolicy.rateLimitWait(retryAfter) + j))
     }
 
     static func shortNetworkMessage(_ error: Error) -> String {

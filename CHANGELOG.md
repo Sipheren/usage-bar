@@ -16,6 +16,28 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   `scripts/release.sh`. Each has `INSTALL.txt` (and `Install.cmd` on Windows) at the top and installs
   with one command; the README has a Download section.
 
+## [macOS 0.3.2] - 2026-10-28
+
+### Changed
+- macOS: Claude Code logins, and the Claude app on its token, check at most every 15 minutes (was 5).
+  Anthropic publishes no limits for their usage endpoint, which Claude Code's own `/usage` and anything
+  else watching the account share (decision 19).
+- macOS: opening the menu no longer checks those sign-ins, and Refresh Now checks them only once the
+  last check is 5 minutes old. Safari sessions, and the Claude app on its claude.ai session, keep the
+  refresh setting and the 2-minute menu check.
+- macOS: every 429 waits its Retry-After plus a random 2 to 10 minutes, so the retry never lands on the
+  moment the block ends. The log line shows the jitter and the backoff level.
+- macOS: each 429 doubles that account's background interval, up to an hour (15, 30, 60 minutes for
+  Claude Code). Three good checks in a row step it back one level.
+- macOS: each account in the dropdown shows its own "Updated N min ago" (layout A had one line for all).
+- macOS: the log notes the app version at launch and why a launch skipped each account.
+
+### Fixed
+- macOS: the 429 wait, the backoff level and the Claude app's last route survive a relaunch. A wait
+  saved by 0.3.1 gets the jitter on the first launch and counts as one 429.
+- Docs: the OAuth usage endpoint's "about 5 requests every few minutes" was a guess, not a published
+  figure; the docs now say what is actually known.
+
 ## [Windows 0.1.6] - 2026-10-27
 
 ### Fixed

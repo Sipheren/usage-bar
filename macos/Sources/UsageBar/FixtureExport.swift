@@ -51,11 +51,11 @@ extension DebugCommands {
         func due(_ account: Account) -> Bool {
             let st = states[account.id.uuidString]
             // The export reads the Claude Code login's token and Safari's cookie, never the Claude app.
-            let interval = FetchPolicy.backgroundInterval(
-                userMinutes: settings.refreshMinutes,
-                tokenSource: FetchPolicy.isTokenSource(account.source.kind, lastRoute: nil))
+            let token = FetchPolicy.isTokenSource(account.source.kind, lastRoute: nil)
+            let interval = FetchPolicy.backgroundInterval(userMinutes: settings.refreshMinutes, tokenSource: token,
+                                                          backoffLevel: st?.backoff?.level ?? 0)
             let ok = FetchPolicy.shouldFetch(.launch, lastAttempt: st?.lastAttempt, waitUntil: st?.waitUntil,
-                                             backgroundInterval: interval, now: Date())
+                                             backgroundInterval: interval, tokenSource: token, now: Date())
             if !ok {
                 let next = [st?.waitUntil, st?.lastAttempt.map { $0.addingTimeInterval(interval) }].compactMap { $0 }.max()
                 print("\(account.tag): not due (next allowed \(next.map { Formatters.clockTime($0) } ?? "later")); "
@@ -78,7 +78,13 @@ extension DebugCommands {
                 st.lastSuccess = now
                 st.waitUntil = nil
             } else if r.status == 429 {
-                st.waitUntil = now.addingTimeInterval(FetchPolicy.rateLimitWait(UsageClient.retryAfter(r.retryAfter, now: now)))
+                st.waitUntil = now.addingTimeInterval(FetchPolicy.rateLimitWait(UsageClient.retryAfter(r.retryAfter, now: now))
+                                                      + FetchPolicy.rateLimitJitter())
+                var backoff = st.backoff ?? FetchBackoff()
+                backoff.rateLimited(baseInterval: FetchPolicy.backgroundInterval(
+                    userMinutes: settings.refreshMinutes,
+                    tokenSource: FetchPolicy.isTokenSource(account.source.kind, lastRoute: nil)))
+                st.backoff = backoff
             }
             states[key] = st
         }

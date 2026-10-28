@@ -212,6 +212,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func launch(_ store: AppStore) {
+        Log.ui.notice("Usage Bar \(AppInfo.version, privacy: .public) (build \(AppInfo.build, privacy: .public)) started, \(store.settings.accounts.count, privacy: .public) account(s)")
         self.store = store
         status = StatusController(store: store)
         store.start()

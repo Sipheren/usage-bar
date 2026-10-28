@@ -38,7 +38,7 @@ at 16 pt on the real menu bar before you commit it.
 - `macos/VERSION` holds the macOS app's version (SemVer). `build.sh` writes it to
   `CFBundleShortVersionString`. Releases are tagged `macos-vX.Y.Z`.
 - In a git checkout the build number is the repository's commit count and About shows the short hash:
-  "Version 0.3.1 (build 42 · abc1234)". Outside git the build number is a timestamp.
+  "Version 0.3.2 (build 42 · abc1234)". Outside git the build number is a timestamp.
 - Record every change in `CHANGELOG.md` (Keep a Changelog format, each entry naming its platform) and
   bump `macos/VERSION` when you release.
 
@@ -124,7 +124,7 @@ macos/scripts/qa/capture.sh screens/dropdown.png --menu
 - **Install with `macos/scripts/build.sh --replace`** (or `macos/scripts/install.sh`) after a change,
   then check the real UI.
 - **Avoid rapid relaunches.** Each usage request spends the account's rate-limit budget. Launches skip
-  accounts fetched within their interval (at least 5 minutes for a Claude Code login), but
+  accounts fetched within their interval (at least 15 minutes for a Claude Code login), but
   `--fetch-personal`, `--render-menubar`, Refresh Now and a fresh install's first launch all make
   requests.
 - **Keep the bundle id** `com.sipheren.usagebar`. macOS ties Keychain, Full Disk Access and Login Items

@@ -158,3 +158,35 @@ The maintainer's call, 2026-10-27.
 **Consequence.** In the background, Claude Code numbers can be about 5 minutes old; opening the menu
 refreshes them once they are 2 minutes old. Which route the Claude app last used isn't saved, so after a
 relaunch it counts as a cookie sign-in until its first fetch.
+Decision 19 changes the token sign-ins' numbers, the menu rule for them, and saves the route.
+
+## 19. Back off from the OAuth usage endpoint (changes 18)
+
+**Context.** 0.3.1 still hit 429 on a Claude Code login. On 2026-10-28 one account got a 429 with
+`Retry-After: 3471`; the app retried on the boundary and got `Retry-After: 3600`; one later read
+worked, and the next, 5 minutes on, got `Retry-After: 3402`. The endpoint is shared with Claude Code's
+own `/usage` and with every other app and machine polling the same account, so honouring Retry-After
+alone doesn't keep an account clear. Anthropic publishes no limits for `GET /api/oauth/usage`; the
+"about 5 requests every few minutes" in decision 18 was this project's guess, not a published figure.
+Others report Retry-After values of 0 (while still blocked), 471, 500 to 700, 3037 and 3600 seconds,
+blocks of up to an hour, the endpoint "saturated for hours" with many pollers, and retries inside the
+window keeping the block alive. Whether the limit is per account or per token is unknown. Reports:
+[anthropics/claude-code#30930](https://github.com/anthropics/claude-code/issues/30930),
+[#31021](https://github.com/anthropics/claude-code/issues/31021),
+[#31637](https://github.com/anthropics/claude-code/issues/31637),
+[#77477](https://github.com/anthropics/claude-code/issues/77477) and
+[stablyai/orca#9616](https://github.com/stablyai/orca/issues/9616).
+**Decision.** A sign-in on the OAuth endpoint (Claude Code, and the Claude app on its token) polls no
+faster than every 15 minutes, never fetches when the menu opens, and fetches on Refresh Now only outside
+a wait and once its last attempt is 5 minutes old. Any 429, on either endpoint, waits Retry-After
+(seconds or an HTTP date; 5 minutes when it is missing, 0 or negative; at most an hour) plus a random 2
+to 10 minutes, so the retry never lands on the boundary. Each 429 also doubles that account's background
+interval, up to an hour (15, 30, 60 minutes on the token; the setting doubling on a cookie), and 3 good
+reads in a row step it back one level. The wait, the backoff level and the route the last fetch used
+are saved with the other fetch state. A wait saved by 0.3.1 gets the jitter on the first launch and
+counts as one 429. Cookie sign-ins keep the setting and decision 18's menu rule.
+The maintainer's call, 2026-10-28.
+**Consequence.** Claude Code numbers can be 15 minutes old, and up to an hour after repeated 429s, so
+each account in the dropdown says how old its numbers are. Numbers older than 15 minutes still draw at
+half opacity, so a backed-off account greys out between checks. A 429 costs at least its Retry-After
+plus 2 minutes.

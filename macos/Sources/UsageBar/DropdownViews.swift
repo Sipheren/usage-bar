@@ -232,11 +232,7 @@ struct DropdownA: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Claude").font(.system(size: 17, weight: .semibold))
-                    Text(Formatters.updatedAgo(store.lastUpdated, now: store.now))
-                        .font(.system(size: 12)).foregroundStyle(Palette.secondary)
-                }
+                Text("Claude").font(.system(size: 17, weight: .semibold))
                 Spacer()
                 RefreshButton()
             }
@@ -262,6 +258,9 @@ struct AccountSectionA: View {
                 Badge(tag: account.tag, hex: account.badgeHex)
                 VStack(alignment: .leading, spacing: 1) {
                     Text(account.name).font(.system(size: 15, weight: .semibold)).lineLimit(1)
+                    // Each account's own age: sign-ins poll at different rates (decision 19).
+                    Text(Formatters.updatedAgo(st.lastSuccess, now: store.now))
+                        .font(.system(size: 11)).foregroundStyle(Palette.secondary)
                     if let note = pres.headerNote {
                         Text(note).font(.system(size: 11)).foregroundStyle(Palette.secondary)
                     }
