@@ -13,6 +13,9 @@
   choice all show numbers. `AccountFetcher` takes its HTTP session and account-file path from tests.
 - The parity sheet drops `personalOrg` and `isPersonal`; a local fixtures folder needs
   `UsageBar --fixtures-expected DIR` again. Windows (0.1.7) is unchanged and still has the check.
+- Installed over 0.3.2 on this Mac: the Safari account, which had logged `signedInToPersonal, HTTP 200`
+  every 2 minutes, logged `ok, HTTP 200, 3 limits, route safari` on the next two checks. No Claude app
+  account is set up on this Mac, so its route is covered by tests only.
 
 ## 2026-10-28 (Windows 0.1.7)
 
