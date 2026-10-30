@@ -57,7 +57,8 @@ Open Usage Bar's flyout, then **Settings… > Accounts**. Each account has a **S
 
 The first launch adds an account only for each sign-in it finds, with no prompt and nothing decrypted:
 Personal when Claude Code's `.credentials.json` exists, and a Claude app account when the app's
-`config.json` shows a sign-in to a different account than Claude Code's. Nothing found means no accounts:
+`config.json` shows a sign-in, unless Claude Code is signed in to that same account: each unique account
+once. Nothing found means no accounts:
 the flyout and Settings say so and offer to add one. **Add Account** offers each sign-in source once (a
 source already in use is greyed out), so Windows shows up to two accounts. Each account shows the usage of
 whatever its sign-in source is signed in to; Usage Bar never decides whether that is Personal or Work.

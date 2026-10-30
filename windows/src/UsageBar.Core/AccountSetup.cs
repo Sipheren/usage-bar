@@ -8,8 +8,8 @@ public sealed record FoundSignIns(bool ClaudeCodeLogin = false, string? ClaudeCo
                                   bool ClaudeAppHasTokenCache = false, string? ClaudeAppAccountUuid = null)
 {
     /// <summary>
-    /// Sources to create accounts for, in order. The Claude app is skipped when it is signed in to the Claude Code
-    /// account (then they're the same account).
+    /// Sources to create accounts for, in order: one per unique account signed in. The Claude app is skipped only when
+    /// Claude Code is signed in to the same account, so that account appears once.
     /// </summary>
     public IReadOnlyList<SourceKind> Kinds
     {
@@ -17,8 +17,8 @@ public sealed record FoundSignIns(bool ClaudeCodeLogin = false, string? ClaudeCo
         {
             var kinds = new List<SourceKind>();
             if (ClaudeCodeLogin) kinds.Add(SourceKind.ClaudeCode);
-            if (ClaudeAppHasTokenCache && ClaudeAppAccountUuid is { Length: > 0 } app
-                && !string.Equals(app, ClaudeCodeAccountUuid, StringComparison.OrdinalIgnoreCase))
+            var sameAsClaudeCode = ClaudeCodeLogin && string.Equals(ClaudeAppAccountUuid, ClaudeCodeAccountUuid, StringComparison.OrdinalIgnoreCase);
+            if (ClaudeAppHasTokenCache && ClaudeAppAccountUuid is { Length: > 0 } && !sameAsClaudeCode)
                 kinds.Add(SourceKind.ClaudeDesktop);
             return kinds;
         }

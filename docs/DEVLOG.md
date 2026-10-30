@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-10-30 (Windows 0.1.9)
+
+- The maintainer's call on the first run (decision 20): add each unique account found, so one found means
+  one account and two mean two. The Windows rule already did that except when Claude Code was signed out
+  and `~/.claude.json` still named the Claude app's account: then nothing was added. The Claude app is now
+  skipped only when the Claude Code login exists and is on the same account. Test-first: the old test
+  expecting no accounts in that case now expects the Claude app (failed before the change). 229 tests.
+- `UsageBar.exe --detect-sign-ins` on this PC, where the Claude app is on the signed-in Claude Code
+  account: "A first run would add: Personal", as before. macOS 0.3.3 still compares the uuids without
+  checking the Claude Code login.
+
 ## 2026-10-30 (Windows 0.1.8)
 
 - Ported macOS 0.3.3: the "… is signed in to your Personal account" check is gone on Windows too. No

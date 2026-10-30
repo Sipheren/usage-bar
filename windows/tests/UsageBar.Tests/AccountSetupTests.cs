@@ -73,10 +73,11 @@ public class FirstRunAccountsTests
     }
 
     [Fact]
-    public void TheClaudeAppOnTheClaudeCodeAccountIsSkippedEvenWithoutTheCredentialsFile()
+    public void TheClaudeAppIsAddedWhenClaudeCodeIsNotSignedIn()
     {
-        // The fetcher refuses this pairing whatever else is signed in, so it could only ever show that.
-        Assert.Empty(Kinds(new FoundSignIns(false, CliUuid, true, CliUuid)));
+        // One account per unique sign-in found: with Claude Code signed out, a leftover ~/.claude.json naming the same
+        // account doesn't make the Claude app a duplicate, so it is the one account.
+        Assert.Equal(new[] { SourceKind.ClaudeDesktop }, Kinds(new FoundSignIns(false, CliUuid, true, CliUuid)));
     }
 
     [Fact]
