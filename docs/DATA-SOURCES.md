@@ -110,7 +110,7 @@ their accounts, and an account a build can't read is kept and saved back unchang
 | Source | Counts as signed in when | Never |
 |---|---|---|
 | Claude Code login | `/usr/bin/security find-generic-password -s "Claude Code-credentials"` exits 0 (attributes only, **no `-w`**; 44 means no item) | reads the token to decide |
-| Claude app login | `config.json` has a non-empty `oauth:tokenCacheV2` **and** a `lastKnownAccountUuid`, and the Claude Code login isn't signed in to that same account (`oauthAccount.accountUuid` from `~/.claude.json`, case-insensitive), so each unique account is added once (decision 20; Windows 0.1.9 checks the Claude Code login, macOS 0.3.3 compares the uuids alone) | touches "Claude Safe Storage"; the account shows Connect… as usual |
+| Claude app login | `config.json` has a non-empty `oauth:tokenCacheV2` **and** a `lastKnownAccountUuid`, and the Claude Code login isn't signed in to that same account (`oauthAccount.accountUuid` from `~/.claude.json`, case-insensitive), so each unique account is added once (decision 20) | touches "Claude Safe Storage"; the account shows Connect… as usual |
 | Safari session | never on first run (it needs Full Disk Access); users add it from Settings | probes Safari's cookies |
 
 The new accounts are, in this order: Personal (`P`, Claude Code) and Claude app (`C`). Nothing found

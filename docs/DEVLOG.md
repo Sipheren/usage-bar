@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-10-30 (macOS 0.3.4)
+
+- First run follows decision 20, as Windows 0.1.9: the Claude app is skipped only when the Claude Code
+  login exists and is on the same account. Test mirrored from Windows (Claude Code signed out, same uuid
+  → the Claude app is added).
+
 ## 2026-10-30 (Windows 0.1.9)
 
 - The maintainer's call on the first run (decision 20): add each unique account found, so one found means

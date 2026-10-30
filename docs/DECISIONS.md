@@ -203,5 +203,4 @@ one account; two, two. The Claude app is skipped only when the Claude Code login
 to the same account (its `lastKnownAccountUuid` is `oauthAccount.accountUuid`, ignoring case).
 The maintainer's call, 2026-10-30.
 **Consequence.** With Claude Code signed out, a Claude app on that account becomes the one account.
-Windows follows this from 0.1.9; macOS 0.3.3 still compares the uuids without checking the Claude Code
-login.
+Both platforms follow this from Windows 0.1.9 and macOS 0.3.4.

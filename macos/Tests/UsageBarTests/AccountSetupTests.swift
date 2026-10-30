@@ -66,12 +66,11 @@ final class FirstRunAccountsTests: XCTestCase {
         XCTAssertEqual(kinds(found), [.claudeCode])
     }
 
-    func testClaudeAppOnTheClaudeCodeAccountIsSkippedEvenWithoutTheKeychainItem() {
-        // The fetcher refuses this account ("signed in to your Personal account") whatever the Keychain holds,
-        // so first run never creates an account that could only ever show that.
+    func testClaudeAppOnALeftoverClaudeCodeAccountIsAddedWhenClaudeCodeIsSignedOut() {
+        // ~/.claude.json can outlive a Claude Code sign-out; the Claude app is then the one account (decision 20).
         let found = FoundSignIns(claudeCodeLogin: false, claudeCodeAccountUuid: cliUuid,
                                  claudeAppHasTokenCache: true, claudeAppAccountUuid: cliUuid)
-        XCTAssertEqual(kinds(found), [])
+        XCTAssertEqual(kinds(found), [.claudeDesktop])
     }
 
     func testClaudeAppNeedsBothTokenCacheAndAccount() {
