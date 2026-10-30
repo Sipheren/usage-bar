@@ -153,6 +153,31 @@ public static partial class DesktopTokenParser
         return cands.OrderBy(Rank).ThenBy(c => c.IsExpired(now)).ThenByDescending(c => c.ExpiresAt ?? DateTimeOffset.MinValue).ToList();
     }
 
+    /// <summary>
+    /// Picks the candidate whose profile names the app's own account, otherwise the first whose profile answers 200
+    /// (<paramref name="cands"/> comes latest expiry first). Returns whether it matched by uuid. A profile request that
+    /// fails skips that candidate.
+    /// </summary>
+    public static async Task<(TokenCandidate? Chosen, bool MatchedByUuid)> ProbeAsync(IEnumerable<TokenCandidate> cands, string? accountUuid,
+                                                                                     Func<string, Task<(Profile? Profile, int Status)>> profileFor)
+    {
+        TokenCandidate? firstValid = null;
+        foreach (var c in cands)
+        {
+            Profile p;
+            try
+            {
+                var (profile, status) = await profileFor(c.AccessToken);
+                if (status != 200 || profile is null) continue;
+                p = profile;
+            }
+            catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { continue; }
+            if (accountUuid is not null && string.Equals(p.AccountUuid, accountUuid, StringComparison.OrdinalIgnoreCase)) return (c, true);
+            firstValid ??= c;
+        }
+        return (firstValid, false);
+    }
+
     // MARK: Shape dump (key names and types only)
 
     /// <summary>Renders key names and value types, never values. UUIDs in keys are shortened; opaque runs are masked.</summary>

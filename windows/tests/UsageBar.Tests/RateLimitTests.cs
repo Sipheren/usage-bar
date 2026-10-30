@@ -33,7 +33,7 @@ public class RateLimitResponseTests
 
     static async Task<CookieUsageOutcome> CookieFetch(Func<HttpRequestMessage, HttpResponseMessage> answer) =>
         await new ClaudeAiCookieClient(new HttpClient(new Stub(answer)))
-            .FetchUsageAsync(new Dictionary<string, string> { ["sessionKey"] = "test" }, null);
+            .FetchUsageAsync(new Dictionary<string, string> { ["sessionKey"] = "test" });
 
     [Fact]
     public void ClaudeAi429IsRateLimitedWithItsRetryAfter()
@@ -85,7 +85,7 @@ public class RateLimitResponseTests
     {
         var report = new FetchReport();
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 0), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now, jitter: 0);
+                                          "the Claude app", Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300)), report.Issue);
         Assert.Equal(0, report.RetryAfter);
     }
@@ -95,10 +95,10 @@ public class RateLimitResponseTests
     {
         var report = new FetchReport();
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 90), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now, jitter: 0);
+                                          "the Claude app", Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(90)), report.Issue);
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 7200), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now, jitter: 0);
+                                          "the Claude app", Now, jitter: 0);
         Assert.Equal(AccountIssue.RateLimited(Now.AddHours(1)), report.Issue);
     }
 
@@ -116,12 +116,12 @@ public class RateLimitResponseTests
     [Fact]
     public void ClaudeAppCookieResultsThatStandAndThoseThatTryTheToken()
     {
-        foreach (var kind in new[] { CookieOutcomeKind.Ok, CookieOutcomeKind.RateLimited, CookieOutcomeKind.Network, CookieOutcomeKind.SignedInToPersonal })
+        foreach (var kind in new[] { CookieOutcomeKind.Ok, CookieOutcomeKind.RateLimited, CookieOutcomeKind.Network })
             Assert.True(AccountFetcher.DesktopCookieResultStands(kind), kind.ToString());
         foreach (var kind in new[] { CookieOutcomeKind.Unauthorized, CookieOutcomeKind.NoSession, CookieOutcomeKind.NoOrganizations, CookieOutcomeKind.Cloudflare,
                                      CookieOutcomeKind.ScopeError, CookieOutcomeKind.Http, CookieOutcomeKind.Undecodable })
             Assert.False(AccountFetcher.DesktopCookieResultStands(kind), kind.ToString());
         // Every kind is in one list or the other.
-        Assert.Equal(11, Enum.GetValues<CookieOutcomeKind>().Length);
+        Assert.Equal(10, Enum.GetValues<CookieOutcomeKind>().Length);
     }
 }

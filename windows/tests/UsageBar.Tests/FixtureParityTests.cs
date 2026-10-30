@@ -105,15 +105,12 @@ public class FixtureParityTests
         CheckAccount(e, UsageDecoder.Decode(File_("api/claude-ai-org-usage.json"), Now));
 
         var orgs = ClaudeAiCookieClient.ParseOrganizations(File_("api/claude-ai-organizations.json"));
-        var personalOrg = Profile.Decode(File_("api/oauth-profile.json"))!.OrganizationUuid;
         var o = e.GetProperty("organizations");
         Assert.Equal(o.GetProperty("count").GetInt32(), orgs.Count);
-        Assert.Equal(Str(o, "personalOrg"), personalOrg);
-        var picked = ClaudeAiCookieClient.PickOrg(orgs, null, personalOrg)!;
+        var picked = ClaudeAiCookieClient.PickOrg(orgs, null)!;
         var x = o.GetProperty("pickedWithoutLastActiveOrg");
         Assert.Equal(Str(x, "uuid"), picked.Uuid);
         Assert.Equal(Str(x, "name"), picked.Name);
-        Assert.Equal(x.GetProperty("isPersonal").GetBoolean(), ClaudeAiCookieClient.IsPersonalOrg(picked, personalOrg));
     }
 
     [FixtureFact]

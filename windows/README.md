@@ -59,9 +59,9 @@ The first launch adds an account only for each sign-in it finds, with no prompt 
 Personal when Claude Code's `.credentials.json` exists, and a Claude app account when the app's
 `config.json` shows a sign-in to a different account than Claude Code's. Nothing found means no accounts:
 the flyout and Settings say so and offer to add one. **Add Account** offers each sign-in source once (a
-source already in use is greyed out), so Windows shows up to two accounts. If a Claude app account turns
-out to be the same account as Claude Code, it says so and shows no numbers, so Personal is never shown
-twice. Settings saved by an earlier version load as they are. The status row turns green with the account's email or organization when a source works,
+source already in use is greyed out), so Windows shows up to two accounts. Each account shows the usage of
+whatever its sign-in source is signed in to; Usage Bar never decides whether that is Personal or Work.
+Settings saved by an earlier version load as they are. The status row turns green with the account's email or organization when a source works,
 and names the exact problem when it doesn't.
 
 ## Using it

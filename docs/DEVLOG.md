@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-10-30 (Windows 0.1.8)
+
+- Ported macOS 0.3.3: the "… is signed in to your Personal account" check is gone on Windows too. No
+  `SignedInToPersonal` issue or cookie outcome, no `IsPersonalOrg`, no organization from `~/.claude.json`
+  in the org pick, and no Claude app "is this the Claude Code account" block or post-200 organization check.
+  `~/.claude.json` still gives the Claude Code account's email and first-run detection; the first run's
+  rule (skip a Claude app on the Claude Code account) is unchanged pending the maintainer's call.
+- The Claude app's token probe moved into Core (`DesktopTokenParser.ProbeAsync`) so it can be tested: the
+  token for the app's own account wins, else the first whose profile answers 200, latest expiry first.
+- Test-first: `SignedInAccountTests.cs` (4 probe tests) and the cookie client's org pick and full flow
+  (first org, `lastActiveOrg`, a single organization always shown). 229 tests, none skipped with the
+  fixtures folder. The parity test no longer reads `personalOrg`/`isPersonal`; the local fixtures have one
+  organization, so the pick is unchanged.
+- Installed over 0.1.7: started, skipped the launch check (inside 15 minutes), then `ClaudeCode: ok, HTTP
+  200, 3 limits, route token`. This PC has no Claude app account, so the Claude app routes are covered by
+  tests only.
+
 ## 2026-10-30 (macOS 0.3.3)
 
 - Safari and the Claude app showed "… is signed in to your Personal account" and no numbers once

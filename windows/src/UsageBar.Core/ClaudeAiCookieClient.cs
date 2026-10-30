@@ -7,7 +7,7 @@ namespace UsageBar.Core;
 public sealed record ClaudeAiOrg(string Uuid, string? Name);
 
 /// <summary><c>RateLimited</c> is HTTP 429 from either request.</summary>
-public enum CookieOutcomeKind { Ok, NoSession, Cloudflare, Unauthorized, ScopeError, SignedInToPersonal, RateLimited, Http, Undecodable, NoOrganizations, Network }
+public enum CookieOutcomeKind { Ok, NoSession, Cloudflare, Unauthorized, ScopeError, RateLimited, Http, Undecodable, NoOrganizations, Network }
 
 /// <summary><paramref name="RetryAfter"/> is a 429's Retry-After in seconds, null when missing.</summary>
 public sealed record CookieUsageOutcome(CookieOutcomeKind Kind, int Status = 0, UsageSnapshot? Snapshot = null, ClaudeAiOrg? Org = null,
@@ -25,20 +25,15 @@ public sealed class ClaudeAiCookieClient(HttpClient http)
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36";
 
     /// <summary>
-    /// Picks the organization to show: the <c>lastActiveOrg</c> cookie if it's one of the orgs, otherwise the first org
-    /// whose uuid isn't the personal account's org, otherwise the first.
+    /// Picks the organization to show: the <c>lastActiveOrg</c> cookie if it's one of the orgs, otherwise the first.
+    /// The session shows whatever account it is signed in to.
     /// </summary>
-    public static ClaudeAiOrg? PickOrg(IReadOnlyList<ClaudeAiOrg> orgs, string? lastActiveOrg, string? personalOrg)
+    public static ClaudeAiOrg? PickOrg(IReadOnlyList<ClaudeAiOrg> orgs, string? lastActiveOrg)
     {
         if (orgs.Count == 0) return null;
         if (lastActiveOrg is not null && orgs.FirstOrDefault(o => string.Equals(o.Uuid, lastActiveOrg, StringComparison.OrdinalIgnoreCase)) is { } m) return m;
-        if (personalOrg is not null && orgs.FirstOrDefault(o => !string.Equals(o.Uuid, personalOrg, StringComparison.OrdinalIgnoreCase)) is { } np) return np;
         return orgs[0];
     }
-
-    /// <summary>Whether the chosen org is the user's personal org (so it must not show under Work).</summary>
-    public static bool IsPersonalOrg(ClaudeAiOrg org, string? personalOrg) =>
-        personalOrg is not null && string.Equals(org.Uuid, personalOrg, StringComparison.OrdinalIgnoreCase);
 
     public static List<ClaudeAiOrg> ParseOrganizations(ReadOnlySpan<byte> data)
     {
@@ -90,7 +85,7 @@ public sealed class ClaudeAiCookieClient(HttpClient http)
     }
 
     /// <summary>Full flow: organizations, pick, usage. <paramref name="jar"/> must include <c>sessionKey</c>.</summary>
-    public async Task<CookieUsageOutcome> FetchUsageAsync(IReadOnlyDictionary<string, string> jar, string? personalOrg, CancellationToken ct = default)
+    public async Task<CookieUsageOutcome> FetchUsageAsync(IReadOnlyDictionary<string, string> jar, CancellationToken ct = default)
     {
         if (!jar.ContainsKey("sessionKey")) return new(CookieOutcomeKind.NoSession);
         var header = CookieHeader(jar);
@@ -105,9 +100,7 @@ public sealed class ClaudeAiCookieClient(HttpClient http)
 
             var orgs = ParseOrganizations(orgData);
             jar.TryGetValue("lastActiveOrg", out var lastActive);
-            if (PickOrg(orgs, lastActive, personalOrg) is not { } org) return new(CookieOutcomeKind.NoOrganizations, orgStatus);
-            // Never show Personal under Work: if the only org to show is personal's, say so and fetch nothing.
-            if (IsPersonalOrg(org, personalOrg)) return new(CookieOutcomeKind.SignedInToPersonal, orgStatus);
+            if (PickOrg(orgs, lastActive) is not { } org) return new(CookieOutcomeKind.NoOrganizations, orgStatus);
 
             var usageUrl = new Uri($"https://claude.ai/api/organizations/{Uri.EscapeDataString(org.Uuid)}/usage");
             using var resp = await http.SendAsync(Request(usageUrl, header), ct).ConfigureAwait(false);

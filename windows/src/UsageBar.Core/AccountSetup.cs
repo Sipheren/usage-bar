@@ -9,7 +9,7 @@ public sealed record FoundSignIns(bool ClaudeCodeLogin = false, string? ClaudeCo
 {
     /// <summary>
     /// Sources to create accounts for, in order. The Claude app is skipped when it is signed in to the Claude Code
-    /// account: the fetcher refuses that pairing, so the account could never show numbers.
+    /// account (then they're the same account).
     /// </summary>
     public IReadOnlyList<SourceKind> Kinds
     {

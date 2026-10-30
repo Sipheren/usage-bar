@@ -2,7 +2,7 @@ namespace UsageBar.Core;
 
 public enum IssueKind
 {
-    ExpiredCli, ExpiredDesktop, NotConnected, Cloudflare, Scope, SignedInToPersonal,
+    ExpiredCli, ExpiredDesktop, NotConnected, Cloudflare, Scope,
     NotSignedIn, Network, Rejected, Http, RateLimited, Unsupported,
 }
 
@@ -16,7 +16,6 @@ public sealed record AccountIssue(IssueKind Kind, string? Text = null, int Code 
     public static readonly AccountIssue Scope = new(IssueKind.Scope);
     /// <summary>claude.ai returned a Cloudflare challenge; <paramref name="where"/> names what to open.</summary>
     public static AccountIssue Cloudflare(string where) => new(IssueKind.Cloudflare, where);
-    public static AccountIssue SignedInToPersonal(string who) => new(IssueKind.SignedInToPersonal, who);
     public static AccountIssue NotSignedIn(string message) => new(IssueKind.NotSignedIn, message);
     public static AccountIssue Network(string detail) => new(IssueKind.Network, detail);
     public static AccountIssue Rejected(string message) => new(IssueKind.Rejected, message);
@@ -31,7 +30,6 @@ public sealed record AccountIssue(IssueKind Kind, string? Text = null, int Code 
         IssueKind.NotConnected => "Allow Usage Bar to read the Claude app's sign-in",
         IssueKind.Cloudflare => "Blocked by a Cloudflare check — open claude.ai in " + Text,
         IssueKind.Scope => "This sign-in can't read usage (scope)",
-        IssueKind.SignedInToPersonal => Text + " is signed in to your Personal account",
         IssueKind.Network => "Network error: " + Text,
         IssueKind.Http => $"Usage request failed (HTTP {Code})",
         IssueKind.RateLimited => "Rate limited — retrying after " + Formatters.ClockTime(Until ?? DateTimeOffset.UtcNow, timeZone),

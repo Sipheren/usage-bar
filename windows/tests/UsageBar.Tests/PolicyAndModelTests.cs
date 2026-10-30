@@ -228,7 +228,7 @@ public class RateLimitJitterTests
         AccountFetcher.Apply(new FetchOutcome(FetchOutcomeKind.RateLimited, Status: 429, RetryAfter: 7200), report, AccountIssue.ExpiredCli, Now, jitter: 600);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(3600 + 600)), report.Issue);
         AccountFetcher.ApplyCookieOutcome(new(CookieOutcomeKind.RateLimited, 429, RetryAfter: 0), report, AccountIssue.ExpiredDesktop,
-                                          "the Claude app", "The Claude app", Now, jitter: 120);
+                                          "the Claude app", Now, jitter: 120);
         Assert.Equal(AccountIssue.RateLimited(Now.AddSeconds(300 + 120)), report.Issue);
         Assert.Equal(120, report.RateLimitJitter);
     }
@@ -463,7 +463,6 @@ public class RateLimitPresentationTests
         Assert.Equal("Claude Code login expired — run `claude` once", AccountIssue.ExpiredCli.Message(Utc));
         Assert.Equal("This sign-in can't read usage (scope)", AccountIssue.Scope.Message(Utc));
         Assert.Equal("Blocked by a Cloudflare check — open claude.ai in Firefox", AccountIssue.Cloudflare("Firefox").Message(Utc));
-        Assert.Equal("The Claude app is signed in to your Personal account", AccountIssue.SignedInToPersonal("The Claude app").Message(Utc));
         Assert.Equal("Usage request failed (HTTP 500)", AccountIssue.Http(500).Message(Utc));
         Assert.False(AccountIssue.NotConnected.GreysValues);
         Assert.True(AccountIssue.ExpiredCli.GreysValues);

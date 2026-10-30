@@ -109,21 +109,20 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
 
     /// <summary>
     /// Runs the claude.ai cookie flow, records the outcome and returns it. <paramref name="where"/> names what to open
-    /// on a Cloudflare check; <paramref name="who"/> names the source when it's signed in to the personal account.
+    /// on a Cloudflare check.
     /// </summary>
     public static async Task<CookieUsageOutcome> ApplyCookieFlowAsync(ClaudeAiCookieClient cookies, IReadOnlyDictionary<string, string> jar,
-                                                                      string? personalOrg, FetchReport report, AccountIssue rejected,
-                                                                      string where, string who, DateTimeOffset now, CancellationToken ct,
-                                                                      double? jitter = null)
+                                                                      FetchReport report, AccountIssue rejected, string where,
+                                                                      DateTimeOffset now, CancellationToken ct, double? jitter = null)
     {
-        var o = await cookies.FetchUsageAsync(jar, personalOrg, ct);
+        var o = await cookies.FetchUsageAsync(jar, ct);
         report.HttpStatus = o.Status;
-        ApplyCookieOutcome(o, report, rejected, where, who, now, jitter);
+        ApplyCookieOutcome(o, report, rejected, where, now, jitter);
         return o;
     }
 
     /// <summary>Records a claude.ai outcome on <paramref name="report"/>. A 429 pauses the account from <paramref name="now"/>.</summary>
-    public static void ApplyCookieOutcome(CookieUsageOutcome o, FetchReport report, AccountIssue rejected, string where, string who,
+    public static void ApplyCookieOutcome(CookieUsageOutcome o, FetchReport report, AccountIssue rejected, string where,
                                           DateTimeOffset now, double? jitter = null)
     {
         report.Issue = o.Kind switch
@@ -133,7 +132,6 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
             CookieOutcomeKind.Cloudflare => AccountIssue.Cloudflare(where),
             CookieOutcomeKind.Unauthorized => rejected,
             CookieOutcomeKind.ScopeError => AccountIssue.Scope,
-            CookieOutcomeKind.SignedInToPersonal => AccountIssue.SignedInToPersonal(who),
             CookieOutcomeKind.NoOrganizations => AccountIssue.Rejected("No organizations on this claude.ai session"),
             CookieOutcomeKind.RateLimited => null,   // set below, with the wait
             CookieOutcomeKind.Http => AccountIssue.Http(o.Status),
@@ -159,11 +157,10 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
 
     /// <summary>
     /// Whether a Claude app cookie result stands, or the token route is tried next. Numbers, a 429 (its wait applies)
-    /// and a network error stand, as does "signed in to Personal" (never shown under Work). A rejected cookie,
-    /// Cloudflare, a scope error and anything unexpected try the token.
+    /// and a network error stand. A rejected cookie, Cloudflare, a scope error and anything unexpected try the token.
     /// </summary>
     public static bool DesktopCookieResultStands(CookieOutcomeKind kind) =>
-        kind is CookieOutcomeKind.Ok or CookieOutcomeKind.RateLimited or CookieOutcomeKind.Network or CookieOutcomeKind.SignedInToPersonal;
+        kind is CookieOutcomeKind.Ok or CookieOutcomeKind.RateLimited or CookieOutcomeKind.Network;
 
     /// <summary>Test data: the claude.ai flow answered from a fixtures folder, never the network.</summary>
     async Task<FetchReport> FetchFixtureAsync(string dir, DateTimeOffset now, CancellationToken ct)
@@ -175,10 +172,9 @@ public sealed class AccountFetcher(HttpClient http, IDesktopFetcher? desktop = n
             return report;
         }
         var cookies = new ClaudeAiCookieClient(fixtureHttp?.Invoke(dir) ?? new HttpClient(new FixtureHandler(dir)));
-        var personalOrg = ClaudeCodeAccountInfo.Read()?.OrganizationUuid;
         var jar = new Dictionary<string, string> { ["sessionKey"] = "fixture" };
-        await ApplyCookieFlowAsync(cookies, jar, personalOrg, report, AccountIssue.NotSignedIn("Fixture sign-in rejected"),
-                                   "your browser", "This session", now, ct, jitter?.Invoke());
+        await ApplyCookieFlowAsync(cookies, jar, report, AccountIssue.NotSignedIn("Fixture sign-in rejected"),
+                                   "your browser", now, ct, jitter?.Invoke());
         return report;
     }
 }
