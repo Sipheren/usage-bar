@@ -81,8 +81,9 @@ sign-in source, and a first run adds only the sign-ins it finds, with no prompt 
 Zero accounts is a normal state. On Windows:
 
 - Claude Code: the `.credentials.json` above exists. Don't parse the token to decide.
-- Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid` that
-  isn't `oauthAccount.accountUuid` in `%USERPROFILE%\.claude.json`. Don't call DPAPI for this check.
+- Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid`, and
+  the Claude Code login (when it exists) isn't that same account, `oauthAccount.accountUuid` in
+  `%USERPROFILE%\.claude.json` (decision 20, from 0.1.9). Don't call DPAPI for this check.
 - Browser session: never checked on first run; the user adds it from Settings.
 
 Verified on Windows 11 (2026-10-26) with `UsageBar.exe --detect-sign-ins` and a real first run: the

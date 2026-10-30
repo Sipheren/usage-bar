@@ -16,6 +16,14 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   `scripts/release.sh`. Each has `INSTALL.txt` (and `Install.cmd` on Windows) at the top and installs
   with one command; the README has a Download section.
 
+## [Windows 0.1.9] - 2026-10-30
+
+### Fixed
+- Windows: the first launch adds one account for each unique account it finds (decision 20). A Claude
+  app signed in while Claude Code is signed out is added, even if Claude Code's `~/.claude.json` still
+  names that account; before, that left no accounts. A Claude app on the same account as a signed-in
+  Claude Code is still added once, as Personal.
+
 ## [Windows 0.1.8] - 2026-10-30
 
 ### Fixed

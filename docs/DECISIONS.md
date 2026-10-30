@@ -192,3 +192,16 @@ numbers draw at half opacity only when they are older than the longest of 15 min
 account's current intervals and, after a 429, the time from the last good read to the end of the wait
 plus 15 minutes, so an account checking on schedule never greys. A 429 costs at least its Retry-After
 plus 2 minutes. When Refresh Now or Connect skips an account, its header says when the next check is.
+
+## 20. First run adds each unique account once (refines 16)
+
+**Context.** First run skipped the Claude app whenever `~/.claude.json` named the same account, because
+the fetcher used to refuse that pairing. Since macOS 0.3.3 and Windows 0.1.8 nothing refuses it, and
+`~/.claude.json` can outlive a Claude Code sign-out, which left a signed-in Claude app with no account.
+**Decision.** The first launch adds one account for each unique account it finds signed in: one found,
+one account; two, two. The Claude app is skipped only when the Claude Code login exists and is signed in
+to the same account (its `lastKnownAccountUuid` is `oauthAccount.accountUuid`, ignoring case).
+The maintainer's call, 2026-10-30.
+**Consequence.** With Claude Code signed out, a Claude app on that account becomes the one account.
+Windows follows this from 0.1.9; macOS 0.3.3 still compares the uuids without checking the Claude Code
+login.
