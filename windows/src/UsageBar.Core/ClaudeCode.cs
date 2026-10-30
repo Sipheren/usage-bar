@@ -65,7 +65,7 @@ public static class ClaudeCodeCredentials
         b.Length >= 3 && b[0] == 0xEF && b[1] == 0xBB && b[2] == 0xBF ? b[3..] : b;
 }
 
-/// <summary>The CLI's account details from <c>~/.claude.json</c>: shown in Settings and used to tell Personal from Work.</summary>
+/// <summary>The CLI's account details from <c>~/.claude.json</c>: the Claude Code source's email, and its account uuid for first-run detection.</summary>
 public sealed record ClaudeCodeAccountInfo(string? Email, string? AccountUuid, string? OrganizationUuid, string? OrganizationName)
 {
     /// <summary>The account file for <paramref name="path"/>, or for Claude Code's current config folder.</summary>

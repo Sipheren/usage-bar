@@ -10,7 +10,7 @@ namespace UsageBar;
 /// <summary>
 /// The Claude app's existing sign-in, read-only. Electron's safeStorage on Windows protects the token cache with an
 /// AES-256-GCM key that DPAPI unwraps for the same Windows user. Nothing is read until the user clicks Connect…
-/// (decision 12); the only earlier read is the account uuid in config.json, to avoid showing Personal under Work.
+/// (decision 12); the only earlier read is config.json, to see whether the app is signed in.
 /// </summary>
 internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
 {
@@ -34,14 +34,6 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
             report.Issue = AccountIssue.NotSignedIn("Not signed in to the Claude app");
             return report;
         }
-        // Never show Personal under Work: if the Claude app's account is the CLI's personal account, say so.
-        var cli = ClaudeCodeAccountInfo.Read();
-        if (config.LastKnownAccountUuid is { } appUuid && cli?.AccountUuid is { } personal
-            && string.Equals(appUuid, personal, StringComparison.OrdinalIgnoreCase))
-        {
-            report.Issue = AccountIssue.SignedInToPersonal("The Claude app");
-            return report;
-        }
         if (!ctx.Connected)
         {
             report.Issue = AccountIssue.NotConnected;
@@ -58,8 +50,7 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
         {
             report.Route = "cookie";
             var outcome = await AccountFetcher.ApplyCookieFlowAsync(cookies, new Dictionary<string, string> { ["sessionKey"] = sessionKey },
-                                                                    cli?.OrganizationUuid, report, AccountIssue.ExpiredDesktop,
-                                                                    "the Claude app", "The Claude app", now, ct);
+                                                                    report, AccountIssue.ExpiredDesktop, "the Claude app", now, ct);
             if (AccountFetcher.DesktopCookieResultStands(outcome.Kind)) return report;
             Log.Info($"desktop: cookie {report.Issue?.LogName ?? "noData"}, trying the token");
             cookieIssue = report.Issue;
@@ -75,12 +66,12 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
         var ordered = DesktopTokenParser.Ordered(candidates, accountUuid, cachedPath, now);
         Log.Info($"desktop: {candidates.Count} token candidates");
 
-        TokenCandidate? chosen = null;
-        // Trusted pick: a candidate tied to the account uuid, or an unexpired cached path (re-verified below).
-        var trusted = false;
-        if (ordered.FirstOrDefault() is { } first && first.Mentions(accountUuid)) { chosen = first; trusted = true; }
+        TokenCandidate? chosen;
+        // A candidate tied to the account uuid, or an unexpired cached path; otherwise ask each token's profile.
+        if (ordered.FirstOrDefault() is { } first && first.Mentions(accountUuid)) chosen = first;
         else if (ordered.FirstOrDefault() is { } f2 && !f2.IsExpired(now) && cachedPath == f2.PathString) chosen = f2;
-        else (chosen, trusted) = await ProbeAsync(ordered.Where(c => !c.IsExpired(now)).ToList(), accountUuid, cli?.OrganizationUuid, ct);
+        else (chosen, _) = await DesktopTokenParser.ProbeAsync(ordered.Where(c => !c.IsExpired(now)), accountUuid,
+                                                                t => api.FetchProfileAsync(t, ct));
         if (chosen is null && ordered.Count == 1 && ordered[0].IsExpired(now)) chosen = ordered[0];
 
         if (chosen is not null)
@@ -94,23 +85,14 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
             await api.CallUsageAsync(chosen.AccessToken, report, AccountIssue.ExpiredDesktop, now, ct);
             if (report.Snapshot is not null)
             {
-                // A trusted pick needs the profile only for a missing email.
-                Profile? profile = null;
-                if (!trusted || report.Email is null)
+                // Save the choice after a confirmed 200, never for an expired or rejected pick.
+                if (accountUuid is not null) report.DesktopChoice = (accountUuid, chosen.PathString);
+                // The profile is needed only for a missing email.
+                if (report.Email is null)
                 {
-                    try { profile = (await api.FetchProfileAsync(chosen.AccessToken, ct)).Profile; }
+                    try { report.Email = (await api.FetchProfileAsync(chosen.AccessToken, ct)).Profile?.Email; }
                     catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { }
                 }
-                // A token not matched by uuid could belong to the personal org: check before showing numbers.
-                if (!trusted && cli?.OrganizationUuid is { } po && profile?.OrganizationUuid is { } org
-                    && string.Equals(po, org, StringComparison.OrdinalIgnoreCase))
-                {
-                    report.Snapshot = null;
-                    report.Issue = AccountIssue.SignedInToPersonal("The Claude app");
-                    return report;
-                }
-                if (accountUuid is not null) report.DesktopChoice = (accountUuid, chosen.PathString);
-                report.Email ??= profile?.Email;
                 return report;
             }
             // The token failed too (or there was no cookie): show the token route's issue.
@@ -119,27 +101,6 @@ internal sealed class DesktopSource(HttpClient http) : IDesktopFetcher
         // No token to try: show the cookie route's issue (the cookie was already tried above).
         report.Issue = cookieIssue ?? AccountIssue.NotSignedIn("No Claude app sign-in token found");
         return report;
-    }
-
-    /// <summary>Picks the candidate whose profile matches the app's account; accepts "not personal" only when the personal org is known.</summary>
-    async Task<(TokenCandidate?, bool)> ProbeAsync(List<TokenCandidate> cands, string? accountUuid, string? personalOrg, CancellationToken ct)
-    {
-        TokenCandidate? notPersonal = null;
-        foreach (var c in cands)
-        {
-            Profile? p;
-            try
-            {
-                var (profile, status) = await api.FetchProfileAsync(c.AccessToken, ct);
-                if (status != 200 || profile is null) continue;
-                p = profile;
-            }
-            catch (Exception e) when (e is HttpRequestException or TaskCanceledException) { continue; }
-            if (accountUuid is not null && string.Equals(p.AccountUuid, accountUuid, StringComparison.OrdinalIgnoreCase)) return (c, true);
-            if (notPersonal is null && personalOrg is not null && p.OrganizationUuid is { } org
-                && !string.Equals(org, personalOrg, StringComparison.OrdinalIgnoreCase)) notPersonal = c;
-        }
-        return (notPersonal, false);
     }
 
     // MARK: Decryption

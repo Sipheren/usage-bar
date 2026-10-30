@@ -16,6 +16,17 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   `scripts/release.sh`. Each has `INSTALL.txt` (and `Install.cmd` on Windows) at the top and installs
   with one command; the README has a Download section.
 
+## [Windows 0.1.8] - 2026-10-30
+
+### Fixed
+- Windows: each account shows the usage of whatever its sign-in source is signed in to. The app no longer
+  compares the Claude app or a claude.ai session with the Claude Code account in `~/.claude.json`, so it
+  never hides their numbers behind "… is signed in to your Personal account". That message is gone.
+- Windows: a claude.ai session (the Claude app's cookie, or the fixtures source) shows its `lastActiveOrg`
+  organization, else the first on the list, whichever account Claude Code is signed in to.
+- Windows: on its token, the Claude app takes the token for its own account, else the newest token that
+  works. It asks for the profile only when the email isn't known yet.
+
 ## [macOS 0.3.3] - 2026-10-30
 
 ### Fixed
