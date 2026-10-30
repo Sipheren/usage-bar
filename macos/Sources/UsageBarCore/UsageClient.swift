@@ -24,7 +24,11 @@ public struct UsageClient: Sendable {
         config.httpCookieStorage = nil
         config.httpShouldSetCookies = false
         config.timeoutIntervalForRequest = 20
-        session = URLSession(configuration: config)
+        self.init(session: URLSession(configuration: config))
+    }
+
+    init(session: URLSession) {
+        self.session = session
     }
 
     func oauthRequest(_ url: URL, token: String) -> URLRequest {

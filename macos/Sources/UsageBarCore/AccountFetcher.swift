@@ -12,8 +12,6 @@ public enum AccountIssue: Equatable, Sendable {
     case cloudflareChallenge
     /// The sign-in works but lacks the OAuth scope to read usage.
     case scope
-    /// This session is signed in to the user's Personal account (shown under Work); no numbers.
-    case signedInToPersonal(String)
     case notSignedIn(String)
     case network(String)
     case rejected(String)
@@ -32,7 +30,6 @@ public enum AccountIssue: Equatable, Sendable {
         case .fullDiskAccess: return "Give Usage Bar Full Disk Access"
         case .cloudflareChallenge: return "Blocked by a Cloudflare check — open claude.ai in Safari"
         case .scope: return "This sign-in can't read usage (scope)"
-        case .signedInToPersonal(let who): return "\(who) is signed in to your Personal account"
         case .notSignedIn(let s): return s
         case .network(let s): return "Network error: \(s)"
         case .rejected(let s): return s
@@ -61,7 +58,6 @@ public enum AccountIssue: Equatable, Sendable {
         case .fullDiskAccess: return "fullDiskAccess"
         case .cloudflareChallenge: return "cloudflareChallenge"
         case .scope: return "scope"
-        case .signedInToPersonal: return "signedInToPersonal"
         case .notSignedIn: return "notSignedIn"
         case .network: return "network"
         case .rejected: return "rejected"
@@ -108,15 +104,25 @@ public struct DesktopContext: Sendable {
 
 /// One fetch per account. Never refreshes or writes either app's credentials.
 public final class AccountFetcher: @unchecked Sendable {
-    public let client = UsageClient()
-    public let cookieClient = ClaudeAiCookieClient()
+    public let client: UsageClient
+    public let cookieClient: ClaudeAiCookieClient
     public let desktop: DesktopCredentialReader
     public let safari: SafariCookieReader
+    /// Claude Code's account file, read for the Claude Code source's email only.
+    let claudeAccountInfoPath: String
 
-    public init(desktop: DesktopCredentialReader = DesktopCredentialReader(),
-                safari: SafariCookieReader = SafariCookieReader()) {
+    public convenience init(desktop: DesktopCredentialReader = DesktopCredentialReader(),
+                            safari: SafariCookieReader = SafariCookieReader()) {
+        self.init(desktop: desktop, safari: safari, client: UsageClient(), cookieClient: ClaudeAiCookieClient())
+    }
+
+    init(desktop: DesktopCredentialReader, safari: SafariCookieReader, client: UsageClient,
+         cookieClient: ClaudeAiCookieClient, claudeAccountInfoPath: String = "~/.claude.json") {
         self.desktop = desktop
         self.safari = safari
+        self.client = client
+        self.cookieClient = cookieClient
+        self.claudeAccountInfoPath = claudeAccountInfoPath
     }
 
     public func fetch(_ account: Account, desktopContext: DesktopContext, now: Date = Date()) async -> FetchReport {
@@ -159,8 +165,7 @@ public final class AccountFetcher: @unchecked Sendable {
             report.issue = .notSignedIn("No claude.ai sign-in found in Safari")
             return report
         }
-        let personalOrg = ClaudeCodeAccountInfo.read()?.organizationUuid
-        let (outcome, status) = await cookieClient.fetchUsage(cookies: jar, personalOrg: personalOrg)
+        let (outcome, status) = await cookieClient.fetchUsage(cookies: jar)
         report.httpStatus = status
         AccountFetcher.applyCookieOutcome(outcome, report: &report,
                                           rejected: .notSignedIn("Safari sign-in rejected — open claude.ai in Safari"),
@@ -183,8 +188,6 @@ public final class AccountFetcher: @unchecked Sendable {
             report.issue = rejected
         case .scopeError:
             report.issue = .scope
-        case .signedInToPersonal:
-            report.issue = .signedInToPersonal(report.route == "safari" ? "Safari" : "This session")
         case .noOrganizations:
             report.issue = .rejected("No organizations on this claude.ai session")
         case .rateLimited(let ra):
@@ -202,7 +205,7 @@ public final class AccountFetcher: @unchecked Sendable {
 
     public func fetchClaudeCode(configDir: String, now: Date) async -> FetchReport {
         var report = FetchReport()
-        report.email = ClaudeCodeAccountInfo.read()?.email
+        report.email = ClaudeCodeAccountInfo.read(path: claudeAccountInfoPath)?.email
         let token: CLIToken
         do {
             token = try await ClaudeCodeCredentials.read(configDir: configDir)
@@ -246,13 +249,6 @@ public final class AccountFetcher: @unchecked Sendable {
             report.issue = .notSignedIn("Not signed in to the Claude app")
             return report
         }
-        // Never show Personal under Work: if the Claude app's account is the CLI's personal account, say so.
-        let cli = ClaudeCodeAccountInfo.read()
-        if let appUuid = config.lastKnownAccountUuid?.lowercased(), let personal = cli?.accountUuid?.lowercased(),
-           appUuid == personal {
-            report.issue = .signedInToPersonal("The Claude app")
-            return report
-        }
         guard ctx.allowKeychain || desktop.hasCachedKey else {
             report.issue = .notConnected
             return report
@@ -273,8 +269,7 @@ public final class AccountFetcher: @unchecked Sendable {
         report.keychainOK = desktop.hasCachedKey
         if let sessionKey {
             report.route = "cookie"
-            let (outcome, status) = await cookieClient.fetchUsage(cookies: ["sessionKey": sessionKey],
-                                                                  personalOrg: cli?.organizationUuid)
+            let (outcome, status) = await cookieClient.fetchUsage(cookies: ["sessionKey": sessionKey])
             report.httpStatus = status
             AccountFetcher.applyCookieOutcome(outcome, report: &report, rejected: .expiredDesktop, now: Date())
             if AccountFetcher.desktopCookieResultStands(outcome) { return report }
@@ -304,7 +299,7 @@ public final class AccountFetcher: @unchecked Sendable {
         let ordered = DesktopTokenParser.ordered(candidates, accountUuid: accountUuid,
                                                  cachedPath: cachedPath, now: now)
         var chosen: TokenCandidate?
-        // Trusted pick: a candidate tied to the account uuid, or an unexpired cached path (re-verified below).
+        // Trusted pick: a candidate tied to the account uuid, or an unexpired cached path.
         var trustedChoice = false
         if let first = ordered.first, first.mentions(accountUuid) {
             chosen = first
@@ -312,8 +307,7 @@ public final class AccountFetcher: @unchecked Sendable {
         } else if let first = ordered.first, !first.isExpired(now: now), cachedPath == first.pathString {
             chosen = first
         } else {
-            let (cand, matched) = await probe(ordered.filter { !$0.isExpired(now: now) }, accountUuid: accountUuid,
-                                              personalOrg: cli?.organizationUuid)
+            let (cand, matched) = await probe(ordered.filter { !$0.isExpired(now: now) }, accountUuid: accountUuid)
             chosen = cand
             trustedChoice = matched
         }
@@ -331,23 +325,12 @@ public final class AccountFetcher: @unchecked Sendable {
             report.route = "token"
             await callUsage(token: c.accessToken, report: &report, rejected: .expiredDesktop)
             if report.snapshot != nil {
-                // A non-uuid-matched token (cached path or fallback) could belong to the personal org;
-                // verify its profile before showing numbers, so Personal is never shown under Work.
-                // A trusted pick needs the profile only for a missing email.
-                var profile: Profile?
-                if !trustedChoice || report.email == nil {
-                    profile = (try? await client.fetchProfile(token: c.accessToken))?.0
-                }
-                if !trustedChoice, let personal = cli?.organizationUuid?.lowercased(),
-                   let org = profile?.organizationUuid?.lowercased(), org == personal {
-                    report.snapshot = nil
-                    report.desktopChoice = nil
-                    report.issue = .signedInToPersonal("The Claude app")
-                    return report
-                }
-                // Save the choice after a confirmed 200, never for an expired/401/fallback/personal pick.
+                // Save the choice after a confirmed 200, never for an expired or rejected pick.
                 if let uuid = accountUuid { report.desktopChoice = (uuid, c.pathString) }
-                if report.email == nil { report.email = profile?.email }
+                // The profile is needed only for a missing email.
+                if report.email == nil {
+                    report.email = (try? await client.fetchProfile(token: c.accessToken))?.0?.email
+                }
                 return report
             }
             // The token failed too (or there was no cookie): show the token route's issue.
@@ -359,32 +342,28 @@ public final class AccountFetcher: @unchecked Sendable {
     }
 
     /// Whether a Claude app cookie result stands, or the token route is tried next. Numbers, a 429 (its
-    /// wait applies) and a network error stand, as does "signed in to Personal" (never shown under Work).
-    /// A rejected cookie, Cloudflare, a scope error and anything unexpected try the token.
+    /// wait applies) and a network error stand. A rejected cookie, Cloudflare, a scope error and anything
+    /// unexpected try the token.
     static func desktopCookieResultStands(_ outcome: CookieUsageOutcome) -> Bool {
         switch outcome {
-        case .ok, .rateLimited, .network, .signedInToPersonal:
+        case .ok, .rateLimited, .network:
             return true
         case .unauthorized, .noSession, .noOrganizations, .cloudflare, .scopeError, .http, .undecodable:
             return false
         }
     }
 
-    /// Picks the candidate whose profile matches the desktop account. Returns whether it matched by uuid.
-    /// When the personal org is unknown, only a uuid match is accepted (never a "not personal" guess).
-    private func probe(_ cands: [TokenCandidate], accountUuid: String?,
-                       personalOrg: String?) async -> (TokenCandidate?, matchedByUuid: Bool) {
-        guard !cands.isEmpty else { return (nil, false) }
-        var notPersonal: TokenCandidate?
+    /// Picks the candidate whose profile matches the desktop account, otherwise the first whose profile
+    /// answers 200 (`cands` comes latest expiry first). Returns whether it matched by uuid.
+    func probe(_ cands: [TokenCandidate], accountUuid: String?) async -> (TokenCandidate?, matchedByUuid: Bool) {
+        var firstValid: TokenCandidate?
         for c in cands {
             guard let (profile, status) = try? await client.fetchProfile(token: c.accessToken), status == 200,
                   let p = profile else { continue }
             if let a = accountUuid, p.accountUuid?.lowercased() == a.lowercased() { return (c, true) }
-            // Only accept a "not personal" fallback when we actually know the personal org.
-            if notPersonal == nil, let personal = personalOrg?.lowercased(),
-               let org = p.organizationUuid?.lowercased(), org != personal { notPersonal = c }
+            if firstValid == nil { firstValid = c }
         }
-        return (notPersonal, false)
+        return (firstValid, false)
     }
 
     private func callUsage(token: String, report: inout FetchReport, rejected: AccountIssue) async {

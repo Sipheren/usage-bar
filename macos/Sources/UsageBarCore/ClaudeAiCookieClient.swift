@@ -11,8 +11,6 @@ public enum CookieUsageOutcome: Sendable {
     case cloudflare
     case unauthorized(Int)
     case scopeError
-    /// The only organization this session can show is the user's personal org.
-    case signedInToPersonal
     /// HTTP 429 from either request, with its Retry-After (nil when missing).
     case rateLimited(retryAfter: TimeInterval?)
     case http(Int)
@@ -38,23 +36,17 @@ public struct ClaudeAiCookieClient: Sendable {
         config.httpShouldSetCookies = false
         config.requestCachePolicy = .reloadIgnoringLocalCacheData
         config.timeoutIntervalForRequest = 20
-        session = URLSession(configuration: config)
+        self.init(session: URLSession(configuration: config))
     }
 
-    /// Picks the organization to show: the `lastActiveOrg` cookie if it's one of the orgs, otherwise the
-    /// first org whose uuid isn't the personal account's org, otherwise the first.
-    public static func pickOrg(orgs: [ClaudeAiOrg], lastActiveOrg: String?, personalOrg: String?) -> ClaudeAiOrg? {
-        guard !orgs.isEmpty else { return nil }
+    init(session: URLSession) {
+        self.session = session
+    }
+
+    /// Picks the organization to show: the `lastActiveOrg` cookie if it's one of the orgs, otherwise the first.
+    public static func pickOrg(orgs: [ClaudeAiOrg], lastActiveOrg: String?) -> ClaudeAiOrg? {
         if let last = lastActiveOrg?.lowercased(), let m = orgs.first(where: { $0.uuid.lowercased() == last }) { return m }
-        if let personal = personalOrg?.lowercased(),
-           let notPersonal = orgs.first(where: { $0.uuid.lowercased() != personal }) { return notPersonal }
         return orgs.first
-    }
-
-    /// Whether the chosen org is the user's personal org (so we must not show it under Work).
-    public static func isPersonalOrg(_ org: ClaudeAiOrg, personalOrg: String?) -> Bool {
-        guard let p = personalOrg?.lowercased() else { return false }
-        return org.uuid.lowercased() == p
     }
 
     public static func parseOrganizations(_ data: Data) -> [ClaudeAiOrg] {
@@ -104,7 +96,7 @@ public struct ClaudeAiCookieClient: Sendable {
     }
 
     /// Full flow: organizations → pick → usage. `jar` must include `sessionKey`.
-    public func fetchUsage(cookies jar: [String: String], personalOrg: String?) async -> (CookieUsageOutcome, Int) {
+    public func fetchUsage(cookies jar: [String: String]) async -> (CookieUsageOutcome, Int) {
         guard jar["sessionKey"] != nil else { return (.noSession, 0) }
         let header = ClaudeAiCookieClient.cookieHeader(from: jar)
         do {
@@ -117,13 +109,8 @@ public struct ClaudeAiCookieClient: Sendable {
             guard orgHTTP.statusCode == 200 else { return (.http(orgHTTP.statusCode), orgHTTP.statusCode) }
 
             let orgs = ClaudeAiCookieClient.parseOrganizations(orgData)
-            guard let org = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: jar["lastActiveOrg"],
-                                                         personalOrg: personalOrg) else {
+            guard let org = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: jar["lastActiveOrg"]) else {
                 return (.noOrganizations, orgHTTP.statusCode)
-            }
-            // Never show Personal under Work: if the only org to show is personal's, say so and fetch nothing.
-            if ClaudeAiCookieClient.isPersonalOrg(org, personalOrg: personalOrg) {
-                return (.signedInToPersonal, orgHTTP.statusCode)
             }
             guard let usageURL = URL(string: "https://claude.ai/api/organizations/\(org.uuid)/usage") else {
                 return (.noOrganizations, orgHTTP.statusCode)

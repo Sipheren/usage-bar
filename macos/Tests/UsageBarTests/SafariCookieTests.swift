@@ -191,28 +191,23 @@ final class SafariCookieParserTests: XCTestCase {
 }
 
 final class ClaudeAiCookieClientTests: XCTestCase {
-    let orgs = [ClaudeAiOrg(uuid: "AAA-personal", name: "Personal"),
-                ClaudeAiOrg(uuid: "BBB-work", name: "Work")]
+    let orgs = [ClaudeAiOrg(uuid: "AAA-first", name: "First"),
+                ClaudeAiOrg(uuid: "BBB-second", name: "Second")]
 
     func testPickOrgPrefersLastActiveOrg() {
-        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: "bbb-work", personalOrg: "aaa-personal")
-        XCTAssertEqual(p?.uuid, "BBB-work")
+        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: "bbb-second")
+        XCTAssertEqual(p?.uuid, "BBB-second")
     }
 
-    func testPickOrgFallsBackToNonPersonal() {
-        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: nil, personalOrg: "aaa-personal")
-        XCTAssertEqual(p?.uuid, "BBB-work")
-    }
-
-    func testPickOrgFallsBackToFirstWhenNoHints() {
-        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: nil, personalOrg: nil)
-        XCTAssertEqual(p?.uuid, "AAA-personal")
-        XCTAssertNil(ClaudeAiCookieClient.pickOrg(orgs: [], lastActiveOrg: "x", personalOrg: nil))
+    func testPickOrgFallsBackToTheFirstOrg() {
+        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: nil)
+        XCTAssertEqual(p?.uuid, "AAA-first")
+        XCTAssertNil(ClaudeAiCookieClient.pickOrg(orgs: [], lastActiveOrg: "x"))
     }
 
     func testPickOrgIgnoresLastActiveOrgNotInList() {
-        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: "ccc-missing", personalOrg: "aaa-personal")
-        XCTAssertEqual(p?.uuid, "BBB-work")
+        let p = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: "ccc-missing")
+        XCTAssertEqual(p?.uuid, "AAA-first")
     }
 
     func testParseOrganizations() {
@@ -233,12 +228,6 @@ final class ClaudeAiCookieClientTests: XCTestCase {
         XCTAssertFalse(ClaudeAiCookieClient.isCloudflareChallenge(ok, body: Data("{}".utf8)))
         let plain403 = HTTPURLResponse(url: url, statusCode: 403, httpVersion: nil, headerFields: nil)!
         XCTAssertFalse(ClaudeAiCookieClient.isCloudflareChallenge(plain403, body: Data(#"{"error":"x"}"#.utf8)))
-    }
-
-    func testPersonalOrgDetection() {
-        XCTAssertTrue(ClaudeAiCookieClient.isPersonalOrg(ClaudeAiOrg(uuid: "AAA", name: "P"), personalOrg: "aaa"))
-        XCTAssertFalse(ClaudeAiCookieClient.isPersonalOrg(ClaudeAiOrg(uuid: "BBB", name: "W"), personalOrg: "aaa"))
-        XCTAssertFalse(ClaudeAiCookieClient.isPersonalOrg(ClaudeAiOrg(uuid: "AAA", name: "P"), personalOrg: nil))
     }
 
     func testScopeErrorDetection() {
