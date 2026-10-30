@@ -526,7 +526,7 @@ final class RateLimitResponseTests: XCTestCase {
     func testClaudeAppCookieResultsThatStandAndThoseThatTryTheToken() {
         let snap = UsageSnapshot(limits: [], extra: nil, fetchedAt: now)
         let stand: [CookieUsageOutcome] = [.ok(snap, org: ClaudeAiOrg(uuid: "w", name: nil)),
-                                           .rateLimited(retryAfter: 0), .network("offline"), .signedInToPersonal]
+                                           .rateLimited(retryAfter: 0), .network("offline")]
         for outcome in stand {
             XCTAssertTrue(AccountFetcher.desktopCookieResultStands(outcome), "\(outcome)")
         }

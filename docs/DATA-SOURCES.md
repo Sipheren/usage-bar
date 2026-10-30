@@ -16,8 +16,10 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
   subprocess `/usr/bin/security find-generic-password -s "Claude Code-credentials" -w`. The payload is
   JSON: `claudeAiOauth.accessToken`, `claudeAiOauth.expiresAt` (milliseconds since 1970) and other
   fields Usage Bar ignores.
-- **Also reads:** `~/.claude.json`, field `oauthAccount` (email, account uuid, organization uuid) for
-  display and for telling the personal organization apart from a work one.
+- **Also reads:** `~/.claude.json`, field `oauthAccount`: the email, for display, and the account uuid,
+  for first-run detection. On macOS (since 0.3.3) it has no say in what any other source shows: each
+  source shows the account it is signed in to. Windows 0.1.7 still also reads the organization uuid, to
+  hold back a source signed in to the Claude Code account (the Windows notes below).
 - **Permission:** none. `/usr/bin/security` is in the item's access list, so macOS shows no prompt. A
   direct `SecItemCopyMatching` from Usage Bar would prompt, which is why it uses the subprocess.
 - **Timeout:** the subprocess gets 10 seconds, then Usage Bar kills it.
@@ -47,16 +49,18 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
   `sessionKey` cookie for claude.ai from the app's Chromium `Cookies` database (read-only,
   `immutable=1`, never copied to disk), strips the SHA-256 host prefix newer Chromium adds, and uses
   the claude.ai cookie flow below. claude.ai's usage endpoint has its own allowance, unlike the OAuth
-  endpoint, which Claude Code shares. Numbers, a 429, a network error or "signed in to your Personal
-  account" from the cookie stand. A rejected cookie, no organizations, Cloudflare, a scope error or any
-  other HTTP error, or no cookie at all, moves on to the token. The cookie is read once per fetch. When
+  endpoint, which Claude Code shares. Numbers, a 429 or a network error from the cookie stand (on
+  Windows 0.1.7, so does "signed in to your Personal account"). A rejected cookie, no organizations,
+  Cloudflare, a scope error or any other HTTP error, or no cookie at all, moves on to the token. The cookie is read once per fetch. When
   both fail, the token's problem shows; with no token to try, the cookie's.
 - **Choosing the token:** the parser walks the decrypted JSON for objects with an access token and an
   expiry. It prefers one tied to `lastKnownAccountUuid`, then a cached choice (only while unexpired),
-  then probes candidates against `/api/oauth/profile` and requires an account uuid match. It accepts a
-  "not the personal organization" match only when it knows the personal organization.
-- **Profile:** after a 200 on the token, `/api/oauth/profile` is asked only when the token isn't tied
-  to the account uuid (to check it isn't the personal organization) or the email isn't known yet.
+  then probes the unexpired candidates, latest expiry first, against `/api/oauth/profile`: the one
+  whose account uuid matches wins, otherwise the first that answers 200. (Windows 0.1.7 accepts a
+  non-matching candidate only when its organization is known and isn't the Claude Code account's.)
+- **Profile:** after a 200 on the token, `/api/oauth/profile` is asked only when the email isn't known
+  yet. (Windows 0.1.7 also asks when the token isn't tied to the account uuid, to check it isn't the
+  Claude Code account's organization.)
 - **Permission:** Keychain access to "Claude Safe Storage". Usage Bar never asks until you click
   **Connect…**; macOS then prompts once ("Always Allow" keeps it).
 
@@ -64,7 +68,7 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
 |---|---|
 | Not connected yet | "Allow Usage Bar to read Claude Safe Storage" + Connect… |
 | Keychain prompt denied | Same message; Connect… asks again |
-| The app is signed in to the CLI's personal account | "The Claude app is signed in to your Personal account" (no numbers) |
+| Windows 0.1.7 only: the app is signed in to the Claude Code account or its organization | "The Claude app is signed in to your Personal account" (no numbers). macOS shows that account's numbers. |
 | Cookie didn't work, and the token expired or got 401/403 | "Open the Claude app to refresh its sign-in" |
 | 403 for scope | "This sign-in can't read usage (scope)" |
 
@@ -90,7 +94,6 @@ another app's files or Keychain items, and keeps tokens and cookies in memory fo
 | No `sessionKey` found | "No claude.ai sign-in found in Safari" |
 | Cookie rejected (401/403) | "Safari sign-in rejected — open claude.ai in Safari" |
 | Cloudflare challenge | "Blocked by a Cloudflare check — open claude.ai in Safari" |
-| Only the personal organization | "Safari is signed in to your Personal account" (no numbers) |
 
 ### Failures any source can show
 
@@ -172,8 +175,9 @@ Same headers. Usage Bar reads `account.email`, `account.uuid`, `organization.uui
 
 Headers: `Cookie: sessionKey=…` (plus `lastActiveOrg` when present), `Accept: application/json`,
 `Referer: https://claude.ai/` and a browser User-Agent (Safari's on macOS, Chrome's on Windows). The organization list is an array of objects
-with `uuid` and `name`. Usage Bar picks the `lastActiveOrg` organization, else the first one that
-isn't the personal organization, else the first. The usage response has the same shape as above. A
+with `uuid` and `name`. Usage Bar picks the `lastActiveOrg` organization, else the first. (Windows
+0.1.7 skips the Claude Code account's organization when choosing without `lastActiveOrg`, and shows
+nothing when that is the organization chosen.) The usage response has the same shape as above. A
 `cf-mitigated: challenge` header, or a 403/503/429 page saying "Just a moment", means Cloudflare
 stepped in. Any other 429, on either request, means wait, with the same `Retry-After` rules and jitter
 as the OAuth endpoint. This endpoint has its own allowance, so cookie sign-ins poll at the chosen

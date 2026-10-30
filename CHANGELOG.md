@@ -16,6 +16,17 @@ The existing tags `v0.1.0` and `v0.2.0` are macOS releases.
   `scripts/release.sh`. Each has `INSTALL.txt` (and `Install.cmd` on Windows) at the top and installs
   with one command; the README has a Download section.
 
+## [macOS 0.3.3] - 2026-10-30
+
+### Fixed
+- macOS: each account shows the usage of whatever its sign-in source is signed in to. The app no longer
+  compares a Safari session or the Claude app with the Claude Code account in `~/.claude.json`, so it
+  never hides their numbers behind "… is signed in to your Personal account". That message is gone.
+- macOS: a Safari or Claude app session shows its `lastActiveOrg` organization, else the first on the
+  list, whichever account Claude Code is signed in to.
+- macOS: on its token, the Claude app takes the token for its own account, else the newest token that
+  works. It asks for the profile only when the email isn't known yet.
+
 ## [Windows 0.1.7] - 2026-10-28
 
 ### Changed

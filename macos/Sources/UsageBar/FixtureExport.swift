@@ -174,16 +174,14 @@ extension DebugCommands {
                     }
                     if orgsOK && needOrgUsage {
                         let orgs = ClaudeAiCookieClient.parseOrganizations(orgsRaw.data)
-                        if let org = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: jar["lastActiveOrg"],
-                                                                  personalOrg: cli?.organizationUuid),
-                           !ClaudeAiCookieClient.isPersonalOrg(org, personalOrg: cli?.organizationUuid),
+                        if let org = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: jar["lastActiveOrg"]),
                            let url = URL(string: "https://claude.ai/api/organizations/\(org.uuid)/usage") {
                             let usage = try await fetcher.cookieClient.rawGET(url, cookies: jar)
                             record(work, usage, isUsage: true)
                             _ = save(usage, .claudeAiOrgUsage, "claude-ai-org-usage.json")
                         } else {
                             record(work, orgsRaw, isUsage: false)
-                            print("  no non-personal organization to read, org usage skipped")
+                            print("  no organization to read, org usage skipped")
                         }
                     } else {
                         record(work, orgsRaw, isUsage: false)

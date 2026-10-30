@@ -26,13 +26,11 @@ public enum ParitySheet {
         if case .object(var members) = work {
             var org: [JSONMember] = [m("file", .string("api/claude-ai-organizations.json"))]
             if let orgs {
-                let picked = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: nil, personalOrg: profile?.organizationUuid)
+                let picked = ClaudeAiCookieClient.pickOrg(orgs: orgs, lastActiveOrg: nil)
                 org += [
                     m("count", int(orgs.count)),
-                    m("personalOrg", str(profile?.organizationUuid)),
                     m("pickedWithoutLastActiveOrg", picked.map { p in
-                        .object([m("uuid", .string(p.uuid)), m("name", str(p.name)),
-                                 m("isPersonal", .bool(ClaudeAiCookieClient.isPersonalOrg(p, personalOrg: profile?.organizationUuid)))])
+                        .object([m("uuid", .string(p.uuid)), m("name", str(p.name))])
                     } ?? .null),
                 ]
             } else {

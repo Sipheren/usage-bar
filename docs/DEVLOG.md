@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-10-30 (macOS 0.3.3)
+
+- Safari and the Claude app showed "… is signed in to your Personal account" and no numbers once
+  `~/.claude.json` came to name the organization they were signed in to. The app decided which account
+  was "Personal" from that file; the account's sign-in source in Settings is what decides what it shows.
+  The check is gone: no `signedInToPersonal`, no `isPersonalOrg`, no organization from `~/.claude.json`
+  in the org pick or the Claude app's token choice. `~/.claude.json` still gives the Claude Code
+  account's email and first-run detection.
+- Test-first in `SignedInAccountTests.swift`, with a stub `URLProtocol` and a `~/.claude.json` naming
+  the same account and organization as the session: Safari, the Claude app's cookie route and its token
+  choice all show numbers. `AccountFetcher` takes its HTTP session and account-file path from tests.
+- The parity sheet drops `personalOrg` and `isPersonal`; a local fixtures folder needs
+  `UsageBar --fixtures-expected DIR` again. Windows (0.1.7) is unchanged and still has the check.
+- Installed over 0.3.2 on this Mac: the Safari account, which had logged `signedInToPersonal, HTTP 200`
+  every 2 minutes, logged `ok, HTTP 200, 3 limits, route safari` on the next two checks. No Claude app
+  account is set up on this Mac, so its route is covered by tests only.
+
 ## 2026-10-28 (Windows 0.1.7)
 
 - Ported macOS 0.3.2 (decision 19), test-first from `RateLimitTests.swift`: the 15-minute floor, the
