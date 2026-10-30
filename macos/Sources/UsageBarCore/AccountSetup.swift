@@ -21,13 +21,13 @@ public struct FoundSignIns: Equatable, Sendable {
         self.claudeAppAccountUuid = claudeAppAccountUuid
     }
 
-    /// Sources to create accounts for, in order. The Claude app is skipped when it is signed in to the
-    /// Claude Code account: the fetcher refuses that pairing, so the account could never show numbers.
+    /// Sources to create accounts for, in order: each unique account once (decision 20). The Claude app is
+    /// skipped only when the Claude Code login exists and is signed in to that same account.
     public var kinds: [AccountSource.Kind] {
         var out: [AccountSource.Kind] = []
         if claudeCodeLogin { out.append(.claudeCode) }
         if claudeAppHasTokenCache, let app = claudeAppAccountUuid?.lowercased(), !app.isEmpty,
-           app != claudeCodeAccountUuid?.lowercased() {
+           !(claudeCodeLogin && app == claudeCodeAccountUuid?.lowercased()) {
             out.append(.claudeDesktop)
         }
         return out

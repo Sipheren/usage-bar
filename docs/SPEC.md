@@ -43,8 +43,8 @@ valid state. The default account for each source:
 
 - Claude Code: its Keychain item exists (looked up by attributes; the secret isn't read).
 - Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid`,
-  and the Claude Code login isn't signed in to that same account (decision 20: each unique account once;
-  Windows 0.1.9 checks the login, macOS 0.3.3 compares the uuids alone). The account then
+  and the Claude Code login isn't signed in to that same account (decision 20: each unique account once).
+  The account then
   shows its normal "Connect…" state until the one-time Keychain approval.
 - Safari is never probed on first run (it needs Full Disk Access). Users add it from Settings.
 - Nothing found: no accounts. First run saves the result straight away so account ids stay stable.
@@ -143,7 +143,7 @@ title follows the tab; position remembered.
   the email or organization, or the problem with its action button), show in menu bar, Remove
   Account… with confirmation. Add Account at the bottom. With no accounts: "No accounts", a line saying
   no Claude sign-in was found, and Add Account.
-- **About.** Icon, name, version ("Version 0.3.3 (build N · hash)"), build date, signing identity,
+- **About.** Icon, name, version ("Version 0.3.4 (build N · hash)"), build date, signing identity,
   data sources, project folder (the repository root) with Show in Finder, and the authorship and
   licence lines.
 
