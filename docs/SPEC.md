@@ -43,8 +43,8 @@ valid state. The default account for each source:
 
 - Claude Code: its Keychain item exists (looked up by attributes; the secret isn't read).
 - Claude app: its `config.json` has a non-empty `oauth:tokenCacheV2` and a `lastKnownAccountUuid`,
-  and that uuid isn't the Claude Code account's (then they're the same account and the fetcher would
-  refuse it). The account then shows its normal "Connect…" state until the one-time Keychain approval.
+  and that uuid isn't the Claude Code account's (then they're the same account). The account then
+  shows its normal "Connect…" state until the one-time Keychain approval.
 - Safari is never probed on first run (it needs Full Disk Access). Users add it from Settings.
 - Nothing found: no accounts. First run saves the result straight away so account ids stay stable.
 
